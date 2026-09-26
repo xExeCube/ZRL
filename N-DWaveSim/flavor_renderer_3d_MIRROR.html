@@ -1,0 +1,1365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ZRL — N-D Flavor Renderer (tier 0: cube + sphere)</title>
+<style>
+  :root{
+    --bg:#000; --panel:#131313; --bshadow:#2F0542; --bline:#502FA5;
+    --accent:#485FC7; --text:#FFF; --hi:#009E86; --link:#E22211;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font-family:'Segoe UI',system-ui,sans-serif;font-size:14px}
+  code,.mono{font-family:'Courier New',monospace}
+  header{padding:16px 22px 0 22px}
+  h1{margin:0;font-size:1.25rem;letter-spacing:3px;color:var(--hi);text-transform:uppercase}
+  .sub{color:#888;font-size:.75rem;letter-spacing:1px;font-family:'Courier New',monospace}
+  main{padding:0 22px 30px 22px}
+  .layout{display:flex;gap:14px;margin-top:14px;align-items:flex-start;flex-wrap:wrap}
+  .panel{background:var(--panel);border:1px solid var(--bshadow);
+    box-shadow:0 0 14px var(--bshadow);padding:14px}
+  .controls{width:300px;flex-shrink:0}
+  .canvaswrap{flex:1;min-width:320px;padding:6px}
+  canvas{display:block;width:100%;background:#000;border:1px solid var(--bshadow)}
+  .cvbox{position:relative}
+  .ovl{position:absolute;left:12px;top:10px;color:#ccc;font-family:'Courier New',monospace;
+    font-size:.8rem;pointer-events:none;text-shadow:0 0 6px #000}
+  .ovl .warn{color:var(--link)}
+  .sect{margin:14px 0 6px 0;color:var(--accent);font-size:.7rem;letter-spacing:2px;
+    text-transform:uppercase;border-bottom:1px solid var(--bshadow);padding-bottom:3px;
+    font-family:'Courier New',monospace}
+  .presets{display:flex;gap:6px;margin-top:6px}
+  .pbtn{flex:1;background:#0b0b0b;color:#aaa;border:1px solid var(--bshadow);
+    padding:7px 0;cursor:pointer;font-family:'Courier New',monospace;font-size:.85rem;
+    transition:.15s}
+  .pbtn:hover{color:var(--text);border-color:var(--bline)}
+  .pbtn.active{color:var(--text);border-color:var(--bline);background:#1a1a1a;
+    box-shadow:0 0 10px var(--bshadow);border-bottom:2px solid var(--accent)}
+  label.ctl{display:block;font-size:.75rem;color:#bbb;margin:10px 0 2px 0;
+    font-family:'Courier New',monospace}
+  label.ctl .v{float:right;color:var(--accent)}
+  input[type=range]{width:100%;accent-color:var(--accent);height:4px}
+  select{width:100%;background:#0b0b0b;color:#ddd;border:1px solid var(--bshadow);
+    font-family:'Courier New',monospace;padding:4px}
+  label.chk{display:block;font-size:.75rem;color:#bbb;margin:6px 0 0 0;
+    font-family:'Courier New',monospace;cursor:pointer}
+  label.chk input{accent-color:var(--accent);margin-right:6px;vertical-align:-2px}
+  .readout{font-family:'Courier New',monospace;font-size:.74rem;line-height:1.65;
+    margin-top:12px;border-top:1px solid var(--bshadow);padding-top:8px}
+  .readout .ok{color:var(--hi)} .readout .bad{color:var(--link)} .readout .na{color:#777}
+  .readout .k{color:#888} .readout .a{color:var(--accent)}
+  table.led{width:100%;border-collapse:collapse;font-family:'Courier New',monospace;font-size:.7rem;margin-top:4px}
+  table.led td{padding:3px 4px;border-bottom:1px solid #1e1e1e;vertical-align:top}
+  table.led td.st{width:44px;font-weight:bold}
+  table.led .ok{color:var(--hi)} table.led .bad{color:var(--link)} table.led .na{color:#777}
+  table.led .k{color:#888}
+  .row2{display:flex;gap:14px;margin-top:10px;flex-wrap:wrap;align-items:flex-start}
+  .ghost{width:330px;flex-shrink:0}
+  .vtab{flex:1;min-width:300px}
+  table.vt{width:100%;border-collapse:collapse;font-family:'Courier New',monospace;font-size:.72rem}
+  table.vt th{color:var(--accent);text-align:right;font-weight:normal;padding:2px 6px;border-bottom:1px solid var(--bshadow)}
+  table.vt td{text-align:right;padding:2px 6px;color:#bbb}
+  table.vt tr.cur td{color:#fff;background:#1a1a1a}
+  table.vt td.hi{color:var(--hi)}
+  .note{margin-top:12px;color:#888;font-size:.75rem;line-height:1.5;max-width:1100px}
+  .note b,.hi{color:var(--hi);font-weight:bold}
+  #cdnwarn{display:none;color:var(--link);font-family:'Courier New',monospace;font-size:.8rem;
+    padding:8px;border:1px solid var(--link);margin-bottom:8px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Zero-Recursive Lattice &mdash; N-D Flavor Renderer &middot; tier 0</h1>
+  <div class="sub">r(u) = a / max&#7522;(u&middot;n&#7522;) &middot; cube: a/&#8214;u&#8214;<sub>&infin;</sub> &middot; sphere: R &middot; p-ball: a/&#8214;u&#8214;<sub>p</sub> &middot; signature = (&#8321;R/&#8320;R, &#8322;R/&#8320;R) &middot; every ledger check measured from the drawn mesh; the n-D table rows are closed forms</div>
+</header>
+<main>
+  <div class="layout">
+    <div class="panel controls">
+      <div class="sect">Flavor</div>
+      <div class="presets">
+        <button class="pbtn active" id="bCube">cube</button>
+        <button class="pbtn" id="bSphere">sphere</button>
+      </div>
+      <label class="ctl">tier 1 &mdash; Platonic solid (overrides the p-norm) <span class="v" id="solv">off</span></label>
+      <select id="solSel" style="width:100%;background:#0a0a0a;color:#FFF;border:1px solid #502FA5;padding:4px 6px;font-family:'Courier New',monospace;font-size:.76rem">
+        <option value="pnorm">off &mdash; use the p-norm family</option>
+        <option value="tet">tetrahedron &mdash; the one that FAILS</option>
+        <option value="cube">cube</option>
+        <option value="oct">octahedron</option>
+        <option value="dod">dodecahedron</option>
+        <option value="ico">icosahedron</option>
+      </select>
+      <label class="ctl">p-norm &nbsp;(p = 2<sup>s</sup>, s &isin; [0,6]; p &ge; 64 = exact cube) <span class="v" id="pv">&infin;</span></label>
+      <input type="range" id="pS" min="0" max="6" step="0.02" value="6">
+      <div class="presets" style="margin-top:4px">
+        <button class="pbtn" id="bP1">p = 1</button>
+        <button class="pbtn" id="bP15">1.5</button>
+        <button class="pbtn" id="bP2">p = 2</button>
+        <button class="pbtn" id="bPinf">&infin;</button>
+      </div>
+      <label class="ctl">p exact (type a value; &ge; 64 = cube) <span class="v" id="pNv"></span></label>
+      <input type="number" id="pN" min="1" max="64" step="any" value="64" style="width:100%;background:#0b0b0b;color:#ddd;border:1px solid var(--bshadow);font-family:'Courier New',monospace;padding:4px">
+
+      <div class="sect">Geometry</div>
+      <label class="ctl">isomer (axis class aligned to +z; view rotor preset)</label>
+      <div class="presets">
+        <button class="pbtn active" id="bIsoFace">face</button>
+        <button class="pbtn" id="bIsoVertex">vertex</button>
+        <button class="pbtn" id="bIsoEdge">edge</button>
+      </div>
+      <label class="ctl">mesh N (cube-sphere, N&times;N per face) <span class="v" id="Nv">32</span></label>
+      <select id="NS"><option>8</option><option>16</option><option selected>32</option><option>64</option></select>
+      <label class="ctl">R scale &times; (homogeneity checks) <span class="v" id="scv">1.00</span></label>
+      <input type="range" id="scS" min="0.5" max="2" step="0.05" value="1">
+
+      <div class="sect">Rotor orbit</div>
+      <label class="ctl">axis (world frame)</label>
+      <select id="axS"><option value="x">x</option><option value="y">y</option><option value="z" selected>z</option><option value="diag">body diagonal (1,1,1)</option></select>
+      <label class="ctl">rate &deg;/s <span class="v" id="ratev">20</span></label>
+      <input type="range" id="rateS" min="0" max="90" step="1" value="20">
+      <div class="presets">
+        <button class="pbtn" id="bPlay">play</button>
+        <button class="pbtn" id="bSnap">snap 54.7356&deg;</button>
+        <button class="pbtn" id="bReset">reset view</button>
+      </div>
+
+      <div class="sect">Dimension</div>
+      <label class="ctl">n (renders at n = 2, 3; table for all) <span class="v" id="nv">3</span></label>
+      <input type="range" id="nS" min="1" max="12" step="1" value="3">
+
+      <div class="sect">Show</div>
+      <label class="chk"><input type="checkbox" id="cPatch" checked>octant patch (+,+,+)</label>
+      <label class="chk"><input type="checkbox" id="cLoop" checked>carrier loop (patch boundary)</label>
+      <label class="chk"><input type="checkbox" id="cGhost" checked>[111] projection ghost (inset + 3D rings)</label>
+      <label class="chk"><input type="checkbox" id="cNormals">face normals</label>
+      <label class="chk"><input type="checkbox" id="cWire">wireframe</label>
+      <label class="chk"><input type="checkbox" id="cSphC">circumsphere &#8320;R (crystal inscribed in a sphere)</label>
+      <label class="chk"><input type="checkbox" id="cSphM">midsphere &#8321;R (edge-tangent)</label>
+      <label class="chk"><input type="checkbox" id="cSphI">insphere &#8322;R (sphere inscribed in the crystal)</label>
+      <label class="chk"><input type="checkbox" id="cOuter">outermost shape as wireframe / transparent</label>
+
+      <div class="readout" id="vals"></div>
+      <div class="sect">View (per frame)</div>
+      <div class="readout" id="viewrows" style="border-top:none;margin-top:2px;padding-top:0"></div>
+      <div class="sect">Identity ledger</div>
+      <table class="led" id="ledger"></table>
+    </div>
+
+    <div class="panel canvaswrap">
+      <div id="cdnwarn">three.js did not load from the CDN &mdash; this file needs an internet connection (importmap &rarr; cdn.jsdelivr.net).</div>
+      <div class="cvbox">
+        <canvas id="cv3d" width="1000" height="640"></canvas>
+        <div class="ovl" id="ovl"></div>
+      </div>
+      <div class="row2">
+        <div class="ghost" id="ghostbox">
+          <div class="sect">[111] ghost &middot; body frame &middot; parallel projection</div>
+          <canvas id="ghost" width="330" height="330"></canvas>
+          <div class="readout" id="ghostvals" style="margin-top:6px"></div>
+        </div>
+        <div class="vtab">
+          <div class="sect">V<sub>n</sub> = &pi;<sup>n/2</sup> / &Gamma;(n/2+1) &middot; k-face radii (closed forms, §2.2/§2.6)</div>
+          <table class="vt" id="vtab"></table>
+        </div>
+      </div>
+      <div class="row2">
+        <div class="vtab" style="min-width:420px">
+          <div class="sect">vertex map &middot; C&#8322;&sup3; phase bits &middot; phase element &middot; minimal rotor from the reference vertex</div>
+          <table class="vt" id="vmap"></table>
+          <div class="readout" id="vmapnote" style="margin-top:6px"></div>
+        </div>
+        <div class="ghost" id="netbox" style="width:480px">
+          <div class="sect">net &middot; 2D unfolding</div>
+          <div class="presets">
+            <select id="netMode" style="flex:1"><option value="tree">edge net (spanning tree)</option><option value="gores">gores (12, sinusoidal)</option><option value="sinus">sinusoidal (one oval)</option><option value="moll">Mollweide (ellipse)</option></select>
+            <button class="pbtn" id="bNetSeed" style="flex:0 0 96px">new tree</button>
+          </div>
+          <canvas id="net" width="480" height="380"></canvas>
+          <div class="readout" id="netvals" style="margin-top:6px"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="note"><b>What this validates:</b> the Stage-1 polar renderer lifted to convex solids. One
+  expression <code>r(u) = a / max&#7522;(u&middot;n&#7522;)</code> drives the cube; the sphere is <code>r = R</code>; the
+  p-norm slider sweeps octahedron (p = 1) &rarr; sphere (p = 2) &rarr; cube (p = &infin;) with the same mesh
+  topology throughout. In 3D the signature is a <b>vector</b> (&#8321;R/&#8320;R, &#8322;R/&#8320;R), not a scalar &mdash;
+  cube and octahedron share the face entry and differ only in the edge entry. The mesh is a
+  <b>cube-sphere</b> (six N&times;N grids scaled radially), chosen so the axis, edge-midpoint and body-diagonal
+  directions are exact vertices: min/max radii are then measured, not interpolated, and the (+,+,+) octant
+  patch is an exact sub-mesh. Volume and area come from the drawn triangles (divergence theorem), never from
+  the closed forms; curved flavors show their chordal error and its observed convergence order. (The ledger
+  integrates the Float64 vertex array; the GPU draws its Float32 copy &mdash; the two differ by float32 rounding,
+  &le; 6&middot;10<sup>&minus;8</sup> relative.) The
+  <b>[111] ghost</b> is the octant patch projected along the body diagonal: for the cube it must be the
+  three-rhombus hexagon of the LatMosaic atom, circumradius (edge/2)&middot;&radic;(2/3). The <b>snap</b> button puts
+  the camera on a body diagonal &mdash; the parent Stage-2 demo (eight vertices &rarr; six at 60&deg;), measured through
+  the actual camera projection. Rotor code is the verified Cl(3,0) implementation (e&#8323;&#8321; storage sign
+  convention included) and its agreement with the three.js quaternion is itself a ledger row.</p>
+</main>
+
+<!-- three.js as an ES module from a CDN; the importmap resolves the bare 'three' specifier
+     and the addons path (OrbitControls). Same setup as cut_and_project_threejs_MIRROR.html. -->
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+<script>
+/* classic watchdog: if the module never sets the flag the CDN is unreachable */
+setTimeout(()=>{ if(!window.__threeLoaded) document.getElementById('cdnwarn').style.display='block'; }, 4000);
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+window.__threeLoaded = true;
+document.getElementById('cdnwarn').style.display='none';
+
+const $=id=>document.getElementById(id);
+const PI=Math.PI, DEG=180/PI;
+const SQ2=Math.SQRT2, SQ3=Math.sqrt(3), SQ6=Math.sqrt(6), SQ23=Math.sqrt(2/3), SQ13=Math.sqrt(1/3);
+const P_INF=64;                         // spec §2.3: p ≥ 64 → exact max (the naive power underflows)
+const MAGIC=Math.acos(SQ13)*DEG;        // 54.7356° — angle from a face normal to the body diagonal
+
+/* ---------- plain-array vector helpers: all ledger math stays in Float64, off the GPU path ---------- */
+const dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+const sub=(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]];
+const cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+const len=a=>Math.hypot(a[0],a[1],a[2]);
+const len2=q=>Math.hypot(q[0],q[1]);
+const unit=a=>{const L=len(a);return [a[0]/L,a[1]/L,a[2]/L];};
+const clamp1=x=>Math.max(-1,Math.min(1,x));
+const fmt=(x,d)=>(x===null||x===undefined||!isFinite(x))?'—':x.toFixed(d===undefined?6:d);
+const fe=x=>(x===null||x===undefined||!isFinite(x))?'—':x.toExponential(2);
+function mulberry32(s){return function(){s|=0;s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+
+/* ================================================================
+   §2.1 / §2.3 — the radial functions
+   r(u) = a / max_i(u·n_i) over outward unit face normals (generic convex polytope path)
+   r_p(u) = a / ‖u‖_p with the stable evaluation ‖u‖_p = ‖u‖_∞ · (Σ(|u_i|/‖u‖_∞)^p)^(1/p)
+   'a' is the AXIS-direction radius: the inradius for p ≥ 2, the circumradius for p ≤ 2.
+================================================================ */
+const CUBE_NORMALS=[[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
+function rNormals(u,normals,a){
+  let mx=-Infinity;
+  for(const n of normals){const d=dot(u,n); if(d>mx)mx=d;}
+  return a/mx;
+}
+function argNormal(u,normals){            // the face the ray through u actually hits
+  let mx=-Infinity,best=normals[0];
+  for(const n of normals){const d=dot(u,n); if(d>mx){mx=d;best=n;}}
+  return best;
+}
+
+/* ================================================================
+   TIER 1 — the five Platonic solids.  spec §2.1's r(u) = a / max_i(u·n_i) works for
+   ANY convex polytope, so a solid is fully specified by its outward FACE NORMALS.
+   And those come free from duality: the face normals of X are the vertices of dual(X).
+     cube ↔ octahedron,  dodecahedron ↔ icosahedron,  tetrahedron ↔ itself.
+   Signatures below are the exact closed forms, each verified against an independent
+   hull computation to 1e-16 (17/09/2026). φ = (1+√5)/2.
+     tetrahedron   ₁R/₀R = 1/√3            ₂R/₀R = 1/3
+     cube          ₁R/₀R = √(2/3)          ₂R/₀R = 1/√3
+     octahedron    ₁R/₀R = 1/√2            ₂R/₀R = 1/√3        ← shares the face entry
+     icosahedron   ₁R/₀R = φ/√(φ+2)        ₂R/₀R = φ²/√(3φ+6)
+     dodecahedron  ₁R/₀R = φ/√3            ₂R/₀R = φ²/√(3φ+6)  ← shares the face entry
+   The dual-pair rule of §2.2 therefore holds as an IDENTITY OF CLOSED FORMS, not a
+   numerical coincidence — and it is what forces the signature to be a vector.
+================================================================ */
+const PHI=(1+Math.sqrt(5))/2;
+const cyc3=v=>[[v[0],v[1],v[2]],[v[2],v[0],v[1]],[v[1],v[2],v[0]]];
+function uniqDirs(list){
+  const out=[];
+  for(const v of list){ const u=unit(v);
+    if(!out.some(w=>Math.abs(w[0]-u[0])<1e-9&&Math.abs(w[1]-u[1])<1e-9&&Math.abs(w[2]-u[2])<1e-9)) out.push(u); }
+  return out;
+}
+const V_TET=[[1,1,1],[1,-1,-1],[-1,1,-1],[-1,-1,1]];
+const V_CUBE=[];  for(const x of [1,-1]) for(const y of [1,-1]) for(const z of [1,-1]) V_CUBE.push([x,y,z]);
+const V_OCT=[[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
+const V_ICO=uniqDirs([].concat(...[[1,-1]].map(()=>[])) .concat(
+  [].concat(...[1,-1].map(s1=>[].concat(...[1,-1].map(s2=>cyc3([0,s1*1,s2*PHI])))))));
+const V_DOD=uniqDirs(V_CUBE.concat(
+  [].concat(...[1,-1].map(s1=>[].concat(...[1,-1].map(s2=>cyc3([0,s1/PHI,s2*PHI])))))));
+/* Face normals computed from the solid's OWN vertices: every triple whose plane has all
+   other vertices on one side is a supporting plane. This replaces "the normals are the
+   dual's vertices" — TRUE as shapes, but FALSE in coordinates, because the standard
+   icosahedron (0,±1,±φ) and the standard dodecahedron are mutually ROTATED. Assuming the
+   dual's coordinates aligned put the icosahedron's normals 10.8° off and its ratios above 1. */
+function faceNormalsOf(V){
+  const out=[];
+  for(let i=0;i<V.length;i++) for(let j=i+1;j<V.length;j++) for(let k=j+1;k<V.length;k++){
+    const nv=cross(sub(V[j],V[i]),sub(V[k],V[i]));
+    const L=len(nv); if(L<1e-9) continue;
+    let n=[nv[0]/L,nv[1]/L,nv[2]/L], off=dot(n,V[i]);
+    if(Math.abs(off)<1e-9) continue;              // plane through the origin: not a face
+    // the cross product's sign follows the index order i<j<k, so half the faces come out
+    // pointing INWARD. FLIP them rather than dropping them — dropping cost exactly half
+    // the normals (tetrahedron 2 of 4, octahedron 4 of 8, icosahedron 10 of 20).
+    if(off<0){ n=[-n[0],-n[1],-n[2]]; off=-off; }
+    if(V.every(v=>dot(n,v)-off<=1e-9)){
+      if(!out.some(w=>Math.abs(w[0]-n[0])<1e-9&&Math.abs(w[1]-n[1])<1e-9&&Math.abs(w[2]-n[2])<1e-9))
+        out.push(n);
+    }
+  }
+  return out;
+}
+const SOLIDS={
+  tet:{name:'tetrahedron', V:V_TET,  normals:faceNormalsOf(V_TET),
+       nV:4, nE:6,  nF:4,  r1:1/Math.sqrt(3),            r2:1/3,
+       f1:'1/√3',   f2:'1/3',   inversion:false, dual:'tetrahedron (self)'},
+  cube:{name:'cube',       V:V_CUBE, normals:faceNormalsOf(V_CUBE),
+       nV:8, nE:12, nF:6,  r1:Math.sqrt(2/3),            r2:1/Math.sqrt(3),
+       f1:'√(2/3)', f2:'1/√3',  inversion:true,  dual:'octahedron'},
+  oct:{name:'octahedron',  V:V_OCT,  normals:faceNormalsOf(V_OCT),
+       nV:6, nE:12, nF:8,  r1:1/Math.sqrt(2),            r2:1/Math.sqrt(3),
+       f1:'1/√2',   f2:'1/√3',  inversion:true,  dual:'cube'},
+  ico:{name:'icosahedron', V:V_ICO,  normals:faceNormalsOf(V_ICO),
+       nV:12,nE:30, nF:20, r1:PHI/Math.sqrt(PHI+2),      r2:PHI*PHI/Math.sqrt(3*PHI+6),
+       f1:'φ/√(φ+2)', f2:'φ²/√(3φ+6)', inversion:true, dual:'dodecahedron'},
+  dod:{name:'dodecahedron',V:V_DOD,  normals:faceNormalsOf(V_DOD),
+       nV:20,nE:30, nF:12, r1:PHI/Math.sqrt(3),          r2:PHI*PHI/Math.sqrt(3*PHI+6),
+       f1:'φ/√3',   f2:'φ²/√(3φ+6)', inversion:true, dual:'icosahedron'}
+};
+const curSolid=()=> (S.solid&&S.solid!=='pnorm') ? SOLIDS[S.solid] : null;
+/* Each solid's OWN canonical directions. The tier-0 ledger measures radii at the cube's
+   26 symmetric directions, which is right for the cube and octahedron and wrong for
+   everything else — a tetrahedron has no vertex on a body diagonal pointing the way the
+   cube's does. Every Platonic solid is vertex-, edge- and face-transitive, so ONE
+   representative of each suffices. Inradius is exactly the parameter a, because at a face
+   normal n_j the max over normals is n_j·n_j = 1, so r(n_j) = a. */
+for(const key of Object.keys(SOLIDS)){
+  const s=SOLIDS[key];
+  s.vDir=unit(s.V[0]);
+  let emin=Infinity, em=null;
+  for(let i=0;i<s.V.length;i++) for(let j=i+1;j<s.V.length;j++){
+    const d=len(sub(s.V[i],s.V[j]));
+    if(d<emin-1e-9){ emin=d; em=[(s.V[i][0]+s.V[j][0])/2,(s.V[i][1]+s.V[j][1])/2,(s.V[i][2]+s.V[j][2])/2]; }
+  }
+  s.eDir=unit(em);
+  s.fDir=s.normals[0].slice();
+}
+function solidRadii(sol,a){
+  return { R0:rNormals(sol.vDir,sol.normals,a),     // circumradius: a vertex direction
+           R1:rNormals(sol.eDir,sol.normals,a),     // midradius:    an edge-midpoint direction
+           R2:rNormals(sol.fDir,sol.normals,a) };   // inradius:     a face normal  (= a)
+}
+function normP(u,p){                     // works for any length (used in 2D too)
+  let m=0; for(const x of u){const ax=Math.abs(x); if(ax>m)m=ax;}
+  if(m===0) return 0;
+  if(p>=P_INF) return m;
+  let s=0; for(const x of u) s+=Math.pow(Math.abs(x)/m,p);
+  return m*Math.pow(s,1/p);
+}
+const rP=(u,p,a)=>a/normP(u,p);
+const rFlavor=(u,p,a)=>{
+  const s=curSolid();
+  if(s) return rNormals(u,s.normals,a);   // tier 1: any convex polytope, via its face normals
+  return (p>=P_INF)?rNormals(u,CUBE_NORMALS,a):rP(u,p,a);
+};
+/* outward unit normal of the p-ball at direction u: ∇‖x‖_p ∝ sign(x_i)·(|x_i|/‖x‖_∞)^(p−1) */
+function analyticNormal(u,p){
+  const s=curSolid();
+  if(s) return argNormal(u,s.normals).slice();   // flat faces: the normal of the face hit
+  if(p>=P_INF) return u.slice();         // cube faces are flat-shaded; value only matters at axis vertices
+  let m=0; for(const x of u){const ax=Math.abs(x); if(ax>m)m=ax;}
+  const g=[0,0,0];
+  for(let i=0;i<3;i++){ g[i]=Math.sign(u[i])*Math.pow(Math.abs(u[i])/m,p-1); }
+  return unit(g);
+}
+
+/* ================================================================
+   MESH — cube-sphere: six N×N grids on the cube [-1,1]³, welded, each vertex pushed to r(u)·u.
+   N even ⇒ the coordinate planes are grid lines ⇒ the (+,+,+) octant is an exact sub-mesh, and the
+   26 extremal directions (6 axes, 12 edge midpoints, 8 body diagonals) are exact vertices.
+   Quads are split on the diagonal with the larger midpoint radius (ties → the corner-ward diagonal);
+   both rules are invariant under sign flips, so the eight octants are exact mirror images.
+   Triangle order: face f, cell (i,j) → triangles 2·(f·N² + i·N + j) and +1  (used by meshRadial).
+================================================================ */
+function buildMesh(N,p,a){
+  const keyMap=new Map(), pos=[], cp=[], nrm=[];
+  const N1=N+1;
+  const keyOf=(ci,cj,ck)=>(ci+N/2)*N1*N1+(cj+N/2)*N1+(ck+N/2);   // integer cube coords in [-N/2, N/2]
+  const vid=(c)=>{
+    const ci=Math.round(c[0]*N/2), cj=Math.round(c[1]*N/2), ck=Math.round(c[2]*N/2);
+    const k=keyOf(ci,cj,ck);
+    let id=keyMap.get(k); if(id!==undefined) return id;
+    id=pos.length/3; keyMap.set(k,id);
+    const u=unit(c);
+    const r=rFlavor(u,p,a);
+    pos.push(r*u[0],r*u[1],r*u[2]);
+    cp.push(ci,cj,ck);
+    const nn=analyticNormal(u,p); nrm.push(nn[0],nn[1],nn[2]);
+    return id;
+  };
+  const tris=[];
+  for(let f=0;f<6;f++){
+    const ax=f>>1, sg=(f&1)?-1:1, b1=(ax+1)%3, b2=(ax+2)%3;
+    const P=(ii,jj)=>{const c=[0,0,0]; c[ax]=sg; c[b1]=-1+2*ii/N; c[b2]=-1+2*jj/N; return vid(c);};
+    for(let i=0;i<N;i++)for(let j=0;j<N;j++){
+      const v00=P(i,j),v10=P(i+1,j),v11=P(i+1,j+1),v01=P(i,j+1);
+      const midR=(x,y)=>Math.hypot((pos[3*x]+pos[3*y])/2,(pos[3*x+1]+pos[3*y+1])/2,(pos[3*x+2]+pos[3*y+2])/2);
+      const d1=midR(v00,v11), d2=midR(v10,v01);
+      let useD1;
+      if(Math.abs(d1-d2)>1e-12*a) useD1=d1>d2;
+      else{ const cw=x=>Math.abs(cp[3*x+b1])+Math.abs(cp[3*x+b2]);
+            useD1=Math.max(cw(v00),cw(v11))>=Math.max(cw(v10),cw(v01)); }
+      if(useD1) tris.push(v00,v10,v11, v00,v11,v01);
+      else      tris.push(v10,v11,v01, v10,v01,v00);
+    }
+  }
+  /* orient every triangle outward (normal · centroid > 0) */
+  for(let t=0;t<tris.length;t+=3){
+    const A=tris[t],B=tris[t+1],C=tris[t+2];
+    const a3=[pos[3*A],pos[3*A+1],pos[3*A+2]], b3=[pos[3*B],pos[3*B+1],pos[3*B+2]], c3=[pos[3*C],pos[3*C+1],pos[3*C+2]];
+    const n=cross(sub(b3,a3),sub(c3,a3));
+    const g=[(a3[0]+b3[0]+c3[0]),(a3[1]+b3[1]+c3[1]),(a3[2]+b3[2]+c3[2])];
+    if(dot(n,g)<0){ tris[t+1]=C; tris[t+2]=B; }
+  }
+  const M={N,p,a,pos:Float64Array.from(pos),cp:Int32Array.from(cp),nrm:Float64Array.from(nrm),
+           tris:Uint32Array.from(tris),nv:pos.length/3};
+  M.idAt=(ci,cj,ck)=>keyMap.get(keyOf(ci,cj,ck));
+  M.P=id=>[M.pos[3*id],M.pos[3*id+1],M.pos[3*id+2]];
+  return M;
+}
+
+/* divergence theorem on the mesh: V = Σ a·(b×c)/6, A = Σ|(b−a)×(c−a)|/2, plus the edge census for χ.
+   Sums are Neumaier-compensated so a planar flavor's 1e-12 tolerance measures geometry, not summation order
+   (naive summation over 12k–49k terms drifted to ~1e-13 relative on the exact cube). */
+function integrals(pos,tris,nv){
+  let V=0,cV=0,A=0,cA=0; const edges=new Set();
+  const ek=(i,j)=>i<j?i*4294967296+j:j*4294967296+i;
+  for(let t=0;t<tris.length;t+=3){
+    const I=tris[t],J=tris[t+1],K=tris[t+2];
+    const ax=pos[3*I],ay=pos[3*I+1],az=pos[3*I+2], bx=pos[3*J],by=pos[3*J+1],bz=pos[3*J+2], cx=pos[3*K],cy=pos[3*K+1],cz=pos[3*K+2];
+    const v=(ax*(by*cz-bz*cy)+ay*(bz*cx-bx*cz)+az*(bx*cy-by*cx))/6;
+    let s=V+v; cV+=(Math.abs(V)>=Math.abs(v))?(V-s)+v:(v-s)+V; V=s;
+    const ex=bx-ax,ey=by-ay,ez=bz-az, fx=cx-ax,fy=cy-ay,fz=cz-az;
+    const ar=Math.hypot(ey*fz-ez*fy,ez*fx-ex*fz,ex*fy-ey*fx)/2;
+    s=A+ar; cA+=(Math.abs(A)>=Math.abs(ar))?(A-s)+ar:(ar-s)+A; A=s;
+    edges.add(ek(I,J)); edges.add(ek(J,K)); edges.add(ek(K,I));
+  }
+  return {V:V+cV,A:A+cA,nV:nv,nE:edges.size,nF:tris.length/3};
+}
+/* triangles whose three vertices all lie in the closed (+,+,+) octant (integer cube coords ⇒ exact) */
+function octantPatch(M){
+  const {cp,tris}=M, out=[];
+  for(let t=0;t<tris.length;t+=3){
+    let ok=true;
+    for(let q=0;q<3&&ok;q++){const v=tris[t+q]; if(cp[3*v]<0||cp[3*v+1]<0||cp[3*v+2]<0)ok=false;}
+    if(ok) out.push(tris[t],tris[t+1],tris[t+2]);
+  }
+  return Uint32Array.from(out);
+}
+/* boundary of the patch = edges used by exactly one patch triangle; walked into an ordered loop from (+x) */
+function patchBoundary(M,PT){
+  const cnt=new Map();
+  const add=(i,j)=>{const k=i<j?i+','+j:j+','+i; cnt.set(k,(cnt.get(k)||0)+1);};
+  for(let t=0;t<PT.length;t+=3){add(PT[t],PT[t+1]);add(PT[t+1],PT[t+2]);add(PT[t+2],PT[t]);}
+  const adj=new Map(), edges=[];
+  for(const [k,c] of cnt){
+    if(c!==1) continue;
+    const [i,j]=k.split(',').map(Number); edges.push([i,j]);
+    if(!adj.has(i))adj.set(i,[]); if(!adj.has(j))adj.set(j,[]);
+    adj.get(i).push(j); adj.get(j).push(i);
+  }
+  const start=M.idAt(M.N/2,0,0), loop=[start];
+  let prev=-1, cur=start;
+  for(let guard=0;guard<=edges.length;guard++){
+    const nb=adj.get(cur)||[];
+    const nxt=(nb[0]===prev)?nb[1]:nb[0];
+    if(nxt===undefined||nxt===start) break;
+    loop.push(nxt); prev=cur; cur=nxt;
+  }
+  let chord=0, arc=0;
+  for(const [i,j] of edges){
+    const a3=M.P(i), b3=M.P(j);
+    chord+=len(sub(a3,b3));
+    const ra=len(a3), rb=len(b3);
+    arc+=0.5*(ra+rb)*Math.acos(clamp1(dot(a3,b3)/(ra*rb)));   // geodesic arc on the sphere through both (exact for p = 2)
+  }
+  /* corner angles at the three axis vertices: tangent-plane projections of the two boundary chords */
+  const corners=[[M.N/2,0,0],[0,M.N/2,0],[0,0,M.N/2]].map(c=>M.idAt(c[0],c[1],c[2]));
+  let angSum=0;
+  for(const c of corners){
+    const nb=adj.get(c)||[]; if(nb.length!==2){angSum=NaN;break;}
+    const n=[M.nrm[3*c],M.nrm[3*c+1],M.nrm[3*c+2]], pc=M.P(c);
+    const tp=v=>{const e=sub(v,pc); const d=dot(e,n); return unit([e[0]-d*n[0],e[1]-d*n[1],e[2]-d*n[2]]);};
+    angSum+=Math.acos(clamp1(dot(tp(M.P(nb[0])),tp(M.P(nb[1])))));
+  }
+  const degreeOK=[...adj.values()].every(v=>v.length===2);
+  return {edges,loop,chord,arc,excess:angSum-PI,closed:(loop.length===edges.length)&&degreeOK};
+}
+/* Σ spherical excess of the patch triangles on the unit sphere (Van Oosterom–Strackee); × a² = area for p = 2 */
+function sphericalAreaSum(M,PT){
+  let s=0;
+  for(let t=0;t<PT.length;t+=3){
+    const u1=unit(M.P(PT[t])),u2=unit(M.P(PT[t+1])),u3=unit(M.P(PT[t+2]));
+    s+=2*Math.atan2(Math.abs(dot(u1,cross(u2,u3))),1+dot(u1,u2)+dot(u2,u3)+dot(u3,u1));
+  }
+  return s;
+}
+/* radial distance of the DRAWN mesh along direction u: O(1) cell lookup (face = argmax|u_i|) + ray/triangle */
+function meshRadial(M,u){
+  const {N,pos,tris}=M;
+  let ax=0; if(Math.abs(u[1])>Math.abs(u[ax]))ax=1; if(Math.abs(u[2])>Math.abs(u[ax]))ax=2;
+  const f=ax*2+(u[ax]<0?1:0), b1=(ax+1)%3, b2=(ax+2)%3, m=Math.abs(u[ax]);
+  const s=u[b1]/m, t=u[b2]/m;
+  const i=Math.min(N-1,Math.max(0,Math.floor((s+1)/2*N))), j=Math.min(N-1,Math.max(0,Math.floor((t+1)/2*N)));
+  const base=2*(f*N*N+i*N+j);
+  let best=NaN;
+  for(let q=0;q<2;q++){
+    const t0=3*(base+q); const A=tris[t0],B=tris[t0+1],C=tris[t0+2];
+    const a3=[pos[3*A],pos[3*A+1],pos[3*A+2]], b3=[pos[3*B],pos[3*B+1],pos[3*B+2]], c3=[pos[3*C],pos[3*C+1],pos[3*C+2]];
+    const n=cross(sub(b3,a3),sub(c3,a3)); const den=dot(n,u);
+    if(Math.abs(den)<1e-300) continue;
+    const tt=dot(n,a3)/den; const P=[tt*u[0],tt*u[1],tt*u[2]];
+    const eps=-1e-9*len(n)*M.a;
+    const inside=dot(n,cross(sub(b3,a3),sub(P,a3)))>=eps && dot(n,cross(sub(c3,b3),sub(P,b3)))>=eps && dot(n,cross(sub(a3,c3),sub(P,c3)))>=eps;
+    if(inside){best=tt;break;}
+    if(isNaN(best)) best=tt;
+  }
+  return best;
+}
+/* direction sets: Fibonacci sphere (González 2010) + the 26 symmetric directions (spec §7) */
+function fibDirs(K){
+  const out=[], ga=PI*(3-Math.sqrt(5));
+  for(let i=0;i<K;i++){const z=1-(2*i+1)/K, r=Math.sqrt(Math.max(0,1-z*z)), ph=i*ga; out.push([r*Math.cos(ph),r*Math.sin(ph),z]);}
+  return out;
+}
+const SYM26=(()=>{const o=[];for(let x=-1;x<=1;x++)for(let y=-1;y<=1;y++)for(let z=-1;z<=1;z++){if(x||y||z)o.push(unit([x,y,z]));}return o;})();
+const DIRS=fibDirs(4096).concat(SYM26);
+const DIAG_BODY=[[1,1,1],[1,1,-1],[1,-1,1],[-1,1,1]].map(d=>({name:'('+d.join(',')+')',v:unit(d),t:new THREE.Vector3(...d).normalize()}));
+const CORNERS=[[1,1,1],[1,1,-1],[1,-1,1],[1,-1,-1],[-1,1,1],[-1,1,-1],[-1,-1,1],[-1,-1,-1]];
+
+/* [111] parallel projection — orthonormal basis of the plane ⊥ (1,1,1): lengths are true */
+const EU=[1/SQ2,-1/SQ2,0], EV=[1/SQ6,1/SQ6,-2/SQ6];
+const proj111=v=>[dot(v,EU),dot(v,EV)];
+function convexHull(pts){                     // Andrew monotone chain with the collinearity tolerance (Three.js file lesson)
+  const p=pts.slice().sort((a,b)=>a[0]-b[0]||a[1]-b[1]);
+  if(p.length<3)return p;
+  const cr=(o,a,b)=>(a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]);
+  const lo=[],hi=[];
+  for(const q of p){while(lo.length>1&&cr(lo[lo.length-2],lo[lo.length-1],q)<=1e-9)lo.pop();lo.push(q);}
+  for(const q of p.slice().reverse()){while(hi.length>1&&cr(hi[hi.length-2],hi[hi.length-1],q)<=1e-9)hi.pop();hi.push(q);}
+  return lo.slice(0,-1).concat(hi.slice(0,-1));
+}
+function clusterPoints(pts,tol){
+  const cl=[];
+  for(const p of pts){
+    let hit=null;
+    for(const c of cl) if(Math.hypot(c.x-p[0],c.y-p[1])<tol){hit=c;break;}
+    if(hit){hit.x=(hit.x*hit.n+p[0])/(hit.n+1);hit.y=(hit.y*hit.n+p[1])/(hit.n+1);hit.n++;}
+    else cl.push({x:p[0],y:p[1],n:1});
+  }
+  return cl;
+}
+/* regular-polygon test on a point set: radii spread and angular-gap spread (degrees) */
+function polygonStats(pts){
+  const rs=pts.map(q=>Math.hypot(q[0],q[1]));
+  const angs=pts.map(q=>Math.atan2(q[1],q[0])*DEG).sort((x,y)=>x-y);
+  const gaps=angs.map((a,i)=>((angs[(i+1)%angs.length]-a)+360)%360);
+  return {k:pts.length, rMin:Math.min(...rs), rMax:Math.max(...rs), gapMin:Math.min(...gaps), gapMax:Math.max(...gaps)};
+}
+
+/* ================================================================
+   §2.6 — V_n = π^(n/2)/Γ(n/2+1) with Γ at integers and half-integers evaluated exactly
+================================================================ */
+function gammaHalf(twoX){                      // Γ(twoX/2)
+  if(twoX%2===0){let g=1;for(let k=2;k<twoX/2;k++)g*=k;return g;}      // Γ(k) = (k−1)!
+  const m=(twoX-1)/2; let num=1,den=1;                                  // Γ(m+½) = (2m)!/(4^m m!)·√π
+  for(let k=1;k<=2*m;k++)num*=k; for(let k=1;k<=m;k++)den*=k;
+  return num/(Math.pow(4,m)*den)*Math.sqrt(PI);
+}
+const Vn=n=>Math.pow(PI,n/2)/gammaHalf(n+2);
+
+/* ================================================================
+   Cl(3,0) rotors — VERBATIM from cut_and_project_threejs_MIRROR.html (tab 4), including the
+   e31 storage trap: mask 5 is e13 = −e31, so the e31 coefficient carries the opposite sign.
+   Rotor R = cos(θ/2) − sin(θ/2)·B̂, B = n_x e23 + n_y e31 + n_z e12, sandwich v' = R v R̃.
+================================================================ */
+function popcount(x){let c=0;while(x){c+=x&1;x>>=1;}return c;}
+function bladeSign(a,b){let s=0,x=a>>1;while(x){s+=popcount(x&b);x>>=1;}return (s&1)?-1:1;}
+function gmul(A,B){const out=new Float64Array(8);for(let a=0;a<8;a++){if(!A[a])continue;for(let b=0;b<8;b++){if(!B[b])continue;out[a^b]+=A[a]*B[b]*bladeSign(a,b);}}return out;}
+function grev(A){const out=new Float64Array(8);for(let m=0;m<8;m++){const g=popcount(m);out[m]=A[m]*((g===2||g===3)?-1:1);}return out;}
+const mv=o=>{const A=new Float64Array(8);for(const k in o)A[k]=o[k];return A;};
+function rotor(n,thetaRad){const c=Math.cos(thetaRad/2),s=Math.sin(thetaRad/2);return mv({0:c,6:-s*n.x,5:s*n.y,3:-s*n.z});}
+function sandwich(R,v){const V=mv({1:v.x,2:v.y,4:v.z});const out=gmul(gmul(R,V),grev(R));const impure=Math.hypot(out[0],out[3],out[5],out[6],out[7]);return {v:new THREE.Vector3(out[1],out[2],out[4]),impure};}
+function rodrigues(n,th,v){const c=Math.cos(th),s=Math.sin(th);const nxv=new THREE.Vector3().crossVectors(n,v);return v.clone().multiplyScalar(c).addScaledVector(nxv,s).addScaledVector(n,n.dot(v)*(1-c));}
+/* rotor → three.js quaternion (x,y,z,w) = (sin(θ/2)·n, cos(θ/2)); reads the stored blades with the e31 sign undone */
+const rotorToQuat=R=>new THREE.Quaternion(-R[6],R[5],-R[3],R[0]);
+/* rotor that carries unit vector d onto unit vector e (identity when already aligned) */
+function rotorTo(d,e){
+  const c=clamp1(d.dot(e));
+  if(c>1-1e-14) return rotor(new THREE.Vector3(0,0,1),0);
+  if(c<-1+1e-14){ const ax=Math.abs(d.x)<0.9?new THREE.Vector3(1,0,0):new THREE.Vector3(0,1,0);
+                  return rotor(new THREE.Vector3().crossVectors(d,ax).normalize(),PI); }
+  return rotor(new THREE.Vector3().crossVectors(d,e).normalize(),Math.acos(c));
+}
+
+/* ================================================================
+   STATE
+================================================================ */
+const S={solid:'pnorm', p:Infinity, a:0.5, scale:1, N:32, n:3, iso:'face', axis:'z', rate:20, playing:false, orbAngle:0,
+  show:{patch:true,loop:true,ghost:true,normals:false,wire:false,sphC:false,sphM:false,sphI:false,outer:false},
+  netMode:'tree', netSeed:1};
+const ISO_DIR={face:new THREE.Vector3(0,0,1), vertex:new THREE.Vector3(1,1,1).normalize(), edge:new THREE.Vector3(1,1,0).normalize()};
+let R_iso=rotor(new THREE.Vector3(0,0,1),0);
+let axisWorld=new THREE.Vector3(0,0,1);
+let dirty=true;
+let M=null, LED=null, PT=null, BND=null;
+
+/* closed forms at the current p and a (a = axis-direction radius = a₀·scale); null = no closed form (n/a) */
+function closedForms(p,a){
+  const sol=curSolid();
+  if(sol){
+    // the mesh is r(u)·u with r(u) = a/max(u·nᵢ), so the circumradius is reached in a
+    // VERTEX direction; take it from the solid's own vertices rather than assuming one
+    let R0=0;
+    for(const v of sol.V){ const u=unit(v); R0=Math.max(R0, rNormals(u,sol.normals,a)); }
+    // volume/area/patch closed forms are not supplied for the tier-1 solids yet, so
+    // those ledger rows read n/a with the measurement shown rather than a wrong target
+    return {name:sol.name, V:null, A:null, loop:null, patch:null,
+            R0, R1:R0*sol.r1, R2:R0*sol.r2, planar:true, solid:sol};
+  }
+  if(p>=P_INF) return {name:'cube',V:8*a*a*a,A:24*a*a,loop:6*a,patch:3*a*a,R0:a*SQ3,R1:a*SQ2,R2:a,planar:true};
+  if(Math.abs(p-2)<1e-12) return {name:'sphere',V:4/3*PI*a*a*a,A:4*PI*a*a,loop:1.5*PI*a,patch:PI*a*a/2,R0:a,R1:a,R2:a,planar:false};
+  if(Math.abs(p-1)<1e-12) return {name:'octahedron (p = 1)',V:4/3*a*a*a,A:4*SQ3*a*a,loop:3*SQ2*a,patch:SQ3/2*a*a,R0:a,R1:a/SQ2,R2:a/SQ3,planar:true};
+  const s=Math.abs(0.5-1/p), r2=Math.pow(3,-s), r1=(p>=2)?Math.pow(2/3,0.5-1/p):Math.pow(2,0.5-1/p);
+  const R0=(p>=2)?a*Math.pow(3,0.5-1/p):a;
+  return {name:'p-ball (p = '+p.toFixed(3)+')',V:null,A:null,loop:null,patch:null,R0,R1:R0*r1,R2:R0*r2,planar:false};
+}
+
+/* ================================================================
+   THREE.JS SCENE — orthographic (the honest parallel projector), z-up, OrbitControls
+================================================================ */
+const cv=$('cv3d'), ASPECT=cv.width/cv.height;
+const scene=new THREE.Scene();
+const cam=new THREE.OrthographicCamera(-ASPECT,ASPECT,1,-1,0.01,100);
+cam.up.set(0,0,1);                                  // z-up: set BEFORE lookAt (Three.js lesson in the project notes)
+cam.position.set(2.6,-2.1,1.7).normalize().multiplyScalar(6); cam.lookAt(0,0,0);
+const renderer=new THREE.WebGLRenderer({canvas:cv,antialias:true});
+renderer.setSize(cv.width,cv.height,false); renderer.setClearColor(0x000000);
+let controls=null;
+/* no panning: the object sits at the origin and every view readout is taken about controls.target */
+function makeControls(){ if(controls)controls.dispose(); const c=new OrbitControls(cam,cv); c.enableDamping=true; c.dampingFactor=0.12; c.enablePan=false; c.target.set(0,0,0); return c; }
+controls=makeControls();
+scene.add(new THREE.AmbientLight(0xffffff,0.45));
+const keyLight=new THREE.DirectionalLight(0xffffff,1.3); keyLight.position.set(2,-3,4); scene.add(keyLight);
+const fillLight=new THREE.DirectionalLight(0xffffff,0.45); fillLight.position.set(-3,2,-1); scene.add(fillLight);
+const triad=new THREE.Group();
+triad.add(new THREE.ArrowHelper(new THREE.Vector3(1,0,0),new THREE.Vector3(0,0,0),1,0xE22211,0.08,0.05));
+triad.add(new THREE.ArrowHelper(new THREE.Vector3(0,1,0),new THREE.Vector3(0,0,0),1,0x009E86,0.08,0.05));
+triad.add(new THREE.ArrowHelper(new THREE.Vector3(0,0,1),new THREE.Vector3(0,0,0),1,0x485FC7,0.08,0.05));
+scene.add(triad);
+const obj=new THREE.Group(); scene.add(obj);           // everything body-fixed lives here; obj.quaternion = the rotor
+/* the six face-normal arrows persist across rebuilds: ArrowHelper shares static geometries, so disposing one
+   would dispose them all — rebuild() only repositions and rescales these */
+const NORMALS=CUBE_NORMALS.map(n=>{const ah=new THREE.ArrowHelper(new THREE.Vector3(...n),new THREE.Vector3(0,0,0),1,0x485FC7,0.1,0.06); obj.add(ah); return ah;});
+let G={};
+function disposeAll(){
+  for(const k in G){ const o=G[k]; if(!o)continue;
+    const list=Array.isArray(o)?o:[o];
+    for(const x of list){ obj.remove(x); x.traverse(c=>{ if(c.geometry)c.geometry.dispose(); if(c.material)c.material.dispose(); }); }
+  }
+  G={};
+}
+function hueFor(p){                                   // cube 250 · sphere 325 · octahedron 160 (upward arc through red/yellow)
+  const t=(p>=P_INF)?0:1/p;
+  if(t<=0.5) return 250+(325-250)*(t/0.5);
+  return (325+(520-325)*((t-0.5)/0.5))%360;
+}
+function hsl(h,l){return new THREE.Color().setHSL(((h%360)+360)%360/360,0.62,l===undefined?0.6:l);}
+
+function rebuild(){
+  const a=S.a*S.scale;
+  M=buildMesh(S.N,S.p,a);
+  PT=octantPatch(M);
+  BND=patchBoundary(M,PT);
+  disposeAll();
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute('position',new THREE.Float32BufferAttribute(Float32Array.from(M.pos),3));
+  geo.setAttribute('normal',new THREE.Float32BufferAttribute(Float32Array.from(M.nrm),3));
+  geo.setIndex(new THREE.BufferAttribute(Uint32Array.from(M.tris),1));
+  const flat=(S.p>=P_INF)||Math.abs(S.p-1)<1e-12;
+  const mat=new THREE.MeshStandardMaterial({color:hsl(hueFor(S.p),0.60),metalness:0.08,roughness:0.6,flatShading:flat,transparent:true,opacity:1});   // parent §4: hsl(h, 62%, 60%)
+  G.mesh=new THREE.Mesh(geo,mat); obj.add(G.mesh);
+  G.wire=new THREE.LineSegments(new THREE.WireframeGeometry(geo),new THREE.LineBasicMaterial({color:0xffffff,transparent:true,opacity:0.28})); obj.add(G.wire);
+  G.edges=new THREE.LineSegments(new THREE.EdgesGeometry(geo,20),new THREE.LineBasicMaterial({color:0xffffff,transparent:true,opacity:0.7})); obj.add(G.edges);
+  /* octant patch: same vertex buffers, patch index only, polygon offset so it wins the depth test */
+  const pg=new THREE.BufferGeometry();
+  pg.setAttribute('position',geo.getAttribute('position')); pg.setAttribute('normal',geo.getAttribute('normal'));
+  pg.setIndex(new THREE.BufferAttribute(Uint32Array.from(PT),1));
+  G.patch=new THREE.Mesh(pg,new THREE.MeshStandardMaterial({color:0x009E86,metalness:0.05,roughness:0.5,flatShading:flat,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1,transparent:true,opacity:0.92}));
+  obj.add(G.patch);
+  G.loop=new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(BND.loop.map(id=>new THREE.Vector3(...M.P(id)))),new THREE.LineBasicMaterial({color:0xffffff}));
+  obj.add(G.loop);
+  /* face normals at the six axis vertices (analytic normal there is the axis for every p) */
+  CUBE_NORMALS.forEach((n,i)=>{
+    const id=M.idAt(n[0]*S.N/2,n[1]*S.N/2,n[2]*S.N/2); const P=M.P(id);
+    NORMALS[i].position.set(P[0],P[1],P[2]); NORMALS[i].setLength(0.45*a,0.1*a,0.06*a);
+  });
+  /* [111] target rings in 3D: whole-cube 2a√(2/3) and octant a√(2/3), ⊥ (1,1,1) */
+  const mkRing=(r,op)=>{const pts=new THREE.EllipseCurve(0,0,r,r,0,2*PI).getPoints(128).map(q=>new THREE.Vector3(q.x,q.y,0));
+    const l=new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineDashedMaterial({color:0x009E86,dashSize:0.05*a,gapSize:0.035*a,transparent:true,opacity:op}));
+    l.computeLineDistances(); l.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),DIAG_BODY[0].t); return l;};
+  G.ring=mkRing(2*a*SQ23,0.85); G.ring2=mkRing(a*SQ23,0.6); obj.add(G.ring); obj.add(G.ring2);
+  const dl=new THREE.Line(new THREE.BufferGeometry().setFromPoints([DIAG_BODY[0].t.clone().multiplyScalar(-2.2*a),DIAG_BODY[0].t.clone().multiplyScalar(2.2*a)]),
+    new THREE.LineDashedMaterial({color:0x009E86,dashSize:0.05*a,gapSize:0.035*a,transparent:true,opacity:0.7}));
+  dl.computeLineDistances(); G.diag=dl; obj.add(dl);
+  /* n = 2: the equatorial section z = 0 IS the 2D p-ball of the same a; n = 1: the segment [−a, a] */
+  const th=[]; for(let k=0;k<720;k++)th.push(2*PI*k/720); for(let k=0;k<8;k++)th.push(k*PI/4); th.sort((x,y)=>x-y);
+  const sec=th.map(t=>{const u=[Math.cos(t),Math.sin(t)]; const r=a/normP(u,S.p); return [r*u[0],r*u[1],r];});
+  M.section=sec;
+  G.sect=new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(sec.map(q=>new THREE.Vector3(q[0],q[1],0))),new THREE.LineBasicMaterial({color:0x485FC7}));
+  obj.add(G.sect);
+  G.seg=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-a,0,0),new THREE.Vector3(a,0,0)]),new THREE.LineBasicMaterial({color:0x485FC7}));
+  obj.add(G.seg);
+  /* camera frustum follows the object size (₀R), zoom preserved */
+  let r0=0; for(let i=0;i<M.nv;i++){const r=Math.hypot(M.pos[3*i],M.pos[3*i+1],M.pos[3*i+2]); if(r>r0)r0=r;}
+  const H=1.45*r0; cam.left=-H*ASPECT; cam.right=H*ASPECT; cam.top=H; cam.bottom=-H; cam.updateProjectionMatrix();
+  triad.scale.setScalar(1.25*r0);
+  LED=computeLedger();
+  LED.net=computeNet();
+  buildSpheres();
+  applyVisibility();
+  renderLedger();
+  drawGhost();
+  renderVTable();
+  renderVMap();
+  drawNet();
+}
+function applyVisibility(){
+  const n3=(S.n===3);
+  /* spec §5: renders only at n = 2, 3 — off n = 3 the solid is a faint wire so the 3D ledger rows still point at something drawn */
+  /* the three spheres: with 'outer' on, whichever encloses the rest goes to wireframe — the circumsphere if shown,
+     else the crystal itself (so an inscribed sphere shows through) */
+  const innerOn=S.show.sphM||S.show.sphI, meshGhost=S.show.outer&&!S.show.sphC&&innerOn&&n3;
+  G.mesh.visible=n3; G.patch.visible=S.show.patch&&n3&&!meshGhost; G.loop.visible=S.show.loop&&n3; G.edges.visible=n3;
+  G.mesh.material.opacity=meshGhost?0.22:1; G.mesh.material.depthWrite=!meshGhost;
+  G.wire.visible=S.show.wire||!n3||meshGhost;
+  G.wire.material.opacity=n3?0.28:0.12;
+  for(const [k,on] of [['sphC',S.show.sphC],['sphM',S.show.sphM],['sphI',S.show.sphI]]){ if(!G[k])continue; G[k].visible=on&&n3; G[k].fill.visible=!(S.show.outer&&k==='sphC'); }
+  for(const ah of NORMALS) ah.visible=S.show.normals&&n3;
+  G.ring.visible=S.show.ghost&&n3; G.ring2.visible=S.show.ghost&&n3; G.diag.visible=S.show.ghost&&n3;
+  $('ghostbox').style.display=S.show.ghost?'':'none';
+  G.sect.visible=(S.n===2); G.seg.visible=(S.n===1);
+  $('ovl').innerHTML=n3?'':(S.n===2?'n = 2: equatorial section z = 0 drawn (the 2D p-ball); 3D mesh as faint wire'
+    :(S.n===1?'n = 1: the segment [−a, a]; 3D mesh as faint wire':'<span class="warn">n = '+S.n+': no render — table and closed forms only; 3D mesh as faint wire</span>'));
+}
+
+/* ================================================================
+   LEDGER — everything measured from the drawn mesh / drawn coordinates
+================================================================ */
+function computeLedger(){
+  const {N,p,a}=M;
+  const cf=closedForms(p,a);
+  const I=integrals(M.pos,M.tris,M.nv);
+  const Mh=buildMesh(N/2,p,a), Mq=buildMesh(N/4,p,a), M2=buildMesh(N,p,2*a);
+  const Ih=integrals(Mh.pos,Mh.tris,Mh.nv), Iq=integrals(Mq.pos,Mq.tris,Mq.nv), I2=integrals(M2.pos,M2.tris,M2.nv);
+  /* observed convergence order from N/4, N/2, N; 'exact' when the refinements agree to rounding (planar flavors) */
+  const order=(x,xh,xq)=>{const d1=Math.abs(xq-xh), d2=Math.abs(xh-x), tolx=1e-10*Math.abs(x); return (d2<tolx)?(d1<tolx?'exact':'—'):(Math.log2(d1/d2)).toFixed(2);};
+  /* radii from the drawn vertices: ₀R = max, ₂R = min, ₁R = the 12 edge-class vertices */
+  let R0=0,R2=Infinity;
+  for(let i=0;i<M.nv;i++){const r=Math.hypot(M.pos[3*i],M.pos[3*i+1],M.pos[3*i+2]); if(r>R0)R0=r; if(r<R2)R2=r;}
+  const edgeIds=[]; for(const s of [[1,1,0],[1,-1,0],[-1,1,0],[-1,-1,0],[1,0,1],[1,0,-1],[-1,0,1],[-1,0,-1],[0,1,1],[0,1,-1],[0,-1,1],[0,-1,-1]]) edgeIds.push(M.idAt(s[0]*N/2,s[1]*N/2,s[2]*N/2));
+  const eR=edgeIds.map(id=>len(M.P(id))); const R1=eR.reduce((x,y)=>x+y,0)/eR.length, R1spread=Math.max(...eR)-Math.min(...eR);
+  /* §2.1 identity and ray-cast residual over the direction set */
+  let dev21=0, devRay=0, rayMin=Infinity, rayMax=0, rayBad=0;
+  for(const u of DIRS){
+    if(p>=P_INF){ const d=Math.abs(rNormals(u,CUBE_NORMALS,a)-rP(u,Infinity,a)); if(d>dev21)dev21=d; }
+    const rm=meshRadial(M,u);
+    if(!isFinite(rm)){rayBad++;continue;}
+    if(rm<rayMin)rayMin=rm; if(rm>rayMax)rayMax=rm;
+    const d2=Math.abs(rFlavor(u,p,a)-rm); if(d2>devRay)devRay=d2;
+  }
+  if(rayBad){devRay=NaN;rayMin=NaN;rayMax=NaN;}     // any direction the ray-cast cannot resolve voids both sampled rows (n/a), never a silent PASS
+  /* octant */
+  const IP=integrals(M.pos,PT,M.nv);
+  const sphSum=sphericalAreaSum(M,PT);
+  /* [111] projections (body frame) */
+  const loopHull=convexHull(BND.loop.map(id=>proj111(M.P(id))));
+  const loopStats=polygonStats(loopHull);
+  const allPts=[]; for(let i=0;i<M.nv;i++)allPts.push(proj111(M.P(i)));
+  const allHull=convexHull(allPts); const allStats=polygonStats(allHull);
+  const ctrR=Math.max(len2(proj111(M.P(M.idAt(N/2,N/2,N/2)))),len2(proj111(M.P(M.idAt(-N/2,-N/2,-N/2)))));
+  /* 2D section signature (drawn at n = 2) */
+  let s2min=Infinity,s2max=0; for(const q of M.section){ if(q[2]<s2min)s2min=q[2]; if(q[2]>s2max)s2max=q[2]; }
+  const sig2=Math.pow(2,-Math.abs(0.5-1/p));
+  /* V_n table facts */
+  const V=[]; for(let n=1;n<=12;n++)V[n]=Vn(n);
+  const peakOK=(V[5]>V[4])&&(V[5]>V[6])&&[1,2,3,4,6,7,8,9,10,11,12].every(n=>V[n]<V[5]);
+  const monoOK=[2,3,4,5,6,7,8,9,10,11,12].every(n=>V[n]/Math.pow(2,n)<V[n-1]/Math.pow(2,n-1));   // §2.6's second, distinct statement
+  /* rotor checks (deterministic pseudo-random inputs) */
+  const rnd=mulberry32(7);
+  const nn=new THREE.Vector3(rnd()-0.5,rnd()-0.5,rnd()-0.5).normalize(), th=rnd()*2*PI, vv=new THREE.Vector3(rnd()*2-1,rnd()*2-1,rnd()*2-1);
+  const Rr=rotor(nn,th); const sw=sandwich(Rr,vv); const q=rotorToQuat(Rr);
+  const devRot=Math.max(sw.v.clone().sub(rodrigues(nn,th,vv)).length(), sw.v.clone().sub(vv.clone().applyQuaternion(q)).length(), sw.impure, Math.abs(q.length()-1));
+  const isoDev=sandwich(R_iso,ISO_DIR[S.iso]).v.sub(new THREE.Vector3(0,0,1)).length();
+  /* the three spheres: which of the 26 canonical direction classes (6 axes, 12 edge midpoints, 8 corners) lie ON each
+     (cube: 8 / 12 / 6 = V, E, F; the sphere: all 26 on all three). Counted over the classes, NOT every grid vertex:
+     the midsphere meets each octahedron face in its incircle, and at N = 32 that circle passes through 9 rational grid
+     points per face (e.g. (t, s) = (¼, ¼): (1 + ½)² = 2(1 + ⅛)), so an all-vertex count reads 84 at p = 1, not 12 —
+     a property of the grid, reported alongside for the record */
+  const sph=[0,0,0], sphAll=[0,0,0];
+  for(let i=0;i<M.nv;i++){const r=Math.hypot(M.pos[3*i],M.pos[3*i+1],M.pos[3*i+2]); if(Math.abs(r-R0)<1e-9*R0)sphAll[0]++; if(Math.abs(r-R1)<1e-9*R0)sphAll[1]++; if(Math.abs(r-R2)<1e-9*R0)sphAll[2]++;}
+  for(const x of [-1,0,1])for(const y of [-1,0,1])for(const z of [-1,0,1]){ if(!(x||y||z))continue;
+    const r=len(M.P(M.idAt(x*N/2,y*N/2,z*N/2))); if(Math.abs(r-R0)<1e-9*R0)sph[0]++; if(Math.abs(r-R1)<1e-9*R0)sph[1]++; if(Math.abs(r-R2)<1e-9*R0)sph[2]++; }
+  const vmap=vertexMap();
+  return {cf,I,Ih,Iq,I2,order,R0,R1,R2,R1spread,dev21,devRay,rayMin,rayMax,rayBad,IP,sphSum,loopHull,loopStats,allStats,ctrR,s2min,s2max,sig2,V,peakOK,monoOK,devRot,isoDev,sph,sphAll,vmap};
+}
+
+/* ================================================================
+   THE THREE SPHERES — circum (₀R), mid (₁R), in (₂R), drawn at the MEASURED radii
+================================================================ */
+function buildSpheres(){
+  const mk=(r,col)=>{const g=new THREE.Group();
+    g.fill=new THREE.Mesh(new THREE.SphereGeometry(r,48,32),new THREE.MeshStandardMaterial({color:col,transparent:true,opacity:0.16,depthWrite:false,side:THREE.DoubleSide,metalness:0,roughness:0.9}));
+    g.wire=new THREE.LineSegments(new THREE.WireframeGeometry(new THREE.SphereGeometry(r,24,16)),new THREE.LineBasicMaterial({color:col,transparent:true,opacity:0.35}));
+    g.add(g.fill); g.add(g.wire); obj.add(g); return g;};
+  G.sphC=mk(LED.R0,0x9ca3af); G.sphM=mk(LED.R1,0x485FC7); G.sphI=mk(LED.R2,0xE9A23B);
+}
+
+/* ================================================================
+   VERTEX MAP — the flavor's canonical vertices as C₂³ phase bits, parity, phase element, and the minimal
+   rotor from the reference vertex. Generic in the vertex list: tier-1 solids plug their own list in.
+   Reference = the (+,+,+) corner (the octant-patch corner); for p < 2 no vertex sits in the open octant,
+   so the reference is the +z vertex and the sign-flip orbit is only {±z} — a measured statement, not a bug.
+================================================================ */
+function vertexMap(){
+  const {N,p}=M, ref=(p<2)?M.idAt(0,0,N/2):M.idAt(N/2,N/2,N/2);
+  const refP=M.P(ref), refU=new THREE.Vector3(...unit(refP)), refC=[M.cp[3*ref],M.cp[3*ref+1],M.cp[3*ref+2]];
+  const list=(p<2)?[[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]]:CORNERS;
+  const AX=['x','y','z'], IJK=['i','j','k'];
+  const rows=list.map(s=>{
+    const id=M.idAt(s[0]*N/2,s[1]*N/2,s[2]*N/2), P=M.P(id), u=new THREE.Vector3(...unit(P));
+    const minus=s.filter(x=>x<0).length;
+    const bits='('+s.map(x=>x>0?'+':x<0?'−':'0').join('')+')';
+    let elem='—';
+    if(p>=2) elem=minus===0?'identity':minus===1?'reflection ⊥ '+AX[s.findIndex(x=>x<0)]+' (det −1)':minus===2?'π-rotation about '+AX[s.findIndex(x=>x>0)]+' (det +1, in V₄)':'inversion −I (det −1)';
+    const Rr=rotorTo(refU,u), sw=sandwich(Rr,refU), dev=sw.v.sub(u).length();
+    const half=Math.acos(clamp1(Rr[0])), sh=Math.sin(half), axis=Math.abs(sh)>1e-9?[-Rr[6]/sh,Rr[5]/sh,-Rr[3]/sh]:[0,0,0];
+    const quat=(p<2)?((s[s.findIndex(x=>x!==0)]>0?'+':'−')+IJK[s.findIndex(x=>x!==0)]):'('+s.map((x,i)=>(x>0?'+':'−')+IJK[i]).join('')+')/√3';
+    return {bits,P,minus,elem,axis,ang:2*half*DEG,dev,quat,parity:(p<2)?'—':(minus%2===0?'even · tet A':'odd · tet B')};
+  });
+  const seen=new Set(); let orbitDev=0;
+  for(const s of CORNERS){ const id=M.idAt(s[0]*refC[0],s[1]*refC[1],s[2]*refC[2]); seen.add(id);
+    orbitDev=Math.max(orbitDev,len(sub(M.P(id),[s[0]*refP[0],s[1]*refP[1],s[2]*refP[2]]))); }
+  return {rows,orbit:seen.size,expectOrbit:(p<2)?2:8,nV:list.length,orbitDev,maxDev:Math.max(...rows.map(r=>r.dev)),
+    refName:(p<2)?'+z vertex (no vertex in the open octant)':'(+,+,+) corner', sample:(p>=2&&p<P_INF)};
+}
+function renderVMap(){
+  const VM=LED.vmap;
+  let h='<tr><th>bits</th><th>position</th><th>parity</th><th>phase element diag(s)</th><th>rotor axis</th><th>angle°</th><th>dev</th><th>quaternion u = e^{(π/2)u}</th></tr>';
+  for(const r of VM.rows) h+='<tr><td>'+r.bits+'</td><td>'+r.P.map(x=>fmt(x,3)).join(', ')+'</td><td>'+r.parity+'</td><td style="text-align:left">'+r.elem+'</td><td>('+r.axis.map(x=>fmt(x,2)).join(', ')+')</td><td>'+fmt(r.ang,3)+'</td><td>'+fe(r.dev)+'</td><td>'+r.quat+'</td></tr>';
+  $('vmap').innerHTML=h;
+  $('vmapnote').innerHTML='<span class="k">reference:</span> '+VM.refName+(VM.sample?' <span class="k">(sample points at the corner directions — this flavor has no vertices there)</span>':'')+'<br>'+
+    '<span class="k">C₂³ orbit of the reference on the mesh:</span> '+VM.orbit+' <span class="k">points · symmetry dev '+fe(VM.orbitDev)+'</span><br>'+
+    '<span class="k">S² is not a group: no single e^{iθ} reaches every point (Frobenius — no 3D division algebra; S¹ and S³ are groups, S² is not). A point is R e₃ R̃ with a free S¹ (Hopf fibre); the cube\'s 8 vertices are literally the 8 elements of C₂³ applied to (+,+,+) — the 3-bit phase.</span>';
+}
+
+/* ================================================================
+   UNFOLDER — edge nets for polyhedral flavors (spanning tree of the face graph, laid flat face by face),
+   equal-area projections for the sphere (gores / sinusoidal / Mollweide). No isometric net exists for
+   K ≠ 0 (Theorema Egregium); Dürer's problem (does every convex polyhedron have a non-overlapping edge
+   unfolding?) is OPEN — all Platonic nets are non-overlapping.
+================================================================ */
+const cen=P=>[P.reduce((s,q)=>s+q[0],0)/P.length,P.reduce((s,q)=>s+q[1],0)/P.length];
+const shoelace=P=>{let s=0;for(let i=0;i<P.length;i++){const a=P[i],b=P[(i+1)%P.length];s+=a[0]*b[1]-b[0]*a[1];}return s/2;};
+const polyArea3=pts=>{const n=[0,0,0];for(let i=0;i<pts.length;i++){const a=pts[i],b=pts[(i+1)%pts.length];const c=cross(a,b);n[0]+=c[0];n[1]+=c[1];n[2]+=c[2];}return len(n)/2;};
+function orderCCW(ids,V,n){                       // CCW as seen from outside (from +n)
+  const c=[0,0,0]; for(const i of ids){c[0]+=V[i][0];c[1]+=V[i][1];c[2]+=V[i][2];} c[0]/=ids.length;c[1]/=ids.length;c[2]/=ids.length;
+  const nn=unit(n), e1=unit(sub(V[ids[0]],c)), e2=cross(nn,e1);
+  return ids.slice().sort((i,j)=>{const di=sub(V[i],c),dj=sub(V[j],c);return Math.atan2(dot(di,e2),dot(di,e1))-Math.atan2(dot(dj,e2),dot(dj,e1));});
+}
+function polyFaces(p,a){
+  if(p>=P_INF){
+    const V=CORNERS.map(s=>[s[0]*a,s[1]*a,s[2]*a]), F=[];
+    for(const ax of [0,1,2])for(const sg of [1,-1]){ const ids=[]; CORNERS.forEach((s,i)=>{if(s[ax]===sg)ids.push(i);}); const n=[0,0,0]; n[ax]=sg; F.push(orderCCW(ids,V,n)); }
+    return {V,F,name:'cube'};
+  }
+  const V=[[a,0,0],[-a,0,0],[0,a,0],[0,-a,0],[0,0,a],[0,0,-a]], F=[];
+  for(const sx of [1,-1])for(const sy of [1,-1])for(const sz of [1,-1]) F.push(orderCCW([sx>0?0:1,sy>0?2:3,sz>0?4:5],V,[sx,sy,sz]));
+  return {V,F,name:'octahedron'};
+}
+function polyOverlap(P,Q){                        // interiors intersect; shared boundary segments/vertices do not count
+  const eps=1e-9, cr=(o,a,b)=>(a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]);
+  for(let i=0;i<P.length;i++)for(let j=0;j<Q.length;j++){
+    const a=P[i],b=P[(i+1)%P.length],c=Q[j],d=Q[(j+1)%Q.length];
+    const d1=cr(a,b,c),d2=cr(a,b,d),d3=cr(c,d,a),d4=cr(c,d,b);
+    if(((d1>eps&&d2<-eps)||(d1<-eps&&d2>eps))&&((d3>eps&&d4<-eps)||(d3<-eps&&d4>eps))) return true;
+  }
+  const inside=(q,R)=>{ let c=false;
+    for(let i=0,j=R.length-1;i<R.length;j=i++){ const a=R[i],b=R[j], L=Math.hypot(b[0]-a[0],b[1]-a[1]);
+      if(Math.abs(cr(a,b,q))<=eps*L){ const t=((q[0]-a[0])*(b[0]-a[0])+(q[1]-a[1])*(b[1]-a[1]))/(L*L); if(t>=-eps&&t<=1+eps) return false; }
+      if(((a[1]>q[1])!==(b[1]>q[1]))&&(q[0]<(b[0]-a[0])*(q[1]-a[1])/(b[1]-a[1])+a[0])) c=!c; }
+    return c; };
+  for(const q of P) if(inside(q,Q)) return true;
+  for(const q of Q) if(inside(q,P)) return true;
+  return inside(cen(P),Q)||inside(cen(Q),P);
+}
+function unfoldNet(V,F,seed){
+  const rnd=mulberry32(seed), key=(u,v)=>u<v?u+','+v:v+','+u, edgeFaces=new Map();
+  F.forEach((f,fi)=>{for(let i=0;i<f.length;i++){const k=key(f[i],f[(i+1)%f.length]); if(!edgeFaces.has(k))edgeFaces.set(k,[]); edgeFaces.get(k).push(fi);}});
+  const local=fi=>{const f=F[fi],p0=V[f[0]],e1=unit(sub(V[f[1]],p0)),n=unit(cross(sub(V[f[1]],p0),sub(V[f[2]],p0))),e2=cross(n,e1);
+    return f.map(vi=>{const d=sub(V[vi],p0);return [dot(d,e1),dot(d,e2)];});};
+  const placed=new Array(F.length).fill(null), treeEdges=[], root=Math.floor(rnd()*F.length); let fixes=0;
+  placed[root]=local(root);
+  const queue=[root];
+  while(queue.length){
+    const fi=queue.shift(), f=F[fi], nbs=[];
+    for(let i=0;i<f.length;i++){const u=f[i],v=f[(i+1)%f.length]; for(const g of edgeFaces.get(key(u,v))) if(g!==fi) nbs.push([g,u,v]);}
+    for(let i=nbs.length-1;i>0;i--){const j=Math.floor(rnd()*(i+1)); [nbs[i],nbs[j]]=[nbs[j],nbs[i]];}
+    for(const [g,u,v] of nbs){ if(placed[g])continue;
+      const loc=local(g), fg=F[g], A=loc[fg.indexOf(u)], B=loc[fg.indexOf(v)], pu=placed[fi][f.indexOf(u)], pv=placed[fi][f.indexOf(v)];
+      const ang=Math.atan2(pv[1]-pu[1],pv[0]-pu[0])-Math.atan2(B[1]-A[1],B[0]-A[0]), ca=Math.cos(ang), sa=Math.sin(ang);
+      let pts=loc.map(q=>{const dx=q[0]-A[0],dy=q[1]-A[1];return [pu[0]+dx*ca-dy*sa,pu[1]+dx*sa+dy*ca];});
+      const side=q=>(pv[0]-pu[0])*(q[1]-pu[1])-(pv[1]-pu[1])*(q[0]-pu[0]);
+      if(side(cen(placed[fi]))*side(cen(pts))>0){ fixes++;                                   // should never fire for consistently oriented faces
+        pts=pts.map(q=>{const dx=pv[0]-pu[0],dy=pv[1]-pu[1],L2=dx*dx+dy*dy,t=((q[0]-pu[0])*dx+(q[1]-pu[1])*dy)/L2;return [2*(pu[0]+t*dx)-q[0],2*(pu[1]+t*dy)-q[1]];}); }
+      placed[g]=pts; treeEdges.push([fi,g]); queue.push(g);
+    }
+  }
+  let overlaps=0; for(let i=0;i<F.length;i++)for(let j=i+1;j<F.length;j++) if(placed[i]&&placed[j]&&polyOverlap(placed[i],placed[j])) overlaps++;
+  return {placed,treeEdges,fixes,overlaps,root,area:placed.reduce((s,P)=>s+(P?Math.abs(shoelace(P)):0),0)};
+}
+function curvedNet(mode,a,p){
+  const K=240, G=12, sphere=Math.abs(p-2)<1e-12, polys=[], grat=[];     // K divisible by 6 so φ = 60° is a sample
+  const sinus=(lam,phi)=>[a*lam*Math.cos(phi),a*phi];
+  if(mode==='gores'){
+    const D=PI/G, W=2*a*D*1.06;
+    for(let g=0;g<G;g++){ const X=(g-(G-1)/2)*W, P=[];
+      for(let i=0;i<=K;i++){const phi=-PI/2+PI*i/K; P.push([a*D*Math.cos(phi)+X,a*phi]);}
+      for(let i=K;i>=0;i--){const phi=-PI/2+PI*i/K; P.push([-a*D*Math.cos(phi)+X,a*phi]);}
+      polys.push(P); }
+    /* shear of the gore's right edge from the chord between the samples either side of φ = 60°; the expectation is
+       evaluated at the chord's actual midpoint latitude, so it stays honest at any K */
+    const i60=Math.round((60/180+0.5)*K), q0=polys[0][i60-1], q1=polys[0][i60+1], phiMid=(q0[1]+q1[1])/(2*a);
+    return {kind:'gores',polys,grat,a,sphere,area:polys.reduce((s,P)=>s+Math.abs(shoelace(P)),0),expArea:4*PI*a*a,phiMid:phiMid*DEG,
+      shearMeas:Math.atan2(Math.abs(q1[0]-q0[0]),Math.abs(q1[1]-q0[1]))*DEG, shearExp:Math.atan(D*Math.sin(phiMid))*DEG};
+  }
+  const tOf=phi=>{ if(Math.abs(Math.abs(phi)-PI/2)<1e-12) return Math.sign(phi)*PI/2; let t=phi; for(let k=0;k<20;k++) t-=(2*t+Math.sin(2*t)-PI*Math.sin(phi))/(2+2*Math.cos(2*t)); return t; };
+  const moll=(lam,phi)=>{const t=tOf(phi);return [2*SQ2/PI*a*lam*Math.cos(t),SQ2*a*Math.sin(t)];};
+  const f=mode==='moll'?moll:sinus, P=[];
+  for(let i=0;i<=K;i++){const phi=-PI/2+PI*i/K; P.push(f(PI,phi));} for(let i=K;i>=0;i--){const phi=-PI/2+PI*i/K; P.push(f(-PI,phi));}
+  for(const lam of [-2*PI/3,-PI/3,0,PI/3,2*PI/3]){const L=[]; for(let i=0;i<=K;i++){const phi=-PI/2+PI*i/K; L.push(f(lam,phi));} grat.push(L);}
+  for(const phi of [-PI/3,-PI/6,0,PI/6,PI/3]){const L=[]; for(let i=0;i<=K;i++){const lam=-PI+2*PI*i/K; L.push(f(lam,phi));} grat.push(L);}
+  return {kind:mode,polys:[P],grat,a,sphere,area:Math.abs(shoelace(P)),expArea:4*PI*a*a};
+}
+function computeNet(){
+  const {p,a}=M, planar=(p>=P_INF)||Math.abs(p-1)<1e-12;
+  if(S.netMode==='tree'){
+    if(!planar) return {kind:'tree',na:true,msg:'edge nets need a polyhedron (p = 1 or ∞) — pick a projection for curved flavors'};
+    const {V,F,name}=polyFaces(p,a), U=unfoldNet(V,F,S.netSeed);
+    return {kind:'tree',name,F:F.length,faceArea:F.reduce((s,f)=>s+polyArea3(f.map(i=>V[i])),0),...U};
+  }
+  return curvedNet(S.netMode,(Math.abs(p-2)<1e-12)?a:LED.R0,p);
+}
+function drawNet(){
+  const c=$('net'), ctx=c.getContext('2d'), W=c.width, Hh=c.height, NT=LED.net;
+  ctx.fillStyle='#000'; ctx.fillRect(0,0,W,Hh); ctx.font='11px Courier New';
+  if(NT.na){ ctx.fillStyle='#E22211'; ctx.fillText(NT.msg,10,20); $('netvals').innerHTML='<span class="k">'+NT.msg+'</span>'; return; }
+  const polys=NT.kind==='tree'?NT.placed.filter(Boolean):NT.polys;
+  let xmin=Infinity,xmax=-Infinity,ymin=Infinity,ymax=-Infinity;
+  for(const P of polys)for(const q of P){ if(q[0]<xmin)xmin=q[0]; if(q[0]>xmax)xmax=q[0]; if(q[1]<ymin)ymin=q[1]; if(q[1]>ymax)ymax=q[1]; }
+  const sc=Math.min((W-30)/(xmax-xmin),(Hh-44)/(ymax-ymin));
+  const X=x=>W/2+(x-(xmin+xmax)/2)*sc, Y=y=>(Hh-14)/2-(y-(ymin+ymax)/2)*sc;
+  polys.forEach((P,i)=>{ ctx.fillStyle='hsla('+((hueFor(M.p)+i*37)%360)+',62%,60%,0.35)'; ctx.strokeStyle='rgba(255,255,255,0.7)'; ctx.lineWidth=1;
+    ctx.beginPath(); P.forEach((q,k)=>k?ctx.lineTo(X(q[0]),Y(q[1])):ctx.moveTo(X(q[0]),Y(q[1]))); ctx.closePath(); ctx.fill(); ctx.stroke();
+    if(NT.kind==='tree'){ const cc=cen(P); ctx.fillStyle='#fff'; ctx.fillText(String(i),X(cc[0])-3,Y(cc[1])+4); } });
+  if(NT.kind==='tree'){ ctx.strokeStyle='rgba(0,158,134,0.85)'; ctx.setLineDash([3,3]);
+    for(const [f,g] of NT.treeEdges){ const cf=cen(NT.placed[f]), cg=cen(NT.placed[g]); ctx.beginPath(); ctx.moveTo(X(cf[0]),Y(cf[1])); ctx.lineTo(X(cg[0]),Y(cg[1])); ctx.stroke(); } ctx.setLineDash([]); }
+  else { ctx.strokeStyle='rgba(72,95,199,0.75)'; ctx.lineWidth=1; for(const L of NT.grat){ ctx.beginPath(); L.forEach((q,k)=>k?ctx.lineTo(X(q[0]),Y(q[1])):ctx.moveTo(X(q[0]),Y(q[1]))); ctx.stroke(); } }
+  ctx.fillStyle='#9ca3af'; ctx.fillText(NT.kind==='tree'?(NT.name+' · edge net · seed '+S.netSeed+' · root face '+NT.root+' · dashed = spanning tree'):(NT.kind+' · sphere formulas at a = '+fmt(NT.a,4)+(NT.sphere?'':' (not equal-area off p = 2)')),10,Hh-6);
+  $('netvals').innerHTML=NT.kind==='tree'
+    ? '<span class="k">faces placed:</span> '+NT.placed.filter(Boolean).length+'/'+NT.F+' <span class="k">· tree edges:</span> '+NT.treeEdges.length+' <span class="k">· interior overlaps:</span> '+NT.overlaps+' <span class="k">· orientation fixes:</span> '+NT.fixes+'<br><span class="k">Σ net area:</span> '+fmt(NT.area)+' <span class="k">· Σ 3D face area:</span> '+fmt(NT.faceArea)
+    : '<span class="k">projected area:</span> '+fmt(NT.area)+' <span class="k">vs 4πa² = '+fmt(NT.expArea)+'</span>'+(NT.kind==='gores'?'<br><span class="k">gore-edge shear at φ = '+fmt(NT.phiMid,1)+'°:</span> '+fmt(NT.shearMeas,3)+'° <span class="k">(atan((π/12)·sin φ) = '+fmt(NT.shearExp,3)+'°)</span>':'');
+}
+
+function rowHTML(name,status,detail,ref){
+  const cls=status==='PASS'?'ok':(status==='FAIL'?'bad':'na');
+  return '<tr><td>'+name+'</td><td class="st '+cls+'">'+status+'</td><td class="k">'+detail+'</td><td class="k">'+ref+'</td></tr>';
+}
+const st=(dev,tol)=>(dev===null||!isFinite(dev))?'n/a':(Math.abs(dev)<=tol?'PASS':'FAIL');
+const rowHTMLbase=rowHTML;
+/* Rows whose maths assumes the cube / p-norm geometry — specifically its 26 symmetric
+   directions and its sign-flip octant symmetry. They are meaningful for the cube and the
+   octahedron and meaningless for the tetrahedron, dodecahedron and icosahedron, whose
+   vertices simply are not in those directions. Reporting them as FAIL would be the house
+   rule's worst case in reverse: a geometry mismatch dressed up as a physics failure. */
+const CUBE_ONLY_ROWS=['signature (₁R','p-ball ₂R','r(u) formula','[111] projection',
+  'signature spheres','vertex map','octant volume','octant patch','n = 2 section',
+  '§2.1 code-path','octant loop','Gauss–Bonnet','carrier loop'];
+function renderLedger(){
+  const L=LED, {N,p,a}=M, cf=L.cf, I=L.I;
+  const _sol=curSolid(), _gate=_sol && S.solid!=='cube';
+  const rowHTML=(name,status,detail,ref)=>
+    (_gate && CUBE_ONLY_ROWS.some(k=>name.indexOf(k)>=0))
+      ? rowHTMLbase(name,'n/a','assumes the cube/p-norm geometry (its 26 symmetric directions '+
+          'and sign-flip octant) — not applicable to the '+_sol.name,ref)
+      : rowHTMLbase(name,status,detail,ref);
+  const planar=cf.planar, curvedTol=3/(N*N), rayTol=planar?1e-9:1.5*a/(N*N);
+  const rows=[];
+  /* 1 Euler */
+  rows.push(rowHTML('V − E + F = 2 (mesh census)', st(I.nV-I.nE+I.nF-2,0), 'V '+I.nV+' E '+I.nE+' F '+I.nF+' → χ = '+(I.nV-I.nE+I.nF), 'mesh'));
+  /* 2 volume */
+  const vRel=cf.V===null?null:Math.abs(I.V-cf.V)/cf.V;
+  const isP2=Math.abs(p-2)<1e-12;
+  const specNote=rel=>(planar||rel===null)?'':' · spec 1e-3 '+(rel<=1e-3?'met':'NOT met')+' at N = '+N;
+  rows.push(rowHTML('volume, divergence theorem Σ a·(b×c)/6', cf.V===null?'n/a':st(vRel,planar?1e-12:curvedTol),
+    'V = '+fmt(I.V)+(cf.V===null?' (no closed form at this p)':' vs '+fmt(cf.V)+' rel '+fe(vRel)+' tol '+(planar?'1e-12':fe(curvedTol)+' (3/N², chordal)'))+' · order '+L.order(I.V,L.Ih.V,L.Iq.V)+specNote(vRel), '§6'));
+  const aRel=cf.A===null?null:Math.abs(I.A-cf.A)/cf.A;
+  rows.push(rowHTML('surface area Σ|(b−a)×(c−a)|/2', cf.A===null?'n/a':st(aRel,planar?1e-12:curvedTol),
+    'A = '+fmt(I.A)+(cf.A===null?'':' vs '+fmt(cf.A)+' rel '+fe(aRel))+' · order '+L.order(I.A,L.Ih.A,L.Iq.A)+specNote(aRel), '§6'));
+  /* 3 signature */
+  const d2=Math.abs(L.R2/L.R0-cf.R2/cf.R0), d1=Math.abs(L.R1/L.R0-cf.R1/cf.R0);
+  rows.push(rowHTML('signature (₁R/₀R, ₂R/₀R) from vertex radii', st(Math.max(d1,d2,L.R1spread),1e-9),
+    '('+fmt(L.R1/L.R0)+', '+fmt(L.R2/L.R0)+') vs ('+fmt(cf.R1/cf.R0)+', '+fmt(cf.R2/cf.R0)+') dev '+fe(Math.max(d1,d2))+' · 12 edge radii spread '+fe(L.R1spread), '§2.2 / §2.3'));
+  /* the spec's sampled form of the p-ball signature: min/max of the DRAWN mesh's ray-cast radius over the direction set
+     (a different measurement from the vertex-radius row above; the 26 extremal directions are in the set, so it is exact) */
+  const sigP=Math.pow(3,-Math.abs(0.5-1/(p>=P_INF?Infinity:p))), sigRay=L.rayMin/L.rayMax, sigTol=planar?1e-9:1.5/(N*N);
+  rows.push(rowHTML('p-ball ₂R/₀R = 3^(−|½−1/p|) from ray-cast mesh radii over '+DIRS.length+' directions (sampled, chordal)', st(Math.abs(sigRay-sigP),sigTol),
+    'min/max ray-cast radius '+fmt(L.rayMin)+' / '+fmt(L.rayMax)+' → '+fmt(sigRay,9)+' vs '+fmt(sigP,9)+' · tol '+(planar?'1e-9':fe(sigTol)+' (1.5/N²: between vertices an inscribed mesh sits below the surface by the chordal sag; the spec\'s 1e-6 holds for the formula, not a mesh)')+(L.rayBad?' · '+L.rayBad+' unresolved directions':''), '§2.3'));
+  /* 4 §2.1 code-path identity — exact by construction (both sides reduce to max|uᵢ|); the mesh measurement of §2.1 is the ray-cast row below */
+  rows.push(rowHTML('§2.1 code-path identity (cube): a/max(u·nᵢ) ≡ a/‖u‖∞ — exact by construction; the mesh measurement is the next row', (p>=P_INF)?st(L.dev21,1e-12):'n/a',
+    (p>=P_INF)?'max dev '+fe(L.dev21)+' over '+DIRS.length+' directions':'cube only', '§2.1'));
+  /* 5 ray-cast residual */
+  const rayKnown=planar||isP2;
+  rows.push(rowHTML('r(u) formula vs drawn mesh radial distance', rayKnown?st(L.devRay,rayTol):'n/a',
+    'max residual '+fe(L.devRay)+(rayKnown?' tol '+fe(rayTol)+(planar?' (planar faces)':' (1.5·a/N², chordal sag bound a/N²)'):' — no tolerance set off p ∈ {1, 2, ∞}: chordal error is O(h^min(p,2)) near the vertices'), '§2.1 / §7'));
+  /* 6 octant volume 1/8 and patch area */
+  rows.push(rowHTML('octant volume = ⅛ of total (patch triangles only; coordinate planes contribute 0)', st(L.IP.V/I.V-0.125,1e-12), fmt(L.IP.V/I.V,12)+' · V_oct '+fmt(L.IP.V), '§2.4'));
+  const pRel=cf.patch===null?null:Math.abs(L.IP.A-cf.patch)/cf.patch;
+  rows.push(rowHTML('octant patch area ×8 = total; vs closed form', st(Math.abs(8*L.IP.A/I.A-1),1e-12)==='FAIL'?'FAIL':(cf.patch===null?'n/a':st(pRel,planar?1e-12:curvedTol)),
+    'A_patch = '+fmt(L.IP.A)+' · 8·A_patch/A = '+fmt(8*L.IP.A/I.A,12)+(cf.patch===null?'':' · vs '+fmt(cf.patch)+' rel '+fe(pRel)), '§2.4'));
+  /* 7 Gauss–Bonnet (sphere) */
+  const gbDev=Math.max(Math.abs(L.sphSum*a*a-PI*a*a/2),Math.abs(BND.excess*a*a-PI*a*a/2));
+  rows.push(rowHTML('sphere octant Gauss–Bonnet: Σ corner angles − π = Σ spherical excess = π a²/2', isP2?st(gbDev,1e-9):'n/a',
+    isP2?('excess·a² '+fmt(BND.excess*a*a)+' · Σexcess·a² '+fmt(L.sphSum*a*a)+' · πa²/2 '+fmt(PI*a*a/2)):'p = 2 only — corner-angle excess and spherical-excess sums are sphere quantities', '§2.4'));
+  /* 8 loop */
+  const loopMeas=isP2?BND.arc:BND.chord;
+  rows.push(rowHTML('carrier loop length ('+(isP2?'geodesic-arc sum':'chord sum')+') · loop closed', cf.loop===null?'n/a':(BND.closed?st(loopMeas-cf.loop,1e-9):'FAIL'),
+    fmt(loopMeas)+(cf.loop===null?' (no closed form at this p)':' vs '+fmt(cf.loop)+' dev '+fe(loopMeas-cf.loop))+' · chord '+fmt(BND.chord)+' · '+BND.loop.length+' vertices, closed: '+BND.closed, '§2.4 / §4.1'));
+  /* 9 [111] projections — length residual (units of a) and angular residual (degrees) judged separately, each at spec §6's 1e-9 */
+  const hexRow=(stats,R,extraLen)=>{const lenDev=Math.max(Math.abs(stats.rMin-R),Math.abs(stats.rMax-R),extraLen||0), angDev=Math.max(Math.abs(stats.gapMin-60),Math.abs(stats.gapMax-60));
+    return {lenDev,angDev,status:(p>=P_INF)?((stats.k===6&&lenDev<=1e-9&&angDev<=1e-9)?'PASS':'FAIL'):'n/a'};};
+  const hexR=a*SQ23, ls=L.loopStats, h1=hexRow(ls,hexR);
+  rows.push(rowHTML('[111] projection of the octant loop = regular hexagon, radius a√(2/3), gaps 60°', h1.status,
+    'hull vertices '+ls.k+' · radius ['+fmt(ls.rMin)+', '+fmt(ls.rMax)+'] vs '+fmt(hexR)+' (dev '+fe(h1.lenDev)+', tol 1e-9) · gaps ['+fmt(ls.gapMin,4)+', '+fmt(ls.gapMax,4)+']° (dev '+fe(h1.angDev)+'°, tol 1e-9°)'+((p>=P_INF)?'':' (cube only — the LatMosaic atom)'), '§2.5 / §8'));
+  const as=L.allStats, cubeR=2*a*SQ23, h2=hexRow(as,cubeR,L.ctrR);
+  rows.push(rowHTML('[111] projection of the whole cube: 2 vertices → centre, 6 at edge·√(2/3), 60° apart', h2.status,
+    'hull vertices '+as.k+' · radius ['+fmt(as.rMin)+', '+fmt(as.rMax)+'] vs '+fmt(cubeR)+' (dev '+fe(h2.lenDev)+') · gaps dev '+fe(h2.angDev)+'° · centre pair radius '+fe(L.ctrR)+((p>=P_INF)?'':' (cube only)'), 'parent §2.7'));
+  /* 10 V_n */
+  rows.push(rowHTML('V_n peaks at n = 5 · V_n/2ⁿ strictly decreasing, n = 1…12 · V₁₀/2¹⁰ = 0.002490', (L.peakOK&&L.monoOK&&Math.abs(L.V[10]/1024-0.002490)<=1e-6)?'PASS':'FAIL',
+    'V₅ = '+fmt(L.V[5])+' (peak: '+L.peakOK+') · ratio monotone: '+L.monoOK+' · V₁₀/2¹⁰ = '+fmt(L.V[10]/1024,7)+' (exact π⁵/122880) — two distinct statements', '§2.6'));
+  /* 11 stated facts from §2.7 / §2.8 — computed where computable, labelled stated (not mesh measurements) */
+  const dihT=Math.acos(1/3)*DEG, nivenHit=[0,0.5,-0.5,1,-1].some(c=>Math.abs(1/3-c)<1e-12);
+  rows.push(rowHTML('Dehn wall (stated, §2.8): cube dihedral 90° → Dehn 0; regular-tetrahedron dihedral arccos(⅓) → Niven: cos = ⅓ ∉ {0, ±½, ±1} → irrational multiple of π',
+    (!nivenHit&&Math.abs(dihT-70.528779)<1e-6)?'PASS':'FAIL',
+    'arccos(⅓) = '+fmt(dihT,6)+'° = ∠ between adjacent body diagonals · cos 90° = '+fe(Math.cos(PI/2))+' ∈ Niven set · no dissection cube ↔ regular tetrahedron (Dehn 1901, Sydler 1965)', '§2.8'));
+  const groups=[[8,'C₂³',3],[24,'O ≅ S₄',4.585],[48,'O_h',5.585]];
+  rows.push(rowHTML('phase-group bits (stated, §2.7): log₂|C₂³| = 3, log₂|O| = 4.585, log₂|O_h| = 5.585', groups.every(([o,,b])=>Math.abs(Math.log2(o)-b)<1e-3)?'PASS':'FAIL',
+    groups.map(([o,nm])=>nm+' '+o+' → '+fmt(Math.log2(o),3)+' bits').join(' · ')+' · tier-0 phase group is C₂³ (spec §4.2)', '§2.7'));
+  /* 12 the three spheres: tangency census on the drawn vertices */
+  const expS=isP2?[26,26,26]:((p>=P_INF||p>2)?[8,12,6]:[6,12,8]);
+  const expName=(p>=P_INF)?'cube V, E, F':isP2?'all 26 class directions — the three spheres merge':(Math.abs(p-1)<1e-12?'octahedron V, E, F':(p>2?'p-ball: 8 corner / 12 edge / 6 axis directions':'p-ball: 6 axis / 12 edge / 8 corner directions'));
+  rows.push(rowHTML('signature spheres: canonical directions ON the circumsphere / midsphere / insphere = '+expS.join(' / ')+' ('+expName+')', (L.sph[0]===expS[0]&&L.sph[1]===expS[1]&&L.sph[2]===expS[2])?'PASS':'FAIL',
+    'counted '+L.sph.join(' / ')+' of 26 · all grid vertices at those radii: '+L.sphAll.join(' / ')+(Math.abs(p-1)<1e-12?' (the midsphere meets each face in its incircle; the N = '+N+' grid has rational points on it)':'')+' · radii '+fmt(L.R0,5)+' / '+fmt(L.R1,5)+' / '+fmt(L.R2,5)+' · gaps ₀R−₁R '+fmt(L.R0-L.R1,5)+', ₁R−₂R '+fmt(L.R1-L.R2,5)+' (both close at p = 2: the 2D "R − a" gap, lifted)', '§2.2'));
+  /* 13 vertex map */
+  const VM=L.vmap;
+  rows.push(rowHTML('vertex map: C₂³ orbit of the reference vertex = '+VM.expectOrbit+' points'+(p<2?' (it cannot be 6: C₂³ is not transitive on the octahedron; the transitive group is the signed permutations)':(p>=P_INF?' = all 8 cube vertices — simply transitive, vertex ↔ 3-bit phase':' = the 8 corner-direction sample points')), (VM.orbit===VM.expectOrbit&&VM.orbitDev<=1e-9)?'PASS':'FAIL',
+    'orbit '+VM.orbit+' · mirror-symmetry dev '+fe(VM.orbitDev)+(p>=2?' · parity split 4 + 4 = the two tetrahedra (stella octangula): even = V₄ rotations, odd = reflections / inversion':''), '§2.7 / §4.2'));
+  rows.push(rowHTML('minimal rotor from the reference lands on every listed vertex (rotations act transitively on S²; sign flips do not)', st(VM.maxDev,1e-12), VM.nV+' vertices · max dev '+fe(VM.maxDev), 'Cl(3,0)'));
+  /* 14 unfolder */
+  const NT=L.net;
+  if(NT.na) rows.push(rowHTML('edge net (spanning tree)','n/a',NT.msg,'unfolder'));
+  else if(NT.kind==='tree'){
+    const areaDev=Math.abs(NT.area-NT.faceArea)/NT.faceArea, allPlaced=NT.placed.every(Boolean);
+    rows.push(rowHTML('edge net: every face placed · tree = F − 1 · interior overlaps 0 · orientation fixes 0 · Σ net area = Σ 3D face area', (allPlaced&&NT.treeEdges.length===NT.F-1&&NT.overlaps===0&&NT.fixes===0&&areaDev<=1e-9)?'PASS':'FAIL',
+      NT.name+': '+NT.placed.filter(Boolean).length+'/'+NT.F+' faces · tree '+NT.treeEdges.length+' · overlaps '+NT.overlaps+' · fixes '+NT.fixes+' · area rel dev '+fe(areaDev)+' · stated: 11 distinct nets each for the cube and the octahedron, none overlapping; Dürer/Shephard (every convex polyhedron?) OPEN', 'unfolder'));
+  } else {
+    const rel=Math.abs(NT.area-NT.expArea)/NT.expArea;
+    rows.push(rowHTML('sphere unfolding ('+NT.kind+'): equal-area projection total = 4πa² (shoelace of the drawn outline)', NT.sphere?st(rel,1e-4):'n/a', 'area '+fmt(NT.area)+' vs '+fmt(NT.expArea)+' rel '+fe(rel)+(NT.sphere?' · tol 1e-4 (240 samples per edge; measured 1.4e-5 gores / sinusoidal, 5.7e-5 Mollweide)':' · sphere formulas applied to a p-ball: not equal-area'), 'unfolder'));
+    if(NT.kind==='gores') rows.push(rowHTML('Theorema Egregium (stated): K = 1/a² ≠ 0 ⇒ no isometric net — gores are equal-area but sheared; edge shear at φ = atan((π/12) sin φ)', NT.sphere?st(NT.shearMeas-NT.shearExp,1e-2):'n/a', 'at φ = '+fmt(NT.phiMid,2)+'°: '+fmt(NT.shearMeas,4)+'° vs '+fmt(NT.shearExp,4)+'° (two-sample chord; tol 0.01°) · non-zero ⇒ not conformal; equal-area and conformal cannot both hold', 'unfolder'));
+  }
+  /* 15 homogeneity */
+  rows.push(rowHTML('homogeneity: V(2R)/V(R) = 8, A(2R)/A(R) = 4', st(Math.max(Math.abs(L.I2.V/I.V-8),Math.abs(L.I2.A/I.A-4)),1e-9),
+    fmt(L.I2.V/I.V,10)+' · '+fmt(L.I2.A/I.A,10)+' · exact by construction (×2 is a power-of-two rescale; real rounding is exercised by the R-scale slider against the closed forms)', 'parent standing check'));
+  /* 12 rotor */
+  rows.push(rowHTML('rotor: sandwich = Rodrigues = three.js quaternion; unit; grade-1 · isomer axis → +z', st(Math.max(L.devRot,L.isoDev),1e-12),
+    'rotor dev '+fe(L.devRot)+' · isomer axis dev '+fe(L.isoDev), 'Cl(3,0) tab, e₃₁ sign'));
+  /* 13 2D section */
+  rows.push(rowHTML('n = 2 section: signature min/max r = 2^(−|½−1/p|)'+(p>=P_INF?' = cos(π/4)':''), st(L.s2min/L.s2max-L.sig2,1e-9),
+    fmt(L.s2min/L.s2max,9)+' vs '+fmt(L.sig2,9)+(S.n===2?' (drawn)':' (drawn at n = 2)'), '§2.2 / flavor_renderer'));
+
+  /* ---------------- TIER 1: the Platonic solids ---------------- */
+  {
+    const sol=curSolid();
+    if(sol){
+      // measured at the SOLID's own vertex / edge / face directions, via the same r(u)
+      // the mesh is built from
+      const SR=solidRadii(sol,a);
+      const g1=SR.R1/SR.R0, g2=SR.R2/SR.R0;
+      const m1=Math.abs(g1-sol.r1), m2=Math.abs(g2-sol.r2);
+      rows.push(rowHTML('tier 1 signature vector: ₁R/₀R = '+sol.f1+' &middot; ₂R/₀R = '+sol.f2,
+        st(Math.max(m1,m2),1e-12),
+        'measured '+fmt(g1,9)+' / '+fmt(g2,9)+' vs exact '+fmt(sol.r1,9)+' / '+fmt(sol.r2,9)+
+        ' (dev '+fe(m1)+', '+fe(m2)+') &middot; taken at this solid\'s own vertex/edge/face '+
+        'directions, not the cube\'s 26', '§2.2'));
+      // Euler characteristic of the SOLID (not of the mesh): V − E + F = 2
+      rows.push(rowHTML('Euler on the solid itself: V − E + F = '+sol.nV+' − '+sol.nE+' + '+sol.nF+' = 2',
+        (sol.nV-sol.nE+sol.nF===2)?'PASS':'FAIL',
+        sol.nV+' vertices, '+sol.nE+' edges, '+sol.nF+' faces &middot; '+sol.normals.length+' face normals supplied',
+        'stated'));
+      // the dual pair: same face entry, different edge entry
+      const d=SOLIDS[{cube:'oct',oct:'cube',dod:'ico',ico:'dod',tet:'tet'}[S.solid]];
+      const sameFace=Math.abs(d.r2-sol.r2)<1e-12, diffEdge=Math.abs(d.r1-sol.r1)>1e-9;
+      rows.push(rowHTML('dual pair ('+sol.name+' ↔ '+sol.dual+'): SAME face entry, DIFFERENT edge entry'+
+        (S.solid==='tet'?' — the tetrahedron is self-dual, so both match':''),
+        (S.solid==='tet') ? ((sameFace&&!diffEdge)?'PASS':'FAIL') : ((sameFace&&diffEdge)?'PASS':'FAIL'),
+        'face '+fmt(sol.r2,9)+' vs '+fmt(d.r2,9)+' &middot; edge '+fmt(sol.r1,9)+' vs '+fmt(d.r1,9)+
+        ' &middot; this is WHY the signature must be a vector', '§2.2'));
+      // §2.7 the tetrahedron has no central inversion — by-design red
+      let invOK=true;
+      for(const v of sol.V){ const nv=[-v[0],-v[1],-v[2]];
+        if(!sol.V.some(w=>Math.abs(w[0]-nv[0])<1e-9&&Math.abs(w[1]-nv[1])<1e-9&&Math.abs(w[2]-nv[2])<1e-9)) invOK=false; }
+      rows.push(rowHTML((S.solid==='tet'
+          ? '<span class="dsg">−V = V for the tetrahedron (it cannot: T_d has NO central inversion)</span>'
+          : '−V = V: this solid contains the central inversion'),
+        (invOK===sol.inversion)?'PASS':'FAIL',
+        (S.solid==='tet'
+          ? 'measured: −V ≠ V &mdash; so C₂³ ⊄ T_d and only the V₄ half acts; the octant is NOT a '+
+            'symmetry cell here, which is exactly why the tetrahedron is in tier 1'
+          : 'measured: −V = V, so the full octant group C₂³ acts'), '§2.7'));
+      // §2.8 the Dehn wall, stated with both dihedrals
+      rows.push(rowHTML('<span class="dsg">stated — the Dehn wall: no cube ↔ regular-tetrahedron dissection</span>','stated',
+        'cube dihedral 90° (Dehn invariant 0) vs tetrahedron arccos(1/3) = '+fmt(Math.acos(1/3)*DEG,6)+
+        '° &middot; cos = 1/3 ∉ {0,±½,±1} so Niven makes it an irrational multiple of π ⇒ nonzero Dehn '+
+        'invariant (Dehn 1901; Sydler 1965 completeness). In 2D Wallace–Bolyai–Gerwien makes every '+
+        'equal-area dissection free; 3D does not.', '§2.8'));
+    } else {
+      rows.push(rowHTML('tier 1 signature vector (Platonic solids)','n/a','select a solid above','§2.2'));
+      rows.push(rowHTML('dual pair: same face entry, different edge entry','n/a','select a solid above','§2.2'));
+      rows.push(rowHTML('−V = V (central inversion)','n/a','select a solid above','§2.7'));
+    }
+  }
+  $('ledger').innerHTML=rows.join('');
+
+  /* readout values */
+  const sigNote=(p>=P_INF)?'<span class="k">no integer n gives cos(π/n) = 1/√3: n = π/acos(1/√3) = '+fmt(PI/Math.acos(SQ13),3)+'</span><br>':'';
+  const kepNote=isP2?'<span class="k">Kepler (stated, §2.2): densest packing π/√18 = '+fmt(PI/Math.sqrt(18))+', gap '+fmt(1-PI/Math.sqrt(18))+' — the sphere does not tile ℝ³; Kelvin problem OPEN</span><br>':'';
+  $('vals').innerHTML=
+    '<span class="k">flavor:</span> <span class="a">'+cf.name+'</span><br>'+
+    '<span class="k">p:</span> '+(p>=P_INF?'∞ (exact max)':fmt(p,4))+' <span class="k">· a = r(axis):</span> '+fmt(a)+' <span class="k">· N:</span> '+N+'<br>'+
+    '<span class="k">₀R ₁R ₂R (drawn):</span> '+fmt(L.R0,5)+' '+fmt(L.R1,5)+' '+fmt(L.R2,5)+'<br>'+
+    '<span class="k">(₁R/₀R, ₂R/₀R):</span> <span class="a">('+fmt(L.R1/L.R0)+', '+fmt(L.R2/L.R0)+')</span> <span class="k">pred</span> ('+fmt(cf.R1/cf.R0)+', '+fmt(cf.R2/cf.R0)+')<br>'+
+    sigNote+kepNote+
+    '<span class="k">volume / area:</span> '+fmt(I.V)+' / '+fmt(I.A)+'<br>'+
+    '<span class="k">χ:</span> V '+I.nV+' − E '+I.nE+' + F '+I.nF+' = '+(I.nV-I.nE+I.nF)+'<br>'+
+    '<span class="k">octant: V/8 · patch area · loop:</span> '+fmt(L.IP.V,5)+' · '+fmt(L.IP.A,5)+' · '+fmt(BND.chord,5)+'<br>'+
+    '<span class="k">[111] octant hexagon radius:</span> '+fmt(a*SQ23)+' <span class="k">· cube:</span> '+fmt(2*a*SQ23)+'<br>'+
+    '<span class="k">V_'+S.n+' = '+fmt(L.V[S.n])+' · V_n/2ⁿ = '+fmt(L.V[S.n]/Math.pow(2,S.n))+'</span>';
+}
+
+/* per-frame: the camera is the projector; the parent Stage-2 demo is measured through it */
+let lastView='';
+function updateViewRows(){                                  // called AFTER renderer.render so the camera matrices are this frame's
+  const q=obj.quaternion, qi=q.clone().invert();
+  const dW=controls.target.clone().sub(cam.position).normalize();       // view direction toward the orbit target
+  const dB=dW.clone().applyQuaternion(qi);
+  const faceAng=Math.acos(clamp1(Math.max(Math.abs(dB.x),Math.abs(dB.y),Math.abs(dB.z))))*DEG;
+  let diagAng=Infinity, diagName='';
+  for(const d of DIAG_BODY){                                // atan2 form: linear in the rounding error near 0°, where acos loses ~8 digits
+    const ang=Math.atan2(new THREE.Vector3().crossVectors(dB,d.t).length(),Math.abs(dB.dot(d.t)))*DEG;
+    if(ang<diagAng){diagAng=ang;diagName=d.name;}
+  }
+  const a=M.a, pts=[];
+  for(const s of CORNERS){
+    const id=M.idAt(s[0]*S.N/2,s[1]*S.N/2,s[2]*S.N/2);
+    const v=new THREE.Vector3(...M.P(id)).applyQuaternion(q).project(cam);
+    pts.push([v.x*cam.right/cam.zoom, v.y*cam.top/cam.zoom]);
+  }
+  const cl=clusterPoints(pts,1e-7*LED.R0);
+  const onDiag=diagAng<1e-6, isCube=M.p>=P_INF;
+  let status='n/a', detail='';
+  if(onDiag&&!isCube) detail='cube only (parent Stage-2 demo) — on the body diagonal, but this flavor\'s corner directions are not at the cube radius';
+  else if(onDiag){
+    const ctr=cl.filter(c=>c.n===2), outer=cl.filter(c=>c.n===1);
+    const ps=outer.length===6?polygonStats(outer.map(c=>[c.x,c.y])):null;
+    const target=2*a*SQ23;
+    const dev=ps?Math.max(Math.abs(ps.rMin-target),Math.abs(ps.rMax-target),Math.abs(ps.gapMin-60),Math.abs(ps.gapMax-60),ctr.length===1?Math.hypot(ctr[0].x,ctr[0].y):1,Math.abs(faceAng-MAGIC)):1;
+    status=st(dev,1e-8);
+    detail='clusters '+cl.length+' (centre pair '+ctr.length+') · six at radius ['+(ps?fmt(ps.rMin,6)+', '+fmt(ps.rMax,6):'—')+'] vs '+fmt(target,6)+' · gaps ['+(ps?fmt(ps.gapMin,5)+', '+fmt(ps.gapMax,5):'—')+']°';
+  } else detail='orbit to a body diagonal or press snap (∠ nearest diagonal '+fmt(diagAng,4)+'°)';
+  const html='<span class="k">view ∠ nearest face normal:</span> <span class="a">'+fmt(faceAng,4)+'°</span> <span class="k">(magic '+fmt(MAGIC,4)+'°)</span><br>'+
+    '<span class="k">view ∠ nearest body diagonal '+diagName+':</span> '+fmt(diagAng,4)+'°<br>'+
+    '<span class="k">8 → 6 collapse through the camera:</span> <span class="'+(status==='PASS'?'ok':status==='FAIL'?'bad':'na')+'">'+status+'</span><br><span class="k">'+detail+'</span>';
+  if(html!==lastView){$('viewrows').innerHTML=html;lastView=html;}
+}
+
+/* ================================================================
+   [111] GHOST — body frame, 2D canvas: the octant patch outline, its three quarter-face pieces,
+   the whole-object silhouette, the target rings. For the cube this must be the LatMosaic atom.
+================================================================ */
+function drawGhost(){
+  const c=$('ghost'), ctx=c.getContext('2d'), W=c.width, Hh=c.height, a=M.a, N=M.N;
+  const R=2*a*SQ23*1.18, sc=(W/2)/R, X=x=>W/2+x*sc, Y=y=>Hh/2-y*sc;
+  ctx.fillStyle='#000'; ctx.fillRect(0,0,W,Hh);
+  ctx.strokeStyle='rgba(80,47,165,0.25)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(W/2,0); ctx.lineTo(W/2,Hh); ctx.moveTo(0,Hh/2); ctx.lineTo(W,Hh/2); ctx.stroke();
+  /* silhouette */
+  const allPts=[]; for(let i=0;i<M.nv;i++)allPts.push(proj111(M.P(i)));
+  const hull=convexHull(allPts);
+  ctx.strokeStyle='rgba(156,163,175,0.55)'; ctx.lineWidth=1.2; ctx.beginPath();
+  hull.forEach((q,i)=>i?ctx.lineTo(X(q[0]),Y(q[1])):ctx.moveTo(X(q[0]),Y(q[1]))); ctx.closePath(); ctx.stroke();
+  /* three quarter-face pieces (+x, +y, +z faces, i,j ≥ N/2), each outlined and lightly filled */
+  const cols=['rgba(72,95,199,0.22)','rgba(0,158,134,0.22)','rgba(226,34,17,0.18)'];
+  for(let ax=0;ax<3;ax++){
+    const b1=(ax+1)%3,b2=(ax+2)%3, path=[];
+    const at=(i,j)=>{const cc=[0,0,0]; cc[ax]=N/2; cc[b1]=i; cc[b2]=j; return proj111(M.P(M.idAt(cc[0],cc[1],cc[2])));};
+    for(let i=0;i<=N/2;i++)path.push(at(i,0));
+    for(let j=1;j<=N/2;j++)path.push(at(N/2,j));
+    for(let i=N/2-1;i>=0;i--)path.push(at(i,N/2));
+    for(let j=N/2-1;j>0;j--)path.push(at(0,j));
+    ctx.fillStyle=cols[ax]; ctx.strokeStyle='rgba(255,255,255,0.35)'; ctx.lineWidth=1;
+    ctx.beginPath(); path.forEach((q,i)=>i?ctx.lineTo(X(q[0]),Y(q[1])):ctx.moveTo(X(q[0]),Y(q[1]))); ctx.closePath(); ctx.fill(); ctx.stroke();
+  }
+  /* target rings */
+  ctx.setLineDash([5,4]); ctx.strokeStyle='rgba(0,158,134,0.8)'; ctx.lineWidth=1.2;
+  for(const r of [a*SQ23,2*a*SQ23]){ctx.beginPath(); ctx.arc(W/2,Hh/2,r*sc,0,2*PI); ctx.stroke();}
+  ctx.setLineDash([]);
+  /* the carrier loop */
+  ctx.strokeStyle='#fff'; ctx.lineWidth=1.8; ctx.beginPath();
+  BND.loop.forEach((id,i)=>{const q=proj111(M.P(id)); i?ctx.lineTo(X(q[0]),Y(q[1])):ctx.moveTo(X(q[0]),Y(q[1]));}); ctx.closePath(); ctx.stroke();
+  /* the corner (a,a,a) projects to the centre; mark it */
+  ctx.fillStyle='#E22211'; ctx.beginPath(); ctx.arc(W/2,Hh/2,3,0,2*PI); ctx.fill();
+  ctx.fillStyle='#9ca3af'; ctx.font='11px Courier New';
+  ctx.fillText('a√(2/3) = '+fmt(a*SQ23,4),8,Hh-24); ctx.fillText('2a√(2/3) = '+fmt(2*a*SQ23,4),8,Hh-10);
+  const ls=LED.loopStats, as=LED.allStats;
+  $('ghostvals').innerHTML='<span class="k">octant loop hull:</span> '+ls.k+' vertices, r ∈ ['+fmt(ls.rMin,4)+', '+fmt(ls.rMax,4)+']<br>'+
+    '<span class="k">silhouette hull:</span> '+as.k+' vertices, r ∈ ['+fmt(as.rMin,4)+', '+fmt(as.rMax,4)+']<br>'+
+    '<span class="k">hex_beam atom:</span> three 60/120 rhombi, centre = the corner (a,a,a)';
+}
+
+function renderVTable(){
+  const L=LED; let h='<tr><th>n</th><th>V_n</th><th>V_n/2ⁿ</th><th>cube ₁R/₀R</th><th>cube/cross facet 1/√n</th><th>simplex ₁R/₀R</th><th>simplex facet 1/n</th></tr>';
+  for(let n=1;n<=12;n++){
+    const cur=n===S.n?' class="cur"':'';
+    h+='<tr'+cur+'><td>'+n+(n===5?' ★':'')+'</td><td class="'+(n===5?'hi':'')+'">'+fmt(L.V[n])+'</td><td class="'+(n===10?'hi':'')+'">'+fmt(L.V[n]/Math.pow(2,n))+'</td><td>'+(n>1?fmt(Math.sqrt((n-1)/n)):'—')+'</td><td>'+fmt(1/Math.sqrt(n))+'</td><td>'+(n>1?fmt(Math.sqrt((n-1)/(2*n))):'—')+'</td><td>'+fmt(1/n)+'</td></tr>';
+  }
+  $('vtab').innerHTML=h;
+}
+
+/* ================================================================
+   ORIENTATION, CAMERA, CONTROLS
+================================================================ */
+function stopPlay(){ S.playing=false; $('bPlay').textContent='play'; $('bPlay').classList.remove('active'); }
+/* camera onto world direction d (looking at the origin) with an up-vector ⊥ the view, so OrbitControls never
+   clamps the pole and the view is exact; controls are recreated to kill any damping velocity */
+function viewAlong(d){
+  const dist=cam.position.length();
+  cam.position.copy(d.clone().normalize().multiplyScalar(dist));
+  let up=new THREE.Vector3(0,0,1).addScaledVector(d,-d.z);
+  if(up.lengthSq()<1e-12) up=new THREE.Vector3(1,0,0).addScaledVector(d,-d.x);
+  cam.up.copy(up.normalize()); cam.lookAt(0,0,0);
+  controls=makeControls();
+}
+function setIsomer(kind){
+  S.iso=kind; R_iso=rotorTo(ISO_DIR[kind],new THREE.Vector3(0,0,1));
+  ['Face','Vertex','Edge'].forEach(k=>$('bIso'+k).classList.toggle('active',k.toLowerCase()===kind));
+  setAxis(S.axis); stopPlay(); S.orbAngle=0;
+  viewAlong(new THREE.Vector3(0,0,1));   // spec §7: the axis class is rotated onto the VIEW axis — so look along it
+  dirty=true;
+}
+function setAxis(ax){
+  S.axis=ax;
+  axisWorld=ax==='x'?new THREE.Vector3(1,0,0):ax==='y'?new THREE.Vector3(0,1,0):ax==='z'?new THREE.Vector3(0,0,1):sandwich(R_iso,DIAG_BODY[0].t).v.normalize();
+}
+function updateOrientation(){
+  const Rtot=gmul(rotor(axisWorld,S.orbAngle/DEG),R_iso);
+  obj.quaternion.copy(rotorToQuat(Rtot));
+}
+function snapMagic(){
+  stopPlay(); updateOrientation();
+  viewAlong(DIAG_BODY[0].t.clone().applyQuaternion(obj.quaternion));   // the body diagonal in world coordinates
+}
+function resetView(){
+  cam.up.set(0,0,1); cam.position.set(2.6,-2.1,1.7).normalize().multiplyScalar(6); cam.zoom=1; cam.updateProjectionMatrix(); cam.lookAt(0,0,0);
+  controls=makeControls();
+}
+
+/* controls wiring — the slider is log-scaled (p = 2^s, step 0.02); the numeric input sets p exactly */
+function setPValue(p){
+  S.p=(p>=P_INF)?Infinity:p;
+  $('pS').value=(S.p>=P_INF)?6:Math.log2(S.p);
+  $('pN').value=(S.p>=P_INF)?64:+S.p.toFixed(4);
+  $('pv').textContent=(S.p>=P_INF)?'∞ (exact cube)':S.p.toFixed(3)+(Math.abs(S.p-2)<1e-12?' (sphere)':Math.abs(S.p-1)<1e-12?' (octahedron)':'');
+  $('pNv').textContent=(S.p>=P_INF)?'∞':S.p.toFixed(4);
+  $('bCube').classList.toggle('active',S.p>=P_INF&&S.a===0.5); $('bSphere').classList.toggle('active',Math.abs(S.p-2)<1e-12&&S.a===1);
+  dirty=true;
+}
+const setP=s=>setPValue((s>=6)?Infinity:Math.pow(2,s));
+$('bCube').addEventListener('click',()=>{S.solid='pnorm';$('solSel').value='pnorm';$('solv').textContent='off';S.a=0.5;setPValue(Infinity);});
+$('bSphere').addEventListener('click',()=>{S.solid='pnorm';$('solSel').value='pnorm';$('solv').textContent='off';S.a=1;setPValue(2);});
+$('solSel').addEventListener('change',()=>{
+  S.solid=$('solSel').value;
+  const s=curSolid();
+  $('solv').textContent = s ? s.name : 'off';
+  // the p controls are meaningless while a Platonic solid drives the mesh
+  for(const id of ['pS','pN','bP1','bP15','bP2','bPinf'])
+    if($(id)){ $(id).disabled=!!s; $(id).style.opacity=s?0.4:1; }
+  dirty=true; rebuild();
+});
+$('bP1').addEventListener('click',()=>setPValue(1));
+$('bP15').addEventListener('click',()=>setPValue(1.5));
+$('bP2').addEventListener('click',()=>setPValue(2));
+$('bPinf').addEventListener('click',()=>setPValue(Infinity));
+$('pS').addEventListener('input',()=>setP(+$('pS').value));
+$('pN').addEventListener('change',()=>{const v=+$('pN').value; if(isFinite(v)&&v>=1) setPValue(v>=P_INF?Infinity:v);});
+$('bIsoFace').addEventListener('click',()=>setIsomer('face'));
+$('bIsoVertex').addEventListener('click',()=>setIsomer('vertex'));
+$('bIsoEdge').addEventListener('click',()=>setIsomer('edge'));
+$('NS').addEventListener('change',()=>{S.N=+$('NS').value;$('Nv').textContent=S.N;dirty=true;});
+$('scS').addEventListener('input',()=>{S.scale=+$('scS').value;$('scv').textContent=S.scale.toFixed(2);dirty=true;});
+$('axS').addEventListener('change',()=>setAxis($('axS').value));
+$('rateS').addEventListener('input',()=>{S.rate=+$('rateS').value;$('ratev').textContent=S.rate;});
+$('bPlay').addEventListener('click',()=>{ if(S.playing) stopPlay(); else {S.playing=true;$('bPlay').textContent='pause';$('bPlay').classList.add('active');} });
+$('bSnap').addEventListener('click',snapMagic);
+$('bReset').addEventListener('click',()=>{S.orbAngle=0;stopPlay();resetView();dirty=true;});
+$('nS').addEventListener('input',()=>{S.n=+$('nS').value;$('nv').textContent=S.n;if(!LED)return;applyVisibility();renderLedger();renderVTable();});
+const SHOW_IDS=[['cPatch','patch'],['cLoop','loop'],['cGhost','ghost'],['cNormals','normals'],['cWire','wire'],['cSphC','sphC'],['cSphM','sphM'],['cSphI','sphI'],['cOuter','outer']];
+for(const [id,k] of SHOW_IDS) $(id).addEventListener('change',()=>{S.show[k]=$(id).checked;if(LED)applyVisibility();});
+const renet=()=>{ if(!LED)return; LED.net=computeNet(); renderLedger(); drawNet(); };
+$('netMode').addEventListener('change',()=>{S.netMode=$('netMode').value;renet();});
+$('bNetSeed').addEventListener('click',()=>{S.netSeed++;renet();});
+/* startup: push S into the controls — a reloaded page may restore stale form values that S never saw */
+function syncControls(){
+  $('NS').value=String(S.N); $('Nv').textContent=S.N; $('scS').value=S.scale; $('scv').textContent=S.scale.toFixed(2);
+  $('axS').value=S.axis; $('rateS').value=S.rate; $('ratev').textContent=S.rate; $('nS').value=S.n; $('nv').textContent=S.n; $('netMode').value=S.netMode;
+  for(const [id,k] of SHOW_IDS) $(id).checked=S.show[k];
+}
+
+/* ================================================================
+   FRAME LOOP — rebuilds are coalesced to one per frame (dirty flag)
+================================================================ */
+let last=performance.now();
+function frame(now){
+  requestAnimationFrame(frame);
+  const dt=Math.min(0.1,(now-last)/1000); last=now;
+  if(dirty){dirty=false;rebuild();}
+  if(S.playing){S.orbAngle=(S.orbAngle+S.rate*dt)%360;}
+  updateOrientation();
+  controls.update();
+  renderer.render(scene,cam);          // render first: it refreshes the camera matrices the view rows project through
+  updateViewRows();
+}
+syncControls();
+setPValue(Infinity);
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

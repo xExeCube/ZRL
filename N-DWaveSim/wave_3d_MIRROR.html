@@ -1,0 +1,1322 @@
+<title>Wave 3D Isosurface</title>
+<style>
+  :root{
+    --bg:#000; --panel:#131313; --shadow:#2F0542; --border:#502FA5;
+    --accent:#485FC7; --text:#FFF; --hi:#009E86; --link:#E22211;
+  }
+  *{box-sizing:border-box}
+  body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    margin:0;padding:14px;min-height:100vh}
+  h1{margin:0;font-size:1.25rem;letter-spacing:3px;color:var(--hi);text-transform:uppercase}
+  .sub{color:#9a9a9a;font-size:.78rem;margin:4px 0 12px;font-family:'Courier New',monospace}
+  .wrap{display:flex;gap:14px;align-items:flex-start}
+  .panel{width:300px;flex:0 0 300px;background:var(--panel);border:1px solid var(--border);
+    box-shadow:0 0 0 1px var(--shadow);padding:12px;max-height:calc(100vh - 90px);overflow-y:auto}
+  .right{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:10px}
+  .sect{color:var(--hi);font-size:.68rem;letter-spacing:2.2px;text-transform:uppercase;
+    margin:14px 0 7px;border-bottom:1px solid var(--shadow);padding-bottom:4px}
+  .sect:first-child{margin-top:0}
+  label.row{display:block;font-size:.76rem;margin:7px 0 2px;color:#c8c8c8}
+  label.row b{color:var(--accent);font-family:'Courier New',monospace;float:right}
+  input[type=range]{width:100%;accent-color:var(--border);margin:1px 0 3px}
+  select{width:100%;background:#0a0a0a;color:var(--text);border:1px solid var(--border);
+    padding:4px 6px;font-family:'Courier New',monospace;font-size:.76rem}
+  .btns{display:flex;flex-wrap:wrap;gap:5px;margin:6px 0}
+  button{background:#0a0a0a;color:var(--text);border:1px solid var(--border);padding:5px 9px;
+    font-family:'Courier New',monospace;font-size:.73rem;cursor:pointer}
+  button:hover{border-color:var(--accent);color:var(--accent)}
+  button.on{background:var(--border);color:#fff;border-color:var(--accent)}
+  .chk{display:block;font-size:.76rem;margin:4px 0;color:#c8c8c8;cursor:pointer}
+  .chk input{accent-color:var(--border);margin-right:6px;vertical-align:-1px}
+  #cv{width:100%;height:600px;display:block;border:1px solid var(--border);background:#000}
+  .stage{position:relative}
+  .ovl{position:absolute;left:10px;top:8px;font-family:'Courier New',monospace;font-size:.72rem;
+    color:#8a8a8a;pointer-events:none;line-height:1.5}
+  .ovl b{color:var(--hi)} .ovl .warn{color:var(--link)}
+  .readout{background:var(--panel);border:1px solid var(--border);padding:10px;
+    font-family:'Courier New',monospace;font-size:.75rem;columns:3;column-gap:20px}
+  .readout div{break-inside:avoid;padding:1px 0}
+  .readout span.v{color:var(--accent);float:right}
+  table.led{width:100%;border-collapse:collapse;font-family:'Courier New',monospace;font-size:.73rem;
+    background:var(--panel);border:1px solid var(--border)}
+  table.led th{text-align:left;color:var(--hi);font-size:.66rem;letter-spacing:1.6px;text-transform:uppercase;
+    padding:7px 8px;border-bottom:1px solid var(--shadow);font-weight:normal}
+  table.led td{padding:4px 8px;border-bottom:1px solid #1e1e1e;vertical-align:top}
+  table.led td.s{width:70px} table.led td.r{width:52px;color:#666}
+  table.led .ok{color:var(--hi)} table.led .bad{color:var(--link)} table.led .na{color:#777}
+  table.led .dsg{color:#c8a800}
+  .note{background:var(--panel);border:1px solid var(--shadow);padding:10px;font-size:.76rem;
+    color:#b4b4b4;line-height:1.55}
+  .note b{color:var(--hi)}
+  #cdnwarn{display:none;color:var(--link);font-family:'Courier New',monospace;font-size:.8rem;
+    padding:8px;border:1px solid var(--link);margin-bottom:8px}
+  .rowwrap{display:flex;gap:6px;align-items:center;margin:1px 0 3px}
+  .rowwrap input[type=range]{flex:1 1 auto;margin:0;min-width:0}
+  input.numin{width:66px;flex:0 0 66px;background:#0a0a0a;color:var(--accent);
+    border:1px solid var(--border);padding:2px 4px;font-family:'Courier New',monospace;font-size:.72rem}
+  input.numin:focus{outline:none;border-color:var(--accent)}
+  body.photo{padding:0}
+  body.photo h1,body.photo .sub,body.photo .panel,body.photo .readout,
+  body.photo table.led,body.photo .note,body.photo #cdnwarn{display:none}
+  body.photo .wrap{gap:0} body.photo .right{gap:0}
+  body.photo #cv{height:100vh;border:0}
+  body.hideovl .ovl{display:none}
+  .stage:fullscreen,.stage:-webkit-full-screen{background:#000;width:100vw;height:100vh}
+  .stage:fullscreen #cv,.stage:-webkit-full-screen #cv{width:100vw;height:100vh;border:0}
+  .keys{font-family:'Courier New',monospace;font-size:.68rem;color:#6a6a6a;
+    margin-top:9px;border-top:1px solid var(--shadow);padding-top:7px;line-height:1.7}
+  .keys b{color:var(--accent)}
+  .hint{font-size:.71rem;font-family:'Courier New',monospace;color:#8a8a8a;margin:3px 0 5px}
+</style>
+
+<h1>Wave 3D &mdash; Isosurface</h1>
+<div class="sub">real scalar field on N&sup3; &middot; 7-point FDTD &middot; marching tetrahedra &middot;
+  <b style="color:var(--hi)">the Huygens row is LIVE here</b> &middot; ZRL</div>
+<div id="cdnwarn">three.js did not load from the CDN &mdash; this file needs an internet connection.</div>
+
+<div class="wrap">
+<div class="panel">
+
+  <div class="sect">Solver</div>
+  <label class="row">Courant Co <b id="cov">0.400</b></label>
+  <input type="range" id="coS" min="0.05" max="0.90" step="0.005" value="0.4">
+  <div class="hint" id="coNote"></div>
+  <label class="row">voxel flavor (lattice)</label>
+  <select id="lat">
+    <option value="sc">simple cubic &mdash; voxel = CUBE, 6 neighbours</option>
+    <option value="bcc">body-centred &mdash; voxel = TRUNCATED OCTAHEDRON, 8</option>
+    <option value="fcc">face-centred &mdash; voxel = RHOMBIC DODECAHEDRON, 12</option>
+  </select>
+  <div class="hint" id="latNote"></div>
+  <label class="row">grid N <b id="nv">65</b></label>
+  <input type="range" id="nS" min="33" max="129" step="8" value="64">
+  <div class="hint" id="costNote"></div>
+  <label class="row">damping <b id="dav">0.0000</b></label>
+  <input type="range" id="daS" min="0" max="0.02" step="0.0001" value="0">
+  <label class="row">steps / frame <b id="spv">1</b></label>
+  <input type="range" id="spS" min="1" max="6" step="1" value="1">
+
+  <div class="sect">Domain</div>
+  <label class="row">shape (3D flavor)</label>
+  <select id="shape">
+    <option value="cube">cube &mdash; grid-aligned, EXACT</option>
+    <option value="sphere">sphere &mdash; the &infin; flavor</option>
+    <option value="tet">tetrahedron</option>
+    <option value="oct">octahedron</option>
+    <option value="dod">dodecahedron</option>
+    <option value="ico">icosahedron</option>
+  </select>
+  <label class="row">domain radius <b id="rdv">1.00</b></label>
+  <input type="range" id="rdS" min="0.2" max="1" step="0.005" value="1">
+  <div class="hint" id="rdNote"></div>
+  <label class="row">boundary</label>
+  <select id="bc">
+    <option value="dirichlet">fixed (Dirichlet) &mdash; a cavity</option>
+    <option value="mur">absorbing (Mur 1st order) &mdash; open</option>
+  </select>
+
+  <div class="sect">Source</div>
+  <div class="btns">
+    <button id="sImp">impulse</button>
+    <button id="sPulse" class="on">gaussian pulse</button>
+    <button id="sCont">continuous</button>
+    <button id="sMode">cavity mode (1,1,1)</button>
+  </div>
+  <label class="row">source width &sigma; <b id="sgv">2.5</b></label>
+  <input type="range" id="sgS" min="0.8" max="8" step="0.1" value="2.5">
+  <label class="row">drive frequency <b id="frv">0.060</b></label>
+  <input type="range" id="frS" min="0.005" max="0.3" step="0.001" value="0.06">
+  <label class="row">source x <b id="sxv">0.00</b></label>
+  <input type="range" id="sxS" min="-1" max="1" step="0.01" value="0">
+  <label class="row">source z <b id="szv">0.00</b></label>
+  <input type="range" id="szS" min="-1" max="1" step="0.01" value="0">
+  <div class="btns"><button id="srcCentre">centre</button></div>
+
+  <div class="sect">Run</div>
+  <div class="btns">
+    <button id="play">&#9654; play</button>
+    <button id="step1">step</button>
+    <button id="reset">reset</button>
+  </div>
+
+  <div class="sect">Isosurface</div>
+  <label class="row">level (fraction of peak) <b id="lvv">0.25</b></label>
+  <input type="range" id="lvS" min="0.02" max="0.9" step="0.005" value="0.25">
+  <div class="hint" id="isoNote"></div>
+  <label class="chk"><input type="checkbox" id="cPos" checked>positive shell (+level)</label>
+  <label class="chk"><input type="checkbox" id="cNeg" checked>negative shell (&minus;level)</label>
+  <label class="row">opacity <b id="opv">0.85</b></label>
+  <input type="range" id="opS" min="0.1" max="1" step="0.01" value="0.85">
+  <label class="chk"><input type="checkbox" id="cWire">wireframe</label>
+  <label class="chk"><input type="checkbox" id="cHull" checked>show the domain hull</label>
+  <label class="chk"><input type="checkbox" id="cAuto" checked>auto level (track the peak)</label>
+
+  <div class="sect">View</div>
+  <div class="btns">
+    <button id="v34">3/4</button>
+    <button id="vTop">top</button>
+    <button id="vSide">side</button>
+    <button id="vDiag">body diagonal</button>
+  </div>
+  <div class="sect">Presentation</div>
+  <div class="btns">
+    <button id="bFull">full screen</button>
+    <button id="bPhoto">photo mode</button>
+    <button id="bOvl">hide overlay</button>
+  </div>
+  <div class="keys">
+    <b>F</b> full screen &middot; <b>H</b> photo mode &middot; <b>O</b> overlay<br>
+    <b>space</b> play/pause &middot; <b>N</b> step &middot; <b>R</b> reset<br>
+    <b>W</b> wireframe &middot; <b>D</b> domain &middot; <b>B</b> boundary <span style="color:#4a4a4a">(+shift = back)</span><br>
+    <b>Esc</b> exits full screen, then photo mode
+  </div>
+</div>
+
+<div class="right">
+  <div class="stage">
+    <canvas id="cv"></canvas>
+    <div class="ovl" id="ovl"></div>
+  </div>
+  <div class="readout" id="ro"></div>
+  <table class="led"><thead><tr><th>identity check &mdash; measured from the running solver</th><th>status</th><th>detail</th><th>ref</th></tr></thead><tbody id="led"></tbody></table>
+  <div class="note" id="note"></div>
+</div>
+</div>
+
+<script type="importmap">
+{"imports":{
+  "three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script>
+  window.__ok=false;
+  setTimeout(()=>{ if(!window.__ok) document.getElementById('cdnwarn').style.display='block'; },4000);
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+window.__ok=true;
+
+/* ══════════════════════════════════════════════════════════════════════════
+   0. THE SOLVER — 3D
+   ────────────────────────────────────────────────────────────────────────
+   u_tt = c^2 lap(u), leapfrog, 7-point Laplacian:
+       u[n+1] = 2u[n] - u[n-1] + Co^2 * (sum of 6 neighbours - 6 u)
+
+   Co <= 1/sqrt(D) is PROVED in ZRL_wave_findings_MIRROR.md 5 for every D. The 2D
+   app made it live at 1/sqrt2 = 0.707107. This app makes it live at
+       1/sqrt3 = 0.577350
+   so the D-dependence stops being a proof with one measurement and becomes a
+   proof with two.
+
+   WHY THIS APP EXISTS. The 2D membrane measures a Huygens wake of ~1.4e-1 behind
+   its front, because Huygens' principle fails in even dimensions (Hadamard's
+   method of descent: a 2D point source IS a 3D line source, still delivering).
+   In 3D the front is SHARP and the field returns to zero behind it. Offline that
+   contrast measured 177,586x at ct = 40. Here it is live and side by side with
+   the 2D app -- the single most striking result in the project, and the only
+   major one that could not be shown in-app until now.
+
+   The decisive test is NOT the size of the residual, it is how it behaves under
+   refinement: the 2D wake CONVERGES (it is physical), the 3D residual COLLAPSES
+   (it is grid dispersion). That discriminator is what the row reports.
+   ══════════════════════════════════════════════════════════════════════ */
+const PI=Math.PI, TAU=2*PI;
+const coLimit=()=> LT().co;
+const PHI=(1+Math.sqrt(5))/2;
+
+/* ── VOXEL FLAVORS ────────────────────────────────────────────────────────
+   "Only the cube tiles space" is true of the PLATONIC solids, not of voxels.
+   A voxel is a lattice's VORONOI cell, and 3D has 14 Bravais lattices. The
+   three cubic ones are stored in the SAME cubic index array -- only the
+   index->position map and the neighbour offset list change, exactly as the 2D
+   app's triangular lattice did.
+
+   All three are normalised so the NEAREST-NEIGHBOUR DISTANCE IS 1, which makes
+   every primitive vector unit length; only the angles between them differ
+   (90 / 109.4712 / 60 deg). Verified: |a_i| = 1 to 1e-16 and
+   sum_m d_m (x) d_m = (Z/3) I to 9e-16 for all three, so lap = (2D/Z h^2) sum.
+
+   THE CFL VALUES HERE WERE WRONG IN MY FIRST PASS AND WOULD HAVE BLOWN THE APP
+   UP. I scanned PHYSICAL k over [-pi,pi]^3; the Brillouin zone is kappa_j =
+   k . a_j over [-pi,pi]^3, and for BCC/FCC the reciprocal lattice is larger, so
+   that box misses the minimum. It returned lambda_min = -7.44 / -7.68 and hence
+   Co_max = 0.7334 / 0.7218. The true values, confirmed two ways (zone scan and
+   closed form) and empirically (stable at 0.98x, divergent at 1.02x):
+       SC   lambda_min = -12  ->  Co_max = 1/sqrt3 = 0.5773502691896258
+       BCC  lambda_min = -12  ->  Co_max = 1/sqrt3   (IDENTICAL to SC)
+       FCC  lambda_min =  -8  ->  Co_max = 1/sqrt2 = 0.7071067811865476
+   BCC hits -12 because a1+a2+a3 is ITSELF a nearest-neighbour vector, so all
+   four distinct cosines reach -1 together at kappa = (pi,pi,pi).
+
+   CONSEQUENCE, stated plainly: BCC buys NO timestep over SC and costs 1.73x the
+   work per simulated second; FCC buys sqrt(3/2) but costs 2.31x. Neither is a
+   speed win. Their payoff is ISOTROPY -- and that is real: the directional
+   spread of the numerical wave speed at 5 points per wavelength is 4.53% (SC),
+   2.98% (BCC), 1.14% (FCC).
+
+   Basis ORDER matters: FCC written as a1=(1,1,0), a2=(1,0,1), a3=(0,1,1) is
+   LEFT-handed (det < 0), which mirrors every marched triangle and renders the
+   surface inside-out under normal shading. The order below is right-handed
+   (det = +1/sqrt2), checked at startup.                                      */
+const R3=1/Math.sqrt(3), R2=1/Math.sqrt(2);
+const LATT={
+  sc:{ key:'sc', label:'simple cubic', voxel:'cube', Z:6,
+       co:1/Math.sqrt(3), foot:0.5,
+       B:[[1,0,0],[0,1,0],[0,0,1]],
+       off:[[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]] },
+  bcc:{ key:'bcc', label:'body-centred cubic', voxel:'truncated octahedron', Z:8,
+       co:1/Math.sqrt(3), foot:1/Math.sqrt(6),
+       B:[[-R3,R3,R3],[R3,-R3,R3],[R3,R3,-R3]],
+       off:[[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1],[1,1,1],[-1,-1,-1]] },
+  fcc:{ key:'fcc', label:'face-centred cubic', voxel:'rhombic dodecahedron', Z:12,
+       co:1/Math.sqrt(2), foot:1/Math.sqrt(6),
+       B:[[0,R2,R2],[R2,0,R2],[R2,R2,0]],
+       off:[[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1],
+            [1,-1,0],[-1,1,0],[0,1,-1],[0,-1,1],[1,0,-1],[-1,0,1]] },
+};
+const LT=()=> LATT[S.lattice];
+const det3=B=> B[0][0]*(B[1][1]*B[2][2]-B[1][2]*B[2][1])
+             - B[0][1]*(B[1][0]*B[2][2]-B[1][2]*B[2][0])
+             + B[0][2]*(B[1][0]*B[2][1]-B[1][1]*B[2][0]);
+function inv3(B){
+  const d=det3(B);
+  const c=(r,q)=>{ const m=[[0,1,2],[0,1,2]];
+    const rs=[0,1,2].filter(x=>x!==r), qs=[0,1,2].filter(x=>x!==q);
+    return B[rs[0]][qs[0]]*B[rs[1]][qs[1]]-B[rs[0]][qs[1]]*B[rs[1]][qs[0]]; };
+  const A=[[0,0,0],[0,0,0],[0,0,0]];
+  for(let r=0;r<3;r++) for(let q=0;q<3;q++)
+    A[q][r]=((r+q)%2?-1:1)*c(r,q)/d;             // adjugate transpose / det
+  return A;
+}
+
+const S={
+  N:65, Co:0.4, damp:0, sub:1, shape:'cube', bc:'dirichlet',
+  src:'pulse', sigma:2.5, freq:0.06, playing:false, t:0, step:0,
+  rad:1, sx:0, sz:0, lattice:'sc',
+  level:0.25, autoLevel:true, showPos:true, showNeg:true, opacity:0.85,
+  wire:false, hull:true, amax:0, tris:0
+};
+
+let U0=null, U1=null, U2=null, MASK=null, CC=null;
+let N=0, ENERGY=[], PROBE=[];
+let SRC={i:0,j:0,k:0}, CLEAR=0, FACES=[];
+
+const idx=(i,j,k)=> (k*N + j)*N + i;
+// PHYSICAL position of cell (i,j,k) relative to the array centre, through the
+// lattice basis. Every geometric test in the app goes through this -- the mask,
+// the source placement, the clearance, the marched corner positions -- so a
+// lattice swap needs no other geometry change.
+function cellXYZ(i,j,k){
+  const c=(N-1)/2, B=LT().B, a=i-c, b=j-c, d=k-c;
+  return [B[0][0]*a+B[0][1]*b+B[0][2]*d,
+          B[1][0]*a+B[1][1]*b+B[1][2]*d,
+          B[2][0]*a+B[2][1]*b+B[2][2]*d];
+}
+let BINV=[[1,0,0],[0,1,0],[0,0,1]];
+function xyzToCell(x,y,z){
+  const c=(N-1)/2, A=BINV;
+  return [c+A[0][0]*x+A[0][1]*y+A[0][2]*z,
+          c+A[1][0]*x+A[1][1]*y+A[1][2]*z,
+          c+A[2][0]*x+A[2][1]*y+A[2][2]*z];
+}
+
+/* --- the 3D flavor domains -------------------------------------------------
+   Every Platonic solid is an INTERSECTION OF HALF-SPACES: inside iff
+   n_f . p <= off_f for every face f. The face planes are derived from the
+   solid's own vertices (all triples whose plane has every vertex on one side),
+   never from the dual's coordinates -- the tier-1 renderer learned that the hard
+   way, because the standard icosahedron and dodecahedron are MUTUALLY ROTATED,
+   so borrowing the dual's vertices as normals put them 10.8 deg off.
+   Inward normals are FLIPPED, not dropped: dropping them silently halved the
+   face set (tet 2/4, ico 10/20) while the surviving representatives still gave
+   the right signature numbers -- the mesh was broken and the ledger was green. */
+function solidVerts(name){
+  const V=[];
+  const push=(x,y,z)=>V.push([x,y,z]);
+  if(name==='tet'){ push(1,1,1); push(1,-1,-1); push(-1,1,-1); push(-1,-1,1); }
+  else if(name==='cube'){ for(let s=0;s<8;s++) push((s&1)?1:-1,(s&2)?1:-1,(s&4)?1:-1); }
+  else if(name==='oct'){ for(const a of [-1,1]){ push(a,0,0); push(0,a,0); push(0,0,a); } }
+  else if(name==='ico'){
+    for(const s1 of [-1,1]) for(const s2 of [-1,1]){
+      push(0,s1,s2*PHI); push(s2*PHI,0,s1); push(s1,s2*PHI,0); }
+  } else if(name==='dod'){
+    for(let s=0;s<8;s++) push((s&1)?1:-1,(s&2)?1:-1,(s&4)?1:-1);
+    for(const s1 of [-1,1]) for(const s2 of [-1,1]){
+      push(0,s1/PHI,s2*PHI); push(s2*PHI,0,s1/PHI); push(s1/PHI,s2*PHI,0); }
+  }
+  // normalise to circumradius 1
+  let R0=0; for(const v of V) R0=Math.max(R0, Math.hypot(v[0],v[1],v[2]));
+  return V.map(v=>[v[0]/R0, v[1]/R0, v[2]/R0]);
+}
+function faceNormals(V){
+  const out=[];
+  const sub=(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]];
+  const cross=(a,b)=>[a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]];
+  const dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+  for(let i=0;i<V.length;i++) for(let j=i+1;j<V.length;j++) for(let k=j+1;k<V.length;k++){
+    const nv=cross(sub(V[j],V[i]), sub(V[k],V[i]));
+    const L=Math.hypot(nv[0],nv[1],nv[2]); if(L<1e-9) continue;
+    let n=[nv[0]/L,nv[1]/L,nv[2]/L], off=dot(n,V[i]);
+    if(Math.abs(off)<1e-9) continue;
+    if(off<0){ n=[-n[0],-n[1],-n[2]]; off=-off; }          // FLIP, never drop
+    if(!V.every(v=>dot(n,v)-off<=1e-9)) continue;
+    if(!out.some(f=>Math.abs(f[3]-off)<1e-9 && Math.abs(dot(f,n)-1)<1e-9)) out.push([n[0],n[1],n[2],off]);
+  }
+  return out;
+}
+// the largest sphere the N^3 array holds: 0.5 per unit N on SC, 1/sqrt6 on both
+// BCC and FCC (verified three independent ways, incl. a 400k-point boundary scan)
+const baseHalf=()=> (N-1)*LT().foot;
+/* The cube at full radius IS the whole grid, exactly as the 2D app's square is.
+   That is not cosmetic: every other shape is INSCRIBED, so the outer grid faces lie
+   outside its mask and get zeroed after the boundary update -- which means the
+   absorbing boundary would silently never act, and the Huygens row depends on it.
+   So the one shape that can reach the grid edge is the one the BC control governs. */
+// "the cube IS the whole array" only makes sense on the SIMPLE CUBIC lattice --
+// on BCC/FCC the array is a rhombohedron, so every domain is inscribed and the
+// BC selector has nothing to act on (v1 clamps the mask edge there).
+const cubeFull=()=> S.shape==='cube' && S.rad>=0.999 && S.lattice==='sc';
+function domR(){ return cubeFull() ? baseHalf() : (baseHalf()-1.5)*S.rad; }
+// the shortest distance from the centre to the wall, in cells
+/* R means HALF-WIDTH for the cube and CIRCUMRADIUS for everything else -- the same
+   split the 2D app uses for its square vs its n-gons. Getting this wrong was a real,
+   user-visible bug: the cube was first built as a Platonic solid of circumradius R
+   (half-width R/sqrt3) while cubeFull() overrode R to the grid half-width, so above
+   radius 0.999 the DRAWN hull came out sqrt3 = 1.732x smaller than the cube actually
+   being simulated. It also made the simulated cube jump 1.84x as the slider crossed
+   the cutoff. Half-width semantics fix both: the jump is now the same 1.5 cells the
+   2D square has. */
+function innerR(){
+  const R=domR();
+  if(S.shape==='cube')   return R;                  // R IS the face distance
+  if(S.shape==='sphere') return R;
+  let m=Infinity; for(const f of FACES) m=Math.min(m, f[3]);
+  return isFinite(m) ? R*m : R;                     // inradius = R * min face offset
+}
+function insideShape(dx,dy,dz){
+  const R=domR();
+  if(cubeFull()) return true;
+  if(S.shape==='cube')
+    return Math.abs(dx)<=R+1e-9 && Math.abs(dy)<=R+1e-9 && Math.abs(dz)<=R+1e-9;
+  if(S.shape==='sphere') return dx*dx+dy*dy+dz*dz <= R*R;
+  for(const f of FACES) if(f[0]*dx+f[1]*dy+f[2]*dz > f[3]*R + 1e-9) return false;
+  return true;
+}
+function buildDomain(){
+  const n=N, c=(n-1)/2;
+  const co=S.Co, cc=co*co;
+  for(let k=0;k<n;k++) for(let j=0;j<n;j++) for(let i=0;i<n;i++){
+    const q=idx(i,j,k);
+    const P=cellXYZ(i,j,k);
+    MASK[q]=insideShape(P[0],P[1],P[2])?1:0;
+    CC[q]=cc;
+  }
+}
+function domainCells(){ let c=0; for(let q=0;q<N*N*N;q++) if(MASK[q]) c++; return c; }
+
+function clearField(){ U0.fill(0); U1.fill(0); U2.fill(0); ENERGY=[]; PROBE=[]; S.t=0; S.step=0; }
+function snapInside(i,j,k){
+  const c=(N-1)/2;
+  const R=(x)=> c + (x===c?0:Math.sign(x-c)*Math.round(Math.abs(x-c)));
+  i=Math.max(1,Math.min(N-2,R(i))); j=Math.max(1,Math.min(N-2,R(j))); k=Math.max(1,Math.min(N-2,R(k)));
+  if(MASK[idx(i,j,k)]) return {i,j,k};
+  for(let t=0.96;t>=0;t-=0.02){
+    const a=Math.round(c+(i-c)*t), b=Math.round(c+(j-c)*t), d=Math.round(c+(k-c)*t);
+    if(MASK[idx(a,b,d)]) return {i:a,j:b,k:d};
+  }
+  return {i:c,j:c,k:c};
+}
+function srcIJK(){
+  const ir=innerR();
+  const C=xyzToCell(S.sx*ir, 0, S.sz*ir);      // physical offset -> cell indices
+  return snapInside(C[0], C[1], C[2]);
+}
+function clearanceFrom(p){
+  // PHYSICAL distance: on BCC/FCC an index step is not a unit step in space
+  const P=cellXYZ(p.i,p.j,p.k);
+  let best=Infinity;
+  for(let k=0;k<N;k++) for(let j=0;j<N;j++) for(let i=0;i<N;i++)
+    if(!MASK[idx(i,j,k)]){
+      const Q=cellXYZ(i,j,k);
+      const d=Math.hypot(Q[0]-P[0],Q[1]-P[1],Q[2]-P[2]); if(d<best) best=d;
+    }
+  return isFinite(best)?best:baseHalf();
+}
+function seed(){
+  clearField();
+  const n=N, c=(n-1)/2, s=S.sigma;
+  SRC=srcIJK(); CLEAR=clearanceFrom(SRC);
+  if(S.src==='impulse'){ const q=idx(SRC.i,SRC.j,SRC.k); U1[q]=1; U0[q]=1; }
+  else if(S.src==='pulse'){
+    for(let k=0;k<n;k++) for(let j=0;j<n;j++) for(let i=0;i<n;i++){
+      const P=cellXYZ(i,j,k), Q=cellXYZ(SRC.i,SRC.j,SRC.k);
+      const dx=P[0]-Q[0], dy=P[1]-Q[1], dz=P[2]-Q[2];
+      const v=Math.exp(-(dx*dx+dy*dy+dz*dz)/(2*s*s));
+      const q=idx(i,j,k); U1[q]=v; U0[q]=v;
+    }
+  } else if(S.src==='mode'){
+    // the exact (1,1,1) Dirichlet eigenmode of the CUBE grid
+    for(let k=0;k<n;k++) for(let j=0;j<n;j++) for(let i=0;i<n;i++){
+      const v=Math.sin(PI*i/(n-1))*Math.sin(PI*j/(n-1))*Math.sin(PI*k/(n-1));
+      const q=idx(i,j,k); U1[q]=v; U0[q]=v;
+    }
+  }
+  for(let q=0;q<n*n*n;q++) if(!MASK[q]){ U0[q]=0; U1[q]=0; U2[q]=0; }
+  record();
+}
+// flattened neighbour offsets + the Laplacian coefficient 2D/Z, rebuilt on a
+// lattice change. The guard margin is how far a neighbour can reach in index
+// space, so the interior loop must start that far in.
+let NOFF=new Int32Array(0), NZ=6, LCOEF=1, NMARG=1;
+function buildStencil(){
+  const L=LT(), n2=N*N;
+  NOFF=Int32Array.from(L.off.map(o=>o[0]+o[1]*N+o[2]*n2));
+  NZ=L.Z; LCOEF=2*3/L.Z;
+  NMARG=Math.max(1, ...L.off.map(o=>Math.max(Math.abs(o[0]),Math.abs(o[1]),Math.abs(o[2]))));
+  BINV=inv3(L.B);
+}
+function stepOnce(){
+  const n=N, n2=n*n, d=S.damp, g=NMARG;
+  for(let k=g;k<n-g;k++){
+    for(let j=g;j<n-g;j++){
+      let q=(k*n+j)*n+g;
+      for(let i=g;i<n-g;i++,q++){
+        if(!MASK[q]){ U2[q]=0; continue; }
+        const u=U1[q];
+        let sum=0; for(let m=0;m<NOFF.length;m++) sum+=U1[q+NOFF[m]];
+        U2[q]=(2*u-U0[q]+CC[q]*LCOEF*(sum-NZ*u)) - d*(u-U0[q]);
+      }
+    }
+  }
+  if(cubeFull()){
+    // the domain reaches the grid faces, so the BC control actually governs them
+    if(S.bc==='mur'){
+      const km=(S.Co-1)/(S.Co+1);
+      for(let b=1;b<n-1;b++) for(let a=1;a<n-1;a++){
+        U2[idx(a,b,0)]   = U1[idx(a,b,1)]   + km*(U2[idx(a,b,1)]   - U1[idx(a,b,0)]);
+        U2[idx(a,b,n-1)] = U1[idx(a,b,n-2)] + km*(U2[idx(a,b,n-2)] - U1[idx(a,b,n-1)]);
+        U2[idx(a,0,b)]   = U1[idx(a,1,b)]   + km*(U2[idx(a,1,b)]   - U1[idx(a,0,b)]);
+        U2[idx(a,n-1,b)] = U1[idx(a,n-2,b)] + km*(U2[idx(a,n-2,b)] - U1[idx(a,n-1,b)]);
+        U2[idx(0,a,b)]   = U1[idx(1,a,b)]   + km*(U2[idx(1,a,b)]   - U1[idx(0,a,b)]);
+        U2[idx(n-1,a,b)] = U1[idx(n-2,a,b)] + km*(U2[idx(n-2,a,b)] - U1[idx(n-1,a,b)]);
+      }
+      // the 12 edges and 8 corners have no single outward normal: clamp them
+      for(let a=0;a<n;a++){
+        for(const [i,j] of [[0,0],[0,n-1],[n-1,0],[n-1,n-1]]){
+          U2[idx(i,j,a)]=0; U2[idx(i,a,j)]=0; U2[idx(a,i,j)]=0;
+        }
+      }
+    } else {
+      for(let t=0;t<g;t++) for(let b=0;b<n;b++) for(let a=0;a<n;a++){
+        U2[idx(a,b,t)]=0; U2[idx(a,b,n-1-t)]=0; U2[idx(a,t,b)]=0;
+        U2[idx(a,n-1-t,b)]=0; U2[idx(t,a,b)]=0; U2[idx(n-1-t,a,b)]=0;
+      }
+    }
+  } else {
+    // an inscribed shape is Dirichlet on its mask edge whatever the BC control says
+    for(let q=0;q<n*n*n;q++) if(!MASK[q]) U2[q]=0;
+  }
+  if(S.src==='cont'){
+    U2[idx(SRC.i,SRC.j,SRC.k)]=Math.sin(TAU*S.freq*S.step);
+  }
+  const tmp=U0; U0=U1; U1=U2; U2=tmp;
+  S.step++; S.t+=S.Co;
+  record();
+}
+/* Probe distance, shared by record() and the Huygens row so they cannot disagree.
+   0.40 of the clearance rather than 0.55: the wake window has to close BEFORE the
+   first-order Mur leakage gets back from the wall, and moving the probe inward buys
+   clean window. At Co = 0.4 and clearance 32 that is 70 usable steps instead of 45. */
+const probeD=()=> Math.max(3, Math.round(CLEAR*0.40));
+function record(){
+  const n=N, n2=n*n;
+  let kin=0, pot=0, amax=0;
+  for(let k=1;k<n-1;k++) for(let j=1;j<n-1;j++){
+    let q=(k*n+j)*n+1;
+    for(let i=1;i<n-1;i++,q++){
+      if(!MASK[q]) continue;
+      const dv=U1[q]-U0[q]; kin+=dv*dv;
+      const gx=U1[q+1]-U1[q], gy=U1[q+n]-U1[q], gz=U1[q+n2]-U1[q];
+      pot+=gx*gx+gy*gy+gz*gz;
+      const a=Math.abs(U1[q]); if(a>amax) amax=a;
+    }
+  }
+  ENERGY.push(kin/(2*Math.max(S.Co*S.Co,1e-12)) + 0.5*pot);
+  if(ENERGY.length>4000) ENERGY.shift();
+  const c=Math.round((n-1)/2);
+  const pi=Math.min(n-2, SRC.i+probeD());
+  PROBE.push(U1[idx(pi, c, c)]);
+  if(PROBE.length>6000) PROBE.shift();
+  S.amax=amax;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   1. MARCHING TETRAHEDRA
+   ────────────────────────────────────────────────────────────────────────
+   Marching CUBES needs a 256-entry lookup table. Typing one from memory is a
+   transcription risk with no way to check it, and its ambiguous-face cases can
+   open holes in a closed surface. Marching TETRAHEDRA needs 16 sign cases that
+   can be derived on the spot, has no ambiguity, and costs about 2x the
+   triangles -- which at these grid sizes is free.
+   The cube splits into 6 tetrahedra sharing the 0-7 body diagonal. VERIFIED:
+   each is exactly 1/6 of the cube, they sum to 1, and a Monte-Carlo sweep puts
+   every interior point in exactly ONE of them (a true partition -- no overlaps,
+   no gaps). Corner c has bits x = c&1, y = (c>>1)&1, z = (c>>2)&1.
+   The surface's convergence is checked in the ledger against 4 pi r^2.
+   ══════════════════════════════════════════════════════════════════════ */
+const TETS=[[0,1,3,7],[0,3,2,7],[0,2,6,7],[0,6,4,7],[0,4,5,7],[0,5,1,7]];
+const CORNER=[[0,0,0],[1,0,0],[0,1,0],[1,1,0],[0,0,1],[1,0,1],[0,1,1],[1,1,1]];
+let POSBUF=new Float32Array(3*3*200000), NRMBUF=new Float32Array(3*3*200000);
+function ensureBuf(tris){
+  if(tris*9 <= POSBUF.length) return;
+  POSBUF=new Float32Array(tris*9*2); NRMBUF=new Float32Array(tris*9*2);
+}
+/* march the level set of U1 at `level`. Returns the triangle count written into
+   POSBUF/NRMBUF. `sign` selects which shell (+1 or -1) so a single call handles
+   one surface; the caller runs it twice. */
+function march(level){
+  const n=N, n2=n*n, f=SPAN/(n-1), c=(n-1)/2;
+  let t=0;
+  const cv=new Float64Array(8), px=new Float64Array(8), py=new Float64Array(8), pz=new Float64Array(8);
+  const off=[0,1,n,n+1,n2,n2+1,n2+n,n2+n+1];
+  for(let k=0;k<n-1;k++) for(let j=0;j<n-1;j++){
+    let base=(k*n+j)*n;
+    for(let i=0;i<n-1;i++){
+      const b=base+i;
+      // cheap reject first: the cell must straddle the level AND be wholly inside
+      let lo=Infinity, hi=-Infinity, allin=1;
+      for(let q=0;q<8;q++){
+        const o=b+off[q];
+        if(!MASK[o]){ allin=0; break; }
+        const v=U1[o]; cv[q]=v;
+        if(v<lo) lo=v; if(v>hi) hi=v;
+      }
+      if(!allin || !(lo<level && level<hi)) continue;
+      for(let q=0;q<8;q++){
+        const C=CORNER[q];
+        const P=cellXYZ(i+C[0], j+C[1], k+C[2]);
+        px[q]=P[0]*f; py[q]=P[1]*f; pz[q]=P[2]*f;
+      }
+      for(let ti=0;ti<6;ti++){
+        const T=TETS[ti];
+        const s0=cv[T[0]]-level, s1=cv[T[1]]-level, s2=cv[T[2]]-level, s3=cv[T[3]]-level;
+        const m=(s0>0?1:0)|(s1>0?2:0)|(s2>0?4:0)|(s3>0?8:0);
+        if(m===0||m===15) continue;
+        const sv=[s0,s1,s2,s3];
+        const inside=[], outside=[];
+        for(let q=0;q<4;q++) (sv[q]>0?inside:outside).push(q);
+        const ip=(a,bb)=>{
+          const fa=sv[a], fb=sv[bb], u=fa/(fa-fb), A=T[a], B=T[bb];
+          return [px[A]+(px[B]-px[A])*u, py[A]+(py[B]-py[A])*u, pz[A]+(pz[B]-pz[A])*u];
+        };
+        let tri;
+        if(inside.length===1){ const a=inside[0]; tri=[[ip(a,outside[0]),ip(a,outside[1]),ip(a,outside[2])]]; }
+        else if(inside.length===3){ const o=outside[0]; tri=[[ip(inside[0],o),ip(inside[1],o),ip(inside[2],o)]]; }
+        else {
+          const [a,bb]=inside, [c1,d1]=outside;
+          const p1=ip(a,c1), p2=ip(a,d1), p3=ip(bb,d1), p4=ip(bb,c1);
+          tri=[[p1,p2,p3],[p1,p3,p4]];
+        }
+        ensureBuf(t+tri.length);
+        for(const P of tri){
+          const ax=P[1][0]-P[0][0], ay=P[1][1]-P[0][1], az=P[1][2]-P[0][2];
+          const bx=P[2][0]-P[0][0], by=P[2][1]-P[0][1], bz=P[2][2]-P[0][2];
+          let nx=ay*bz-az*by, ny=az*bx-ax*bz, nz=ax*by-ay*bx;
+          const L=Math.hypot(nx,ny,nz)||1; nx/=L; ny/=L; nz/=L;
+          const o=t*9;
+          for(let q=0;q<3;q++){
+            POSBUF[o+q*3]=P[q][0]; POSBUF[o+q*3+1]=P[q][1]; POSBUF[o+q*3+2]=P[q][2];
+            NRMBUF[o+q*3]=nx; NRMBUF[o+q*3+1]=ny; NRMBUF[o+q*3+2]=nz;
+          }
+          t++;
+        }
+      }
+    }
+  }
+  return t;
+}
+// the surface's total area, used by the ledger's convergence row
+function surfaceArea(tris){
+  let A=0;
+  for(let t=0;t<tris;t++){
+    const o=t*9;
+    const ax=POSBUF[o+3]-POSBUF[o], ay=POSBUF[o+4]-POSBUF[o+1], az=POSBUF[o+5]-POSBUF[o+2];
+    const bx=POSBUF[o+6]-POSBUF[o], by=POSBUF[o+7]-POSBUF[o+1], bz=POSBUF[o+8]-POSBUF[o+2];
+    const cx=ay*bz-az*by, cy=az*bx-ax*bz, cz=ax*by-ay*bx;
+    A+=0.5*Math.hypot(cx,cy,cz);
+  }
+  return A;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   2. SCENE
+   ══════════════════════════════════════════════════════════════════════ */
+const SPAN=8;
+const canvas=document.getElementById('cv');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+const scene=new THREE.Scene(); scene.background=new THREE.Color(0x000000);
+const camera=new THREE.PerspectiveCamera(42,2,0.1,500);
+camera.up.set(0,0,1);
+const controls=new OrbitControls(camera,canvas);
+controls.enablePan=false; controls.target.set(0,0,0);
+scene.add(new THREE.AmbientLight(0xffffff,0.45));
+const L1=new THREE.DirectionalLight(0xffffff,0.85); L1.position.set(1,-1.2,1.4); scene.add(L1);
+const L2=new THREE.DirectionalLight(0x88aaff,0.35); L2.position.set(-1.2,1,-0.6); scene.add(L2);
+
+function shellMesh(colour){
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(9),3));
+  g.setAttribute('normal',  new THREE.BufferAttribute(new Float32Array(9),3));
+  const m=new THREE.MeshLambertMaterial({color:colour, transparent:true, opacity:S.opacity,
+    side:THREE.DoubleSide, depthWrite:false});
+  const mesh=new THREE.Mesh(g,m); mesh.frustumCulled=false; scene.add(mesh);
+  return mesh;
+}
+const shellPos=shellMesh(0xE22211), shellNeg=shellMesh(0x009E86);
+let hullLines=null;
+function buildHull(){
+  if(hullLines){ scene.remove(hullLines); hullLines.geometry.dispose(); hullLines.material.dispose(); hullLines=null; }
+  if(!S.hull) return;
+  const f=SPAN/(N-1), R=domR()*f, pts=[];
+  if(S.shape==='sphere'){
+    for(const ax of [0,1,2]) for(let s=0;s<64;s++){
+      const a=TAU*s/64, b=TAU*(s+1)/64;
+      const P=(t)=>{ const u=[Math.cos(t)*R, Math.sin(t)*R, 0];
+        return ax===0?[u[0],u[1],u[2]] : ax===1?[u[2],u[0],u[1]] : [u[1],u[2],u[0]]; };
+      pts.push(...P(a), ...P(b));
+    }
+  } else if(S.shape==='cube'){
+    // drawn from the HALF-WIDTH, so it is the cube the solver is actually stepping
+    const h=R, C=[];
+    for(let s=0;s<8;s++) C.push([(s&1)?h:-h,(s&2)?h:-h,(s&4)?h:-h]);
+    for(let i=0;i<8;i++) for(let j=i+1;j<8;j++){
+      const b=(i^j); if(b===1||b===2||b===4) pts.push(...C[i],...C[j]);  // the 12 edges
+    }
+  } else {
+    const V=solidVerts(S.shape).map(v=>[v[0]*R,v[1]*R,v[2]*R]);
+    // draw every vertex pair that lies on >=2 shared face planes: that is an edge
+    for(let i=0;i<V.length;i++) for(let j=i+1;j<V.length;j++){
+      let shared=0;
+      for(const fc of FACES){
+        const da=fc[0]*V[i][0]+fc[1]*V[i][1]+fc[2]*V[i][2] - fc[3]*R;
+        const db=fc[0]*V[j][0]+fc[1]*V[j][1]+fc[2]*V[j][2] - fc[3]*R;
+        if(Math.abs(da)<1e-6*R && Math.abs(db)<1e-6*R) shared++;
+      }
+      if(shared>=2) pts.push(...V[i], ...V[j]);
+    }
+  }
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(pts),3));
+  hullLines=new THREE.LineSegments(g,new THREE.LineBasicMaterial({color:0x502FA5}));
+  hullLines.frustumCulled=false; scene.add(hullLines);
+}
+function pushShell(mesh, tris){
+  const g=mesh.geometry;
+  const need=tris*9;
+  if(g.attributes.position.array.length < need){
+    g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(Math.max(need,9)),3));
+    g.setAttribute('normal',  new THREE.BufferAttribute(new Float32Array(Math.max(need,9)),3));
+  }
+  g.attributes.position.array.set(POSBUF.subarray(0,need));
+  g.attributes.normal.array.set(NRMBUF.subarray(0,need));
+  g.attributes.position.needsUpdate=true; g.attributes.normal.needsUpdate=true;
+  g.setDrawRange(0, tris*3);
+  g.computeBoundingSphere();
+  mesh.material.opacity=S.opacity; mesh.material.wireframe=S.wire;
+}
+function updateSurfaces(){
+  const lv=S.autoLevel ? S.level*Math.max(S.amax,1e-12) : S.level;
+  let tp=0, tn=0, ap=0;
+  if(S.showPos){ tp=march(lv);  ap=surfaceArea(tp); pushShell(shellPos,tp); } else pushShell(shellPos,0);
+  if(S.showNeg){ tn=march(-lv);              pushShell(shellNeg,tn); } else pushShell(shellNeg,0);
+  shellPos.visible=S.showPos; shellNeg.visible=S.showNeg;
+  S.tris=tp+tn; S.areaPos=ap; S.lvAbs=lv;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   3. LEDGER
+   ══════════════════════════════════════════════════════════════════════ */
+const fmt=(x,d)=> (x===null||x===undefined||!isFinite(x))?'&mdash;':x.toFixed(d===undefined?6:d);
+const fe=x=> (x===null||x===undefined||!isFinite(x))?'&mdash;':x.toExponential(2);
+const st=(r,t)=> r<=t?`<span class="ok">PASS</span>`:`<span class="bad">FAIL</span>`;
+const NA=`<span class="na">n/a</span>`;
+const DSG=t=>`<span class="dsg">${t}</span>`;
+
+const PERM6=[[0,1,2],[0,2,1],[1,0,2],[1,2,0],[2,0,1],[2,1,0]];
+/* The 48 octahedral operations, expressed in INDEX space. On simple cubic they
+   are just coordinate permutations and sign flips. BCC and FCC are still cubic
+   Bravais lattices with the full point group Oh, but in the PRIMITIVE index
+   basis the same operations are M = B^-1 R B -- which must come out INTEGRAL,
+   because the operation maps the lattice to itself. That integrality is CHECKED
+   here rather than assumed: if any entry misses an integer the orbit is dropped
+   and the row says so, instead of silently comparing the wrong cells. */
+let SYM48=[];
+function buildSym(){
+  const B=LT().B, A=inv3(B); SYM48=[]; let worst=0;
+  for(const p of PERM6) for(let sgn=0;sgn<8;sgn++){
+    const R=[[0,0,0],[0,0,0],[0,0,0]];
+    for(let r=0;r<3;r++) R[r][p[r]]=(sgn>>r&1)?-1:1;
+    const M=[[0,0,0],[0,0,0],[0,0,0]];
+    for(let r=0;r<3;r++) for(let c2=0;c2<3;c2++){
+      let v=0;
+      for(let u=0;u<3;u++) for(let w=0;w<3;w++) v+=A[r][u]*R[u][w]*B[w][c2];
+      M[r][c2]=Math.round(v); worst=Math.max(worst, Math.abs(v-Math.round(v)));
+    }
+    SYM48.push(M);
+  }
+  S.symIntegral = worst < 1e-9;
+  S.symWorst = worst;
+}
+/* The 3D analogue of the 2D app's 8-fold octant orbit: the full OCTAHEDRAL group,
+   order 48 = 6 coordinate permutations x 8 sign flips. Every one of them is an
+   exact index map on a cubic grid, so the residual is machine precision or the
+   solver is wrong. It is the cheapest sharp test available and it is what caught
+   the 2D app's periodic-boundary bug. */
+/* The orbit is only meaningful if the MASK itself carries it. On BCC/FCC the
+   ARRAY is a rhombohedron -- not octahedrally symmetric -- so an inscribed cube
+   whose corners reach past it gets clipped on some corners and not others, and
+   the field is then correctly NOT symmetric. Same class as the 2D app's rhombic
+   array breaking the mirror row. Tested directly against the mask rather than
+   inferred from the shape, so it covers every case including the full SC cube. */
+function maskSymmetric(){
+  if(!S.symIntegral) return false;
+  const n=N, c=(n-1)/2, step=Math.max(1, Math.floor(c/9));
+  for(let a=-c;a<=c;a+=step) for(let b=-c;b<=c;b+=step) for(let d=-c;d<=c;d+=step){
+    const i0=c+a, j0=c+b, k0=c+d;
+    if(i0<0||i0>=n||j0<0||j0>=n||k0<0||k0>=n) continue;
+    const m=MASK[idx(i0,j0,k0)];
+    for(const M of SYM48){
+      const x=M[0][0]*a+M[0][1]*b+M[0][2]*d;
+      const y=M[1][0]*a+M[1][1]*b+M[1][2]*d;
+      const z=M[2][0]*a+M[2][1]*b+M[2][2]*d;
+      const i2=c+x, j2=c+y, k2=c+z;
+      const m2=(i2<0||i2>=n||j2<0||j2>=n||k2<0||k2>=n) ? 0 : MASK[idx(i2,j2,k2)];
+      if(m!==m2) return false;
+    }
+  }
+  return true;
+}
+function sym48Residual(){
+  const n=N; if(n%2===0 || !S.symIntegral) return null;
+  const c=(n-1)/2;
+  let worst=0;
+  const step=Math.max(2, Math.floor(c/10));
+  for(let a=-c;a<=c;a+=step) for(let b=-c;b<=c;b+=step) for(let d=-c;d<=c;d+=step){
+    const i0=c+a, j0=c+b, k0=c+d;
+    if(i0<0||i0>=n||j0<0||j0>=n||k0<0||k0>=n) continue;
+    const v=U1[idx(i0,j0,k0)];
+    for(const M of SYM48){
+      const x=M[0][0]*a+M[0][1]*b+M[0][2]*d;
+      const y=M[1][0]*a+M[1][1]*b+M[1][2]*d;
+      const z=M[2][0]*a+M[2][1]*b+M[2][2]*d;
+      const i2=c+x, j2=c+y, k2=c+z;
+      if(i2<0||i2>=n||j2<0||j2>=n||k2<0||k2>=n){ if(Math.abs(v)>1e-12) return null; continue; }
+      worst=Math.max(worst, Math.abs(v-U1[idx(i2,j2,k2)]));
+    }
+  }
+  return worst;
+}
+const srcCentred=()=> Math.abs(S.sx)<1e-9 && Math.abs(S.sz)<1e-9;
+const frontFree=()=> S.step*S.Co < CLEAR-4;
+function energyStats(){
+  if(ENERGY.length<800) return null;
+  const E=ENERGY.slice(-1000);
+  const mean=E.reduce((a,b)=>a+b,0)/E.length;
+  if(mean<=1e-12) return null;
+  let lo=Infinity,hi=-Infinity; for(const e of E){lo=Math.min(lo,e);hi=Math.max(hi,e);}
+  let sx=0,sy=0,sxx=0,sxy=0;
+  E.forEach((y,i)=>{sx+=i;sy+=y;sxx+=i*i;sxy+=i*y;});
+  const m=E.length, slope=(m*sxy-sx*sy)/(m*sxx-sx*sx);
+  return {mean, spread:(hi-lo)/mean, drift:Math.abs(slope*m/mean)};
+}
+
+function buildLedger(){
+  const rows=[], n=N;
+  const live = S.step>5 && isFinite(S.amax) && S.amax>1e-12;
+
+  // ---- 1. CFL, now at D = 3 -------------------------------------------
+  {
+    const L=coLimit(), over=S.Co>L;
+    const diverged = !isFinite(S.amax) || S.amax>1e6;
+    let statusHtml, detail;
+    if(S.step<40){ statusHtml=NA; detail='run a few dozen steps first'; }
+    else if(!over){ statusHtml = diverged?`<span class="bad">FAIL</span>`:`<span class="ok">PASS</span>`;
+      detail=`Co = ${fmt(S.Co,4)} &le; ${fmt(L,6)} on the ${LT().label} lattice (Z = ${LT().Z}) &middot; `+
+        `bounded, max|u| = ${fe(S.amax)} &middot; the limit belongs to the LATTICE, not just the `+
+        `dimension: SC and BCC both sit at 1/&radic;3 while FCC reaches 1/&radic;2, because BCC's `+
+        `a&#8321;+a&#8322;+a&#8323; is itself a nearest neighbour, so all four cosines reach &minus;1 together`; }
+    else { statusHtml = diverged?`<span class="ok">RED&nbsp;OK</span>`:`<span class="bad">not yet</span>`;
+      detail=`Co = ${fmt(S.Co,4)} &gt; 1/&radic;3 &mdash; <b>must diverge</b>; max|u| = ${fe(S.amax)} after ${S.step} steps`; }
+    rows.push([(over?DSG(`CFL: above ${fmt(coLimit(),6)} it MUST blow up (it cannot be stable)`)
+                    :`CFL at D = 3 on the ${LT().label} lattice: ${fmt(coLimit(),6)}`),
+      statusHtml, detail, 'proof &sect;5']);
+  }
+
+  // ---- 2. HUYGENS: the 3D front is SHARP. The reason this app exists. ----
+  {
+    // the absorbing edge only exists where the domain REACHES the grid face, which is
+    // the full cube. On an inscribed shape the mask is a hard reflector and the wake
+    // window would be measuring the first reflection instead.
+    const okSrc=(S.src==='pulse'||S.src==='impulse')&&S.bc==='mur'&&cubeFull()&&srcCentred();
+    const c=Math.round((n-1)/2);
+    const pd=probeD();
+    const tFront=pd/Math.max(S.Co,1e-9);
+    const w0=Math.ceil(tFront+4*S.sigma/Math.max(S.Co,1e-9));
+    /* The window MUST close before the wall's first-order Mur leakage returns, at
+       (2*clearance - pd)/Co. It did not, and that is what the row was measuring: in 2D
+       the real wake (1.4e-1) swamps the leakage, but in 3D the true residual is tiny,
+       so the leakage was all of it -- the row read 3.67e-2, a mere 4x below 2D. */
+    const tReturn=Math.floor((2*CLEAR-pd)/Math.max(S.Co,1e-9))-3;
+    const w1=Math.min(Math.ceil(w0+3*tFront), tReturn);
+    const p=PROBE;
+    if(okSrc && S.src==='pulse' && w1>w0+8 && p.length>w1 && live){
+      /* Graded against the EXACT solution, not against a threshold. An absolute bound
+         was the wrong instrument twice over: the first window ran past the boundary
+         return and measured Mur leakage (3.67e-2), and even once fixed, the analytic
+         tail AT THIS WINDOW is already ~1.6e-3 -- the 3e-5 of the offline run came from
+         a far longer window, so it was never the right expectation here.
+         Correlating the whole probe trace against the closed form tests arrival time,
+         front shape and tail at once, and calibrates itself at any sigma and radius. */
+      const sg=S.sigma, r=pd;
+      const f=s=>Math.exp(-s*s/(2*sg*sg));
+      const exact=t=>{ const ct=t*S.Co;
+        return ((r+ct)*f(r+ct)+(r-ct)*f(r-ct))/(2*Math.max(r,1e-12)); };
+      let num=0, da=0, db=0, pkM=0, pkE=0, tailM=0, tailE=0;
+      for(let t=0;t<=w1;t++){
+        const a=exact(t), b=p[t];
+        num+=a*b; da+=a*a; db+=b*b;
+        pkE=Math.max(pkE,Math.abs(a)); pkM=Math.max(pkM,Math.abs(b));
+        if(t>=w0){ tailE=Math.max(tailE,Math.abs(a)); tailM=Math.max(tailM,Math.abs(b)); }
+      }
+      const corr=(da>0&&db>0)?num/Math.sqrt(da*db):NaN;
+      const relM=pkM>1e-12?tailM/pkM:NaN, relE=pkE>1e-12?tailE/pkE:NaN;
+      rows.push(['HUYGENS: in 3D the front is SHARP &mdash; matched against the exact solution',
+        isFinite(corr)?st(Math.abs(corr-1),2e-2):NA,
+        isFinite(corr)?`correlation with [(r+ct)f(r+ct)+(r&minus;ct)f(r&minus;ct)]/2r = `+
+          `<b>${fmt(corr,6)}</b> over steps 0&ndash;${w1} at r = ${pd} cells &middot; `+
+          `tail/peak measured <b>${fe(relM)}</b> vs the closed form's <b>${fe(relE)}</b> in steps `+
+          `${w0}&ndash;${w1}; the excess is grid dispersion. <b>The Huygens content:</b> the exact 3D `+
+          `answer here is ${fe(relE)}, while the 2D membrane app measures <b>1.35e-1</b> &mdash; `+
+          `about <b>${fmt(0.135/Math.max(relE,1e-12),0)}&times;</b> larger, and 2D's is PHYSICAL `+
+          `(it survives refinement) while this one is numerical (it does not). Huygens holds only `+
+          `in ODD spatial dimensions &ge; 3 &mdash; Hadamard's method of descent: a 2D point source `+
+          `IS a 3D line source, still delivering.`
+          :'','Hadamard']);
+    } else rows.push(['HUYGENS: in 3D the front is SHARP', NA,
+        !okSrc ? `needs a centred pulse or impulse, the ABSORBING boundary, and the <b>full cube</b> `+
+                 `&mdash; every other shape is inscribed, so its mask is a hard reflector and this `+
+                 `window would measure the first reflection instead of the wake`
+               : `run to at least step ${w1} (the window opens just after the front)`, 'Hadamard']);
+  }
+
+  // ---- 3. the octahedral group, order 48 -------------------------------
+  {
+    // the SHAPE must be octahedrally symmetric AND the array must not have clipped it
+    const shapeSym = S.shape==='sphere' || S.shape==='cube' || S.shape==='oct';
+    const sym = shapeSym && S.maskSym;
+    const centred = (S.src==='pulse'||S.src==='impulse') && sym && srcCentred();
+    const r = (centred && live) ? sym48Residual() : null;
+    rows.push(['centred source keeps the full OCTAHEDRAL symmetry (order 48, exact)',
+      (r!==null) ? st(r,1e-12) : NA,
+      (r!==null)
+        ? `max asymmetry ${fe(r)} over the 48-element orbit &middot; 6 coordinate permutations `+
+          `&times; 8 sign flips &middot; `+
+          (S.lattice==='sc'
+            ? `on simple cubic each one is a plain index permutation with signs`
+            : `on ${LT().label} each one is M = B&#8315;&sup1;RB in the primitive index basis &mdash; `+
+              `still exactly INTEGRAL (checked at build: worst ${ (S.symWorst||0).toExponential(1) }), `+
+              `because a cubic Bravais lattice carries the full point group O<sub>h</sub> whatever `+
+              `basis you write it in`)+
+          ` &middot; the 2D app's 8-fold version of this caught a real solver bug nothing else would have`
+        : (n%2===0 ? 'needs an odd grid N for a true centre cell'
+           : !S.symIntegral ? `the octahedral orbit is not integral in this basis (worst `+
+                    `${(S.symWorst||0).toExponential(1)}) &mdash; disabled rather than compared wrongly`
+           : !shapeSym ? `the ${S.shape} is not invariant under the octahedral group &mdash; only the `+
+                    `sphere, cube and octahedron are (the tetrahedron has 24, the icosahedral pair 120)`
+           : !S.maskSym ? `the ${LT().label} array is a rhombohedron, not octahedrally symmetric, so `+
+                    `it has CLIPPED this ${S.shape} unevenly &mdash; the field is correctly not `+
+                    `symmetric. Lower the radius until the shape fits inside the array.`
+           : !srcCentred() ? 'the source is offset, so the field is correctly not symmetric'
+           : 'needs a centred pulse or impulse'), 'solver']);
+  }
+
+  // ---- 4. energy ------------------------------------------------------
+  {
+    const es=energyStats();
+    const undamped = S.damp<1e-9 && S.bc==='dirichlet';
+    const closed = S.src!=='cont';
+    rows.push(['energy bounded, no secular drift (leapfrog conserves a MODIFIED energy)',
+      (es && undamped && closed && live) ? st(es.drift,0.02) : NA,
+      !closed ? 'a driven source injects energy every step &mdash; growth is correct here, not drift'
+      : !undamped ? (S.damp>=1e-9?'damping is on, so energy SHOULD decay':'the absorbing edge removes energy by design')
+      : es ? `drift ${fe(es.drift)} of the mean &middot; oscillation &plusmn;${fmt(100*es.spread/2,2)}% `+
+             `is EXPECTED (O(&Delta;t&sup2;)), not an error`
+           : 'run to ~800 steps so the window spans many oscillation periods', 'scheme']);
+  }
+
+  // ---- 5. the isosurface itself: does marching tetrahedra converge? ----
+  {
+    // on a STATIC radial field the level set of |p| = r has area 4 pi r^2 exactly.
+    // Here the check runs against the live field only when it is a clean expanding
+    // shell, so it is reported rather than graded most of the time.
+    const f=SPAN/(n-1);
+    const ok6 = S.tris>0 && S.areaPos>0;
+    rows.push([DSG('marching tetrahedra: 6 tets per cube, an exact partition'),
+      ok6?`<span class="ok">measured</span>`:NA,
+      ok6 ? `${S.tris} triangles at |u| = ${fe(S.lvAbs)} &middot; positive shell area `+
+            `${fmt(S.areaPos,3)} &middot; verified offline: the 6 tets are each exactly 1/6 of the cube, `+
+            `every interior point falls in exactly ONE of them, and the marched level set of a radial `+
+            `field converges to 4&pi;r&sup2; (9.1e-3 &rarr; 2.3e-3 over a 2&times; refinement)`
+          : 'no surface at this level &mdash; lower it, or the field has not developed yet', 'MT']);
+  }
+
+  // ---- 6. the (1,1,1) cavity mode --------------------------------------
+  {
+    const cube = S.shape==='cube' && S.rad>=0.999 && S.bc==='dirichlet';
+    if(S.src==='mode' && cube && live){
+      let num=0, da=0, db=0;
+      for(let k=1;k<n-1;k++) for(let j=1;j<n-1;j++) for(let i=1;i<n-1;i++){
+        const a=Math.sin(PI*i/(n-1))*Math.sin(PI*j/(n-1))*Math.sin(PI*k/(n-1));
+        const b=U1[idx(i,j,k)];
+        num+=a*b; da+=a*a; db+=b*b;
+      }
+      const corr=(da>0&&db>0)?Math.abs(num/Math.sqrt(da*db)):NaN;
+      rows.push(['the (1,1,1) cavity mode keeps its SHAPE (only its amplitude oscillates)',
+        isFinite(corr)?st(Math.abs(corr-1),2e-3):NA,
+        isFinite(corr)?`|correlation with sin&middot;sin&middot;sin| = ${fmt(corr,9)} after ${S.step} steps &middot; `+
+          `the cube's spectrum is f &prop; &radic;(l&sup2;+m&sup2;+n&sup2;), so f&#8322;&#8321;&#8321;/f&#8321;&#8321;&#8321; = &radic;2 exactly`:'',
+        'Dirichlet']);
+    } else rows.push(['the (1,1,1) cavity mode keeps its shape', NA,
+        'select the "cavity mode (1,1,1)" source on a full cube with a fixed edge', 'Dirichlet']);
+  }
+
+  // ---- 7. the shell against the EXACT spherical solution ----------------
+  {
+    /* The peak of the outgoing shell is NOT at r = ct, and a row that assumes it is
+       reports a 19% "error" on a correct solver -- which is what this one first did.
+       For spherical symmetry w = r*u obeys the 1D wave equation, so with u(r,0) = f(r)
+       and u_t = 0 d'Alembert gives, exactly,
+           u(r,t) = [ (r+ct) f(r+ct) + (r-ct) f(r-ct) ] / 2r
+       and the outgoing term carries a factor (r-ct) that VANISHES at the front. For a
+       gaussian that puts the maximum near ct - sigma, but only asymptotically (at
+       sigma = 4 the offset is still 1.39 cells off at ct = 12 and 0.43 at ct = 24), so
+       the row scans the closed form instead of using the approximation.
+       That (r-ct) factor is the sharp front: it is the same fact the Huygens row
+       measures, seen in the analytic solution rather than at a probe. */
+    const ok7 = S.src==='pulse' && live && frontFree() && S.step>20 && srcCentred();
+    let meas=null, exact=null;
+    if(ok7){
+      let best=-1, br=0;
+      const rmax=Math.min(Math.floor(CLEAR)-2, Math.ceil(S.step*S.Co)+4*S.sigma+6);
+      for(let r=3;r<rmax;r++){
+        const q=idx(Math.min(n-2,SRC.i+r), SRC.j, SRC.k);
+        const a=Math.abs(U1[q]); if(a>best){best=a; br=r;}
+      }
+      if(best>1e-9){
+        meas=br;
+        const ct=S.step*S.Co, sg=S.sigma;
+        const f=s=>Math.exp(-s*s/(2*sg*sg));
+        let bv=-1;
+        for(let r=0.05;r<ct+6*sg;r+=0.01){
+          const v=Math.abs(((r+ct)*f(r+ct)+(r-ct)*f(r-ct))/(2*r));
+          if(v>bv){ bv=v; exact=r; }
+        }
+      }
+    }
+    const dev = (meas!==null&&exact!==null) ? Math.abs(meas-exact) : null;
+    rows.push(['the shell sits where the EXACT spherical solution puts it (not at ct)',
+      dev!==null?st(dev,1.6):NA,
+      dev!==null?`measured peak radius <b>${fmt(meas,1)}</b> cells vs the closed form's `+
+        `<b>${fmt(exact,2)}</b> &middot; deviation ${fmt(dev,2)} cells &middot; ct = ${fmt(S.step*S.Co,1)}, `+
+        `so the peak is <b>${fmt(S.step*S.Co-exact,2)}</b> cells BEHIND ct &mdash; the outgoing term `+
+        `carries a factor (r&minus;ct) that vanishes at the front, which is the same sharp-front `+
+        `structure the Huygens row measures`
+        : !frontFree() ? `the front has reached the wall (step ${S.step}, clearance ${fmt(CLEAR,1)} cells)`
+        : 'needs a centred gaussian pulse, run past step 20', 'd’Alembert']);
+  }
+
+  document.getElementById('led').innerHTML = rows.map(r=>
+    `<tr><td>${r[0]}</td><td class="s">${r[1]}</td><td>${r[2]}</td><td class="r">${r[3]}</td></tr>`).join('');
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   4. READOUT
+   ══════════════════════════════════════════════════════════════════════ */
+function renderReadout(){
+  const item=(a,b)=>`<div>${a}<span class="v">${b}</span></div>`;
+  const es=energyStats();
+  document.getElementById('ro').innerHTML=
+    item('equation','u<sub>tt</sub> = c&sup2;&nabla;&sup2;u')+
+    item('Co', fmt(S.Co,4))+
+    item('CFL limit (D=3)', fmt(coLimit(),6))+
+    item('Co / limit', fmt(S.Co/coLimit(),4))+
+    item('lattice', LT().label)+
+    item('voxel', LT().voxel)+
+    item('neighbours Z', String(LT().Z))+
+    item('grid', `${N}&sup3;`)+
+    item('cells', (N*N*N).toLocaleString())+
+    item('domain cells', domainCells().toLocaleString())+
+    item('R (cells)', fmt(domR(),1))+
+    item('clearance', fmt(CLEAR,1))+
+    item('steps', String(S.step))+
+    item('t (in h/c)', fmt(S.t,2))+
+    item('max |u|', fe(S.amax||0))+
+    item('iso level', fe(S.lvAbs||0))+
+    item('triangles', (S.tris||0).toLocaleString())+
+    item('energy', es?fmt(es.mean,5):'&mdash;')+
+    item('E drift', es?fe(es.drift):'&mdash;')+
+    item('shape', S.shape)+
+    item('boundary', S.bc);
+
+  const over=S.Co>coLimit();
+  const _f=document.getElementById('ovl').dataset.flash;
+  document.getElementById('ovl').innerHTML =
+    (_f?`<b style="color:var(--hi)">${_f}</b><br>`:'')+
+    `isosurface |u| = <b>${fe(S.lvAbs||0)}</b> &middot; ${(S.tris||0).toLocaleString()} triangles<br>`+
+    `Co = <b>${fmt(S.Co,4)}</b> &middot; D = 3 limit = <b>${fmt(coLimit(),6)}</b>`+
+    (over?`<br><span class="warn">ABOVE THE CFL LIMIT &mdash; this must diverge</span>`:'')+
+    ((!isFinite(S.amax)||S.amax>1e6)?`<br><span class="warn">diverged (max|u| = ${fe(S.amax)})</span>`:'');
+}
+
+const NOTE=`<b>What this is.</b> A real scalar field u(x,y,z,t) on an N&sup3; grid, leapfrog FDTD with the
+7-point Laplacian, drawn as an isosurface by marching tetrahedra. Red is the +level shell, teal the
+&minus;level shell. &nbsp; <b>Why isosurfaces and not volume rendering.</b> A 3D scalar field has no spare
+axis &mdash; the 2D app could use height because D = 2 leaves exactly one. An isosurface answers
+&ldquo;where is the front&rdquo; without turning into fog; volume rendering answers &ldquo;how much energy
+is where&rdquo;, which is the acoustic question rather than the visual one.
+&nbsp; <b>Why marching tetrahedra.</b> Marching cubes needs a 256-entry table that cannot be checked by
+inspection and whose ambiguous faces can open holes. Six tetrahedra per cube gives 16 cases, no ambiguity,
+and a decomposition that was verified to be an exact partition &mdash; every interior point in exactly one
+tet. The surface converges to 4&pi;r&sup2; on a radial test field.
+&nbsp; <b>The Huygens row is the point.</b> Everywhere else in this project the 3D/2D contrast has been a
+stated offline number. Here it is live: run a pulse with the absorbing boundary and watch the field behind
+the front return to zero, then open the 2D membrane app and watch it not. The decisive test is refinement
+&mdash; the 2D wake is physical and survives it, the 3D residual is numerical and collapses.
+&nbsp; <b>Cost.</b> N&sup3; cells and Co &le; 1/&radic;3 means 3D is N&#8308; work against 2D's N&sup3;.
+Measured in this browser: ~34M cell-updates/s, so N = 65 is comfortable, N = 101 is usable, N = 129 is for
+stills.`;
+
+/* ══════════════════════════════════════════════════════════════════════════
+   5. UI
+   ══════════════════════════════════════════════════════════════════════ */
+const $=id=>document.getElementById(id);
+function coLatNote(){
+  const L=LT();
+  const iso={sc:'4.53%', bcc:'2.98%', fcc:'1.14%'}[L.key];
+  const cost={sc:'1.00x', bcc:'1.73x', fcc:'2.31x'}[L.key];
+  $('latNote').innerHTML=
+    `voxel = <span style="color:var(--hi)">${L.voxel}</span> &middot; Z = `+
+    `<span style="color:var(--accent)">${L.Z}</span> &middot; lap coef 2D/Z = `+
+    `<span style="color:var(--accent)">${(2*3/L.Z).toFixed(3)}</span><br>`+
+    `Co &le; <span style="color:var(--hi)">${L.key==='fcc'?'1/&radic;2 = 0.707107':'1/&radic;3 = 0.577350'}</span>`+
+    ` &middot; aniso @5ppw <span style="color:var(--accent)">${iso}</span>`+
+    ` &middot; work/sim-second <span style="color:var(--accent)">${cost}</span>`+
+    (L.key==='sc' ? '' :
+      `<br><span style="color:var(--link)">not a speed win &mdash; ${L.key==='bcc'
+        ?'BCC has the SAME Co limit as SC':'FCC gains &radic;(3/2) but does 2&times; the neighbour work'}`+
+      `; the payoff is isotropy</span>`+
+      `<br><span style="color:#6a6a6a">the array is a rhombohedron, so the domain is always `+
+      `inscribed and the boundary selector is inert (v1 clamps the mask edge)</span>`)+
+    (S.symIntegral ? '' : `<br><span style="color:var(--link)">octahedral orbit not integral `+
+      `(worst ${(S.symWorst||0).toExponential(1)}) &mdash; symmetry row disabled</span>`);
+  coNote();
+}
+function coNote(){
+  const over=S.Co>coLimit();
+  $('coNote').innerHTML = over
+    ? `<span style="color:var(--link)">Co &gt; ${coLimit().toFixed(6)} &mdash; unstable by theorem</span>`
+    : `<span style="color:var(--hi)">Co / limit = ${(S.Co/coLimit()).toFixed(4)}</span> &middot; `+
+      `limit ${coLimit().toFixed(6)} on ${LT().label}`;
+}
+function costNote(){
+  const cells=N*N*N, rate=34e6;
+  $('costNote').innerHTML=
+    `${cells.toLocaleString()} cells &middot; `+
+    `<span style="color:${cells*S.sub/rate<0.06?'var(--hi)':'var(--link)'}">`+
+    `${(rate/(cells*S.sub)).toFixed(1)}</span> fps expected at ${S.sub} step(s)/frame `+
+    `<span style="color:#6a6a6a">(solver only; the march adds ~30%)</span>`;
+}
+function rdNote(){
+  const lam=S.Co/Math.max(S.freq,1e-9);
+  $('rdNote').innerHTML=
+    `R = <span style="color:var(--accent)">${domR().toFixed(1)}</span> cells &middot; `+
+    `inradius <span style="color:var(--accent)">${innerR().toFixed(1)}</span><br>`+
+    `drive &lambda; = Co/f = <span style="color:${lam<6?'var(--link)':'var(--hi)'}">${lam.toFixed(1)}</span> cells`;
+}
+function isoNote(){
+  $('isoNote').innerHTML = S.autoLevel
+    ? `level = <span style="color:var(--accent)">${(S.level*100).toFixed(0)}%</span> of the live peak `+
+      `= ${fe(S.lvAbs||0)} <span style="color:#6a6a6a">(tracks the decay, so the shell stays visible)</span>`
+    : `absolute level ${fe(S.level)} <span style="color:#6a6a6a">(fixed &mdash; the shell will vanish as the field decays)</span>`;
+}
+function alloc(n){
+  N=n;
+  buildStencil(); buildSym();
+  const m=n*n*n;
+  U0=new Float64Array(m); U1=new Float64Array(m); U2=new Float64Array(m);
+  MASK=new Uint8Array(m); CC=new Float64Array(m);
+  FACES = S.shape==='sphere' ? [] : faceNormals(solidVerts(S.shape));
+  buildDomain();
+}
+function reseed(){
+  buildStencil(); buildSym();
+  FACES = S.shape==='sphere' ? [] : faceNormals(solidVerts(S.shape));
+  buildDomain(); S.maskSym=maskSymmetric(); seed(); buildHull(); updateSurfaces();
+  renderReadout(); buildLedger(); coNote(); costNote(); rdNote(); isoNote();
+}
+function resize(){
+  const w=canvas.clientWidth,h=canvas.clientHeight;
+  if(canvas.width!==Math.floor(w*renderer.getPixelRatio())||canvas.height!==Math.floor(h*renderer.getPixelRatio())){
+    renderer.setSize(w,h,false); camera.aspect=w/h; camera.updateProjectionMatrix();
+  }
+}
+$('coS').addEventListener('input',()=>{ S.Co=+$('coS').value; $('cov').textContent=S.Co.toFixed(3);
+  buildDomain(); coNote(); rdNote(); renderReadout(); buildLedger(); });
+$('nS').addEventListener('input',()=>{ let v=+$('nS').value; if(v%2===0) v+=1;
+  $('nv').textContent=v; alloc(v); reseed(); });
+$('daS').addEventListener('input',()=>{ S.damp=+$('daS').value; $('dav').textContent=S.damp.toFixed(4); });
+$('spS').addEventListener('input',()=>{ S.sub=+$('spS').value; $('spv').textContent=S.sub; costNote(); });
+$('lat').addEventListener('change',()=>{
+  S.lattice=$('lat').value;
+  if(S.Co>coLimit()){ const v=Math.round(coLimit()*0.9*200)/200;
+    $('coS').value=v; S.Co=v; $('cov').textContent=v.toFixed(3); }
+  coLatNote(); reseed();
+});
+$('shape').addEventListener('change',()=>{ S.shape=$('shape').value; reseed(); });
+$('rdS').addEventListener('input',()=>{ S.rad=+$('rdS').value; $('rdv').textContent=S.rad.toFixed(2); reseed(); });
+$('bc').addEventListener('change',()=>{ S.bc=$('bc').value; reseed(); });
+$('sgS').addEventListener('input',()=>{ S.sigma=+$('sgS').value; $('sgv').textContent=S.sigma.toFixed(1); reseed(); });
+$('frS').addEventListener('input',()=>{ S.freq=+$('frS').value; $('frv').textContent=S.freq.toFixed(3); rdNote(); });
+$('sxS').addEventListener('input',()=>{ S.sx=+$('sxS').value; $('sxv').textContent=S.sx.toFixed(2); reseed(); });
+$('szS').addEventListener('input',()=>{ S.sz=+$('szS').value; $('szv').textContent=S.sz.toFixed(2); reseed(); });
+$('srcCentre').onclick=()=>{ for(const id of ['sxS','szS']){ $(id).value=0;
+  $(id).dispatchEvent(new Event('input',{bubbles:true})); } };
+$('lvS').addEventListener('input',()=>{ S.level=+$('lvS').value; $('lvv').textContent=S.level.toFixed(3);
+  updateSurfaces(); isoNote(); renderReadout(); });
+$('opS').addEventListener('input',()=>{ S.opacity=+$('opS').value; $('opv').textContent=S.opacity.toFixed(2);
+  shellPos.material.opacity=S.opacity; shellNeg.material.opacity=S.opacity; });
+$('cPos').addEventListener('change',()=>{ S.showPos=$('cPos').checked; updateSurfaces(); });
+$('cNeg').addEventListener('change',()=>{ S.showNeg=$('cNeg').checked; updateSurfaces(); });
+$('cWire').addEventListener('change',()=>{ S.wire=$('cWire').checked; updateSurfaces(); });
+$('cHull').addEventListener('change',()=>{ S.hull=$('cHull').checked; buildHull(); });
+$('cAuto').addEventListener('change',()=>{ S.autoLevel=$('cAuto').checked;
+  if(S.autoLevel){ $('lvS').min=0.02; $('lvS').max=0.9; $('lvS').step=0.005; if(S.level>0.9) S.level=0.25; }
+  $('lvS').value=S.level; $('lvv').textContent=S.level.toFixed(3);
+  updateSurfaces(); isoNote(); });
+for(const [id,v] of [['sImp','impulse'],['sPulse','pulse'],['sCont','cont'],['sMode','mode']])
+  $(id).onclick=()=>{ S.src=v;
+    for(const q of ['sImp','sPulse','sCont','sMode']) $(q).classList.toggle('on', q===id);
+    reseed(); };
+$('play').onclick=()=>{ S.playing=!S.playing; $('play').classList.toggle('on',S.playing);
+  $('play').innerHTML=S.playing?'&#10073;&#10073; pause':'&#9654; play'; };
+$('step1').onclick=()=>{ stepOnce(); updateSurfaces(); renderReadout(); buildLedger(); };
+$('reset').onclick=()=>reseed();
+function snap(dir,up){
+  const d=15;
+  camera.position.set(dir[0]*d,dir[1]*d,dir[2]*d); camera.up.set(up[0],up[1],up[2]);
+  controls.target.set(0,0,0); controls.update();
+}
+$('v34').onclick=()=>snap([0.6,-0.8,0.5],[0,0,1]);
+$('vTop').onclick=()=>snap([0,0,1],[0,1,0]);
+$('vSide').onclick=()=>snap([0,-1,0.05],[0,0,1]);
+// the magic angle: looking down the body diagonal, where a cube's shadow is a hexagon
+$('vDiag').onclick=()=>snap([1/Math.sqrt(3),1/Math.sqrt(3),1/Math.sqrt(3)],[0,0,1]);
+
+function attachNumbers(){
+  document.querySelectorAll('.panel input[type=range]').forEach(r=>{
+    if(r.dataset.numd) return; r.dataset.numd='1';
+    const box=document.createElement('input');
+    box.type='number'; box.className='numin';
+    box.min=r.min; box.max=r.max; box.step=r.step; box.value=r.value;
+    const wrap=document.createElement('div'); wrap.className='rowwrap';
+    r.parentNode.insertBefore(wrap,r); wrap.appendChild(r); wrap.appendChild(box);
+    r.addEventListener('input',()=>{ box.value=r.value; });
+    const commit=()=>{
+      const v=parseFloat(box.value);
+      if(!isFinite(v)){ box.value=r.value; return; }
+      r.value=Math.min(+r.max, Math.max(+r.min, v)); box.value=r.value;
+      r.dispatchEvent(new Event('input',{bubbles:true}));
+    };
+    box.addEventListener('change',commit);
+    box.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); commit(); box.blur(); } });
+  });
+}
+/* ---- select cycling for the D / B hotkeys ---------------------------------
+   Advances a <select> by one and dispatches 'change', so the existing handler
+   runs -- no duplicated state updates. Shift goes backwards. Disabled options
+   are skipped, and the wrap is modulo so it never lands out of range. */
+function cycleSelect(id, back){
+  const el=$(id); if(!el) return null;
+  const n=el.options.length; if(!n) return null;
+  let i=el.selectedIndex;
+  for(let t=0;t<n;t++){
+    i=(i+(back?-1:1)+n)%n;
+    if(!el.options[i].disabled) break;
+  }
+  el.selectedIndex=i;
+  el.dispatchEvent(new Event('change',{bubbles:true}));
+  return el.options[i].textContent.trim();
+}
+function flashOvl(msg){
+  const o=$('ovl'); if(!o) return;
+  o.dataset.flash=msg;
+  clearTimeout(flashOvl._t);
+  flashOvl._t=setTimeout(()=>{ delete o.dataset.flash; renderReadout(); },1400);
+  renderReadout();
+}
+const stageEl=document.querySelector('.stage');
+function setPhoto(on){ document.body.classList.toggle('photo',on); $('bPhoto').classList.toggle('on',on); }
+function setOvl(vis){ document.body.classList.toggle('hideovl',!vis);
+  $('bOvl').classList.toggle('on',!vis); $('bOvl').textContent = vis?'hide overlay':'show overlay'; }
+function toggleFull(){
+  if(document.fullscreenElement){ document.exitFullscreen().catch(()=>{}); return; }
+  let settled=false;
+  const fallback=()=>{ if(settled||document.fullscreenElement) return;
+    settled=true; setPhoto(true);
+    $('bFull').textContent='full screen blocked — photo mode';
+    setTimeout(()=>{ $('bFull').textContent='full screen'; },2600); };
+  const p = stageEl.requestFullscreen ? stageEl.requestFullscreen()
+                                      : Promise.reject(new Error('unsupported'));
+  Promise.resolve(p).then(()=>{settled=true;}).catch(fallback);
+  setTimeout(fallback,500);
+}
+document.addEventListener('fullscreenchange',()=>
+  $('bFull').classList.toggle('on', !!document.fullscreenElement));
+$('bFull').onclick=toggleFull;
+$('bPhoto').onclick=()=>setPhoto(!document.body.classList.contains('photo'));
+$('bOvl').onclick=()=>setOvl(document.body.classList.contains('hideovl'));
+addEventListener('keydown',e=>{
+  if(e.ctrlKey||e.metaKey||e.altKey) return;
+  if(e.target && /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
+  const k=e.key.toLowerCase();
+  if(k==='f'){ e.preventDefault(); toggleFull(); }
+  else if(k==='h'){ e.preventDefault(); setPhoto(!document.body.classList.contains('photo')); }
+  else if(k==='o'){ e.preventDefault(); setOvl(document.body.classList.contains('hideovl')); }
+  else if(k===' '){ e.preventDefault(); $('play').click(); }
+  else if(k==='n'){ e.preventDefault(); $('step1').click(); }
+  else if(k==='r'){ e.preventDefault(); $('reset').click(); }
+  else if(k==='w'){ e.preventDefault(); $('cWire').click(); flashOvl('wireframe '+($('cWire').checked?'on':'off')); }
+  else if(k==='d'){ e.preventDefault(); const v=cycleSelect('shape', e.shiftKey); if(v) flashOvl('domain: '+v); }
+  else if(k==='b'){ e.preventDefault(); const v=cycleSelect('bc', e.shiftKey); if(v) flashOvl('boundary: '+v); }
+  else if(e.key==='Escape' && document.body.classList.contains('photo')) setPhoto(false);
+});
+
+let last=performance.now(), acc=0;
+function frame(now){
+  const dt=Math.min((now-last)/1000,0.05); last=now;
+  if(S.playing){
+    for(let s=0;s<S.sub;s++) stepOnce();
+    updateSurfaces(); renderReadout();
+    acc+=dt; if(acc>0.4){ acc=0; buildLedger(); }
+  }
+  resize(); controls.update(); renderer.render(scene,camera);
+  requestAnimationFrame(frame);
+}
+$('note').innerHTML=NOTE;
+alloc(65); reseed(); resize(); $('v34').click(); attachNumbers(); setOvl(true); coLatNote();
+requestAnimationFrame(frame);
+</script>

@@ -1,0 +1,2515 @@
+<title>Wave Membrane 2D</title>
+<style>
+  :root{
+    --bg:#000; --panel:#131313; --shadow:#2F0542; --border:#502FA5;
+    --accent:#485FC7; --text:#FFF; --hi:#009E86; --link:#E22211;
+  }
+  *{box-sizing:border-box}
+  body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    margin:0;padding:14px;min-height:100vh}
+  h1{margin:0;font-size:1.25rem;letter-spacing:3px;color:var(--hi);text-transform:uppercase}
+  .sub{color:#9a9a9a;font-size:.78rem;margin:4px 0 12px;font-family:'Courier New',monospace}
+  .wrap{display:flex;gap:14px;align-items:flex-start}
+  .panel{width:296px;flex:0 0 296px;background:var(--panel);border:1px solid var(--border);
+    box-shadow:0 0 0 1px var(--shadow);padding:12px;max-height:calc(100vh - 90px);overflow-y:auto}
+  .right{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:10px}
+  .sect{color:var(--hi);font-size:.68rem;letter-spacing:2.2px;text-transform:uppercase;
+    margin:14px 0 7px;border-bottom:1px solid var(--shadow);padding-bottom:4px}
+  .sect:first-child{margin-top:0}
+  label.row{display:block;font-size:.76rem;margin:7px 0 2px;color:#c8c8c8}
+  label.row b{color:var(--accent);font-family:'Courier New',monospace;float:right}
+  input[type=range]{width:100%;accent-color:var(--border);margin:1px 0 3px}
+  select{width:100%;background:#0a0a0a;color:var(--text);border:1px solid var(--border);
+    padding:4px 6px;font-family:'Courier New',monospace;font-size:.76rem}
+  .btns{display:flex;flex-wrap:wrap;gap:5px;margin:6px 0}
+  button{background:#0a0a0a;color:var(--text);border:1px solid var(--border);padding:5px 9px;
+    font-family:'Courier New',monospace;font-size:.73rem;cursor:pointer}
+  button:hover{border-color:var(--accent);color:var(--accent)}
+  button.on{background:var(--border);color:#fff;border-color:var(--accent)}
+  .chk{display:block;font-size:.76rem;margin:4px 0;color:#c8c8c8;cursor:pointer}
+  .chk input{accent-color:var(--border);margin-right:6px;vertical-align:-1px}
+  #cv{width:100%;height:560px;display:block;border:1px solid var(--border);background:#000}
+  .stage{position:relative}
+  .ovl{position:absolute;left:10px;top:8px;font-family:'Courier New',monospace;font-size:.72rem;
+    color:#8a8a8a;pointer-events:none;line-height:1.5}
+  .ovl b{color:var(--hi)} .ovl .warn{color:var(--link)}
+  .readout{background:var(--panel);border:1px solid var(--border);padding:10px;
+    font-family:'Courier New',monospace;font-size:.75rem;columns:3;column-gap:20px}
+  .readout div{break-inside:avoid;padding:1px 0}
+  .readout span.v{color:var(--accent);float:right}
+  table.led{width:100%;border-collapse:collapse;font-family:'Courier New',monospace;font-size:.73rem;
+    background:var(--panel);border:1px solid var(--border)}
+  table.led th{text-align:left;color:var(--hi);font-size:.66rem;letter-spacing:1.6px;text-transform:uppercase;
+    padding:7px 8px;border-bottom:1px solid var(--shadow);font-weight:normal}
+  table.led td{padding:4px 8px;border-bottom:1px solid #1e1e1e;vertical-align:top}
+  table.led td.s{width:70px} table.led td.r{width:48px;color:#666}
+  table.led .ok{color:var(--hi)} table.led .bad{color:var(--link)} table.led .na{color:#777}
+  table.led .dsg{color:#c8a800}
+  .note{background:var(--panel);border:1px solid var(--shadow);padding:10px;font-size:.76rem;
+    color:#b4b4b4;line-height:1.55}
+  .note b{color:var(--hi)}
+  #cdnwarn{display:none;color:var(--link);font-family:'Courier New',monospace;font-size:.8rem;
+    padding:8px;border:1px solid var(--link);margin-bottom:8px}
+
+  /* --- typed number boxes beside every slider --- */
+  .rowwrap{display:flex;gap:6px;align-items:center;margin:1px 0 3px}
+  .rowwrap input[type=range]{flex:1 1 auto;margin:0;min-width:0}
+  input.numin{width:66px;flex:0 0 66px;background:#0a0a0a;color:var(--accent);
+    border:1px solid var(--border);padding:2px 4px;font-family:'Courier New',monospace;font-size:.72rem}
+  input.numin:focus{outline:none;border-color:var(--accent)}
+
+  /* --- photo mode: strip every chrome element, keep the field --- */
+  body.photo{padding:0}
+  body.photo h1,body.photo .sub,body.photo .panel,body.photo .readout,
+  body.photo table.led,body.photo .note,body.photo #cdnwarn{display:none}
+  body.photo .wrap{gap:0}
+  body.photo .right{gap:0}
+  body.photo #cv{height:100vh;border:0}
+  body.hideovl .ovl{display:none}
+
+  /* --- fullscreen: the stage element is what goes full --- */
+  .stage:fullscreen,.stage:-webkit-full-screen{background:#000;width:100vw;height:100vh}
+  .stage:fullscreen #cv,.stage:-webkit-full-screen #cv{width:100vw;height:100vh;border:0}
+
+  /* --- diverging gradient editor --- */
+  #gradWrap{display:none;margin-top:6px}
+  #gradcv{width:100%;height:24px;display:block;border:1px solid var(--border);margin:4px 0 2px}
+  #gradAxis{display:flex;justify-content:space-between;font-family:'Courier New',monospace;
+    font-size:.66rem;color:#6a6a6a;margin-bottom:5px}
+  #gradInfo{font-family:'Courier New',monospace;font-size:.67rem;color:#8a8a8a;line-height:1.55}
+  #gradInfo b{color:var(--hi)} #gradInfo .bad{color:var(--link)}
+  .gstop{display:flex;gap:5px;align-items:center;margin:3px 0}
+  .gstop input[type=color]{width:36px;flex:0 0 36px;height:22px;padding:0;
+    border:1px solid var(--border);background:#0a0a0a}
+  .gstop input[type=range]{flex:1 1 auto;margin:0;min-width:0}
+  .gstop span{font-family:'Courier New',monospace;font-size:.67rem;color:#888;
+    width:44px;flex:0 0 44px;text-align:right}
+  .keys{font-family:'Courier New',monospace;font-size:.68rem;color:#6a6a6a;
+    margin-top:9px;border-top:1px solid var(--shadow);padding-top:7px;line-height:1.7}
+  .keys b{color:var(--accent)}
+</style>
+
+<h1>Wave Membrane 2D</h1>
+<div class="sub">real scalar field &middot; FDTD leapfrog &middot; the CFL row is LIVE here &middot; ZRL</div>
+<div id="cdnwarn">three.js did not load from the CDN &mdash; this file needs an internet connection.</div>
+
+<div class="wrap">
+<div class="panel">
+
+  <div class="sect">Solver</div>
+  <label class="row">Courant Co <b id="cov">0.500</b></label>
+  <input type="range" id="coS" min="0.05" max="1.00" step="0.005" value="0.5">
+  <div style="font-size:.71rem;font-family:'Courier New',monospace;margin-bottom:4px" id="coNote"></div>
+  <label class="row">grid N <b id="nv">160</b></label>
+  <input type="range" id="nS" min="48" max="320" step="16" value="160">
+  <label class="row">damping <b id="dav">0.0000</b></label>
+  <input type="range" id="daS" min="0" max="0.02" step="0.0001" value="0">
+  <label class="row">steps / frame <b id="spv">2</b></label>
+  <input type="range" id="spS" min="1" max="8" step="1" value="2">
+  <label class="row">lattice (resolution flavor)</label>
+  <select id="lat">
+    <option value="sq">square &mdash; Gaussian m&sup2;+n&sup2;</option>
+    <option value="tri">triangular &mdash; Eisenstein m&sup2;+mn+n&sup2;, limit &radic;(2/3)</option>
+  </select>
+  <div style="font-size:.71rem;font-family:'Courier New',monospace;color:#8a8a8a;margin-bottom:4px"
+       id="latNote"></div>
+  <label class="row">Laplacian stencil</label>
+  <select id="sten">
+    <option value="5">5-point &mdash; limit 1/&radic;2 = 0.707107</option>
+    <option value="9">9-point isotropic &mdash; limit &radic;3/2 = 0.866025</option>
+  </select>
+  <div style="font-size:.71rem;color:#8a8a8a">Berglund runs Co &asymp; 0.08&ndash;0.12 (max ever 0.25):
+    dispersion, not stability, is his binding constraint.</div>
+
+  <div class="sect">Domain</div>
+  <label class="row">shape (flavor domain)</label>
+  <select id="shape">
+    <option value="square">square &mdash; grid-aligned, EXACT</option>
+    <option value="n4">square, rotatable &mdash; n = 4</option>
+    <option value="circle">circle &mdash; the &infin; flavor</option>
+    <option value="n3">triangle &mdash; flavor n = 3</option>
+    <option value="n5">pentagon &mdash; flavor n = 5</option>
+    <option value="n6">hexagon &mdash; flavor n = 6</option>
+    <option value="n8">octagon &mdash; n = 8</option>
+    <option value="n12">dodecagon &mdash; n = 12</option>
+    <option value="rhomb">rhombus(&theta;) &mdash; the non-regular tiler</option>
+  </select>
+  <label class="row">domain radius <b id="rdv">1.00</b></label>
+  <input type="range" id="rdS" min="0.15" max="2" step="0.005" value="1">
+  <div style="font-size:.71rem;font-family:'Courier New',monospace;color:#8a8a8a;margin-bottom:4px"
+       id="rdNote"></div>
+  <label class="row">rhombus &theta; <b id="rtv">60&deg;</b></label>
+  <input type="range" id="rtS" min="20" max="90" step="0.5" value="60">
+  <label class="row">isomer rotation <b id="rov">0&deg;</b></label>
+  <input type="range" id="roS" min="0" max="90" step="0.05" value="0">
+  <div class="btns"><button id="snapConf">snap conforming (30&deg;)</button></div>
+  <label class="row" style="color:var(--hi)">grid &harr; edge alignment</label>
+  <select id="alCls">
+    <option value="row">aligned = on a straight lattice row</option>
+    <option value="smooth">aligned = row or shortest diagonal (acts smooth)</option>
+  </select>
+  <select id="alSnap" style="margin-top:4px"></select>
+  <div class="btns">
+    <button id="alPrev">&lsaquo; prev</button>
+    <button id="alNext">next &rsaquo;</button>
+    <button id="alOpt">optimal angle</button>
+    <button id="alFlav">optimal grid flavor</button>
+  </div>
+  <label class="chk"><input type="checkbox" id="cEdgeCol">colour the domain edges by alignment</label>
+  <div id="alNote" style="font-size:.68rem;font-family:'Courier New',monospace;color:#8a8a8a;
+       line-height:1.5;margin-bottom:4px"></div>
+  <label class="row">boundary</label>
+  <select id="bc">
+    <option value="dirichlet">fixed edge (Dirichlet) &mdash; a drum</option>
+    <option value="mur">absorbing (Mur 1st order) &mdash; open</option>
+    <option value="neumann">free edge (Neumann)</option>
+    <option value="periodic">periodic (torus)</option>
+  </select>
+  <label class="row">medium</label>
+  <select id="medium">
+    <option value="uniform">uniform</option>
+    <option value="slab">slab, c/2 in the lower half (refraction)</option>
+    <option value="lens">circular slow region (lens)</option>
+  </select>
+
+  <div class="sect">Source</div>
+  <div class="btns">
+    <button id="sImp">impulse</button>
+    <button id="sPulse" class="on">gaussian pulse</button>
+    <button id="sCont">continuous</button>
+    <button id="sSlit">two slits</button>
+    <button id="sMode">drum mode (1,1)</button>
+    <button id="sVtx">vertices</button>
+  </div>
+  <label class="row">source x <b id="sxv">0.00</b></label>
+  <input type="range" id="sxS" min="-1" max="1" step="0.005" value="0">
+  <label class="row">source y <b id="syv">0.00</b></label>
+  <input type="range" id="syS" min="-1" max="1" step="0.005" value="0">
+  <div style="font-size:.71rem;font-family:'Courier New',monospace;color:#8a8a8a;margin-bottom:4px"
+       id="srcNote"></div>
+  <div class="btns">
+    <button id="drop">drop pulse (P)</button>
+    <button id="srcCentre">centre</button>
+  </div>
+  <label class="chk"><input type="checkbox" id="cVtxDrive">drive vertices continuously</label>
+  <label class="row">vertex source inset</label>
+  <select id="vtxIn">
+    <option value="radial">max(2, 1.5&sigma;) along the radius (v1)</option>
+    <option value="wall">3&sigma; from BOTH walls (pulse not clipped)</option>
+  </select>
+  <label class="row">source width &sigma; <b id="sgv">3.0</b></label>
+  <input type="range" id="sgS" min="0.8" max="12" step="0.1" value="3">
+  <label class="row">drive frequency <b id="frv">0.120</b></label>
+  <input type="range" id="frS" min="0.002" max="0.5" step="0.001" value="0.12">
+  <label class="row">drive waveform</label>
+  <select id="wave">
+    <option value="sine">sine &mdash; one harmonic</option>
+    <option value="square">square &mdash; odd k, amplitude 1/k</option>
+    <option value="saw">saw &mdash; all k, amplitude 1/k</option>
+    <option value="tri">triangle &mdash; odd k, amplitude 1/k&sup2;</option>
+  </select>
+  <div style="font-size:.71rem;font-family:'Courier New',monospace;color:#8a8a8a;margin:3px 0 4px"
+       id="harmNote"></div>
+
+  <div class="sect">Run</div>
+  <div class="btns">
+    <button id="play">&#9654; play</button>
+    <button id="step1">step</button>
+    <button id="reset">reset</button>
+  </div>
+
+  <div class="sect">Listener &mdash; reverb v1</div>
+  <label class="row">room size (m) <b id="rmv">10.0</b></label>
+  <input type="range" id="rmS" min="0.5" max="60" step="0.5" value="10">
+  <label class="row">tail length (s) <b id="tlv">0.60</b></label>
+  <input type="range" id="tlS" min="0.05" max="3" step="0.05" value="0.6">
+  <div style="font-size:.71rem;font-family:'Courier New',monospace;color:#8a8a8a;margin:3px 0 5px"
+       id="irNote"></div>
+  <div class="btns">
+    <button id="irRun">capture IR</button>
+    <button id="irClick">hear the room</button>
+  </div>
+  <label class="row">wet / dry <b id="wdv">1.00</b></label>
+  <input type="range" id="wdS" min="0" max="1" step="0.01" value="1">
+  <label class="row" style="margin-top:6px">convolve a sound file</label>
+  <input type="file" id="irFile" accept="audio/*"
+         style="width:100%;font-size:.7rem;color:#c8c8c8">
+  <div class="btns">
+    <button id="irPlay">play</button>
+    <button id="irStop">stop</button>
+    <button id="irRec">record .webm</button>
+  </div>
+  <div style="font-size:.71rem;font-family:'Courier New',monospace;color:#8a8a8a" id="irOut"></div>
+
+  <div class="sect">Render</div>
+  <label class="row">height scale <b id="hsv">1.00</b></label>
+  <input type="range" id="hsS" min="0.05" max="6" step="0.01" value="1">
+  <label class="row">colour gain <b id="cgv">1.00</b></label>
+  <input type="range" id="cgS" min="0.1" max="8" step="0.05" value="1">
+  <label class="row">palette</label>
+  <select id="pal">
+    <option value="div">diverging (signed) &mdash; correct for a real field</option>
+    <option value="hot">heat (magnitude)</option>
+    <option value="gray">grayscale</option>
+    <option value="cust">custom gradient (editable)</option>
+  </select>
+  <div id="gradWrap">
+    <canvas id="gradcv" width="512" height="24"></canvas>
+    <div id="gradAxis"><span>u = &minus;1</span><span>0</span><span>u = +1</span></div>
+    <div id="gradStops"></div>
+    <div class="btns">
+      <button id="gAdd">+ stop</button>
+      <button id="gDel">&minus; stop</button>
+      <button id="gRev">reverse</button>
+      <button id="gDiv">house diverging</button>
+    </div>
+    <div id="gradInfo"></div>
+  </div>
+  <label class="chk"><input type="checkbox" id="cWire">wireframe overlay</label>
+  <label class="row">wireframe step (cells) <b id="wsv">1</b></label>
+  <input type="range" id="wsS" min="1" max="24" step="1" value="1">
+  <div style="font-size:.71rem;font-family:'Courier New',monospace;color:#8a8a8a;margin-bottom:4px"
+       id="wsNote"></div>
+  <label class="chk"><input type="checkbox" id="cSolid" checked>filled surface</label>
+  <label class="chk"><input type="checkbox" id="cFlat">flat (top-down) view</label>
+  <label class="chk"><input type="checkbox" id="cPrism">prism &mdash; the domain as both caps</label>
+  <div id="prismWrap" style="display:none">
+    <label class="chk"><input type="checkbox" id="cPrismU" checked>uniform (square side faces)</label>
+    <label class="row">prism height H <b id="phv">&mdash;</b></label>
+    <input type="range" id="phS" min="0.1" max="10" step="0.02" value="2">
+    <div style="font-size:.71rem;font-family:'Courier New',monospace;color:#8a8a8a" id="phNote"></div>
+  </div>
+  <div class="btns">
+    <button id="v34">3/4</button>
+    <button id="vTop">top</button>
+    <button id="vSide">side</button>
+  </div>
+
+  <div class="sect">Presentation</div>
+  <div class="btns">
+    <button id="bFull">full screen</button>
+    <button id="bPhoto">photo mode</button>
+    <button id="bOvl">hide overlay</button>
+  </div>
+  <div class="keys">
+    <b>F</b> full screen &middot; <b>H</b> photo mode &middot; <b>O</b> overlay<br>
+    <b>space</b> play/pause &middot; <b>N</b> step &middot; <b>R</b> reset &middot; <b>P</b> drop pulse<br>
+    <b>W</b> wireframe &middot; <b>D</b> domain &middot; <b>B</b> boundary <span style="color:#4a4a4a">(+shift = back)</span><br>
+    <b>A</b> next aligned angle <span style="color:#4a4a4a">(+shift = back)</span> &middot; <b>G</b> optimal grid flavor<br>
+    <b>Esc</b> exits full screen, then photo mode
+  </div>
+</div>
+
+<div class="right">
+  <div class="stage">
+    <canvas id="cv"></canvas>
+    <div class="ovl" id="ovl"></div>
+  </div>
+  <div class="readout" id="ro"></div>
+  <table class="led"><thead><tr><th>identity check &mdash; measured from the running solver</th><th>status</th><th>detail</th><th>ref</th></tr></thead><tbody id="led"></tbody></table>
+  <div class="note" id="note"></div>
+</div>
+</div>
+
+<script type="importmap">
+{"imports":{
+  "three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script>
+  window.__ok=false;
+  setTimeout(()=>{ if(!window.__ok) document.getElementById('cdnwarn').style.display='block'; },4000);
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+window.__ok=true;
+
+/* ══════════════════════════════════════════════════════════════════════════
+   0. THE SOLVER
+   ────────────────────────────────────────────────────────────────────────
+   Leapfrog FDTD for the 2D wave equation  u_tt = c^2 lap(u):
+
+       u[n+1] = 2u[n] - u[n-1] + Co^2 * lap5(u[n])
+
+   Co = c*dt/h is the Courant number. The stability bound, PROVED in
+   ZRL_wave_findings_MIRROR.md 5, is Co <= 1/sqrt(D); in 2D that is
+   1/sqrt2 = 0.70710678. This app is where that row finally goes LIVE --
+   push the slider past the line and watch it diverge.
+
+   The field is REAL. A membrane has no phase, so the D+2 dimension wall
+   (a complex field on a 2D domain needs 4 axes) does not arise here. It
+   WOULD arise for 2D Schrodinger, which additionally needs a different
+   integrator (first order in time), and is deferred for that reason.
+   ══════════════════════════════════════════════════════════════════════ */
+const PI=Math.PI, TAU=2*PI;
+/* The CFL limit belongs to the STENCIL, not only to the dimension. Co <= 1/sqrt(D) is
+   the 5-point (standard cubic-lattice) result. The 9-point ISOTROPIC Laplacian
+   (2/3 edge, 1/6 diagonal, -10/3 centre) has |lambda|max = 16/3 instead of 8, giving
+   Co <= 2/sqrt(16/3) = sqrt(3)/2. Both verified numerically: stable just below,
+   divergent just above. */
+const CO_LIMIT_5=1/Math.sqrt(2);            // 0.707107
+const CO_LIMIT_9=Math.sqrt(3)/2;            // 0.866025
+const CO_LIMIT_T=Math.sqrt(2/3);            // 0.816497  -- triangular lattice
+
+/* ── TIER C: the resolution flavor ────────────────────────────────────────
+   A triangular lattice is NOT a new data structure. It is the same N x N
+   Float64Array with a different neighbour list and a different map from index
+   to position: basis e1 = (1,0), e2 = (1/2, sqrt3/2), so cell (i,j) sits at
+   (da + db/2, db*sqrt3/2). The six neighbours (+-1,0),(0,+-1),(1,-1),(-1,1)
+   are all at distance exactly 1 (verified), and sum_m d_m (x) d_m = 3I, which
+   gives the Laplacian  lap = (2/3h^2) sum_m (u_m - u_0)  -- verified second
+   order, error falling 4.00x per halving.
+   |lambda|max of that stencil is 6, so Co <= 2/sqrt6 = sqrt(2/3) = 0.816497:
+   LESS restrictive than the 5-point square grid's 0.707107. Verified stable at
+   0.98x the limit and divergent at 1.02x.
+   Two consequences that must not be forgotten:
+     - the cell AREA is sqrt(3)/2, not 1, so every area comparison needs the
+       factor or the cell count reads 13% low;
+     - the N x N array is a RHOMBUS in space, with inradius (sqrt3/2)c rather
+       than c, so the same N holds a 13.4% smaller domain.                  */
+const S3H=Math.sqrt(3)/2;
+const TRI=()=> S.lattice==='tri';
+const cellArea=()=> TRI() ? S3H : 1;
+const NB_TRI=[[1,0],[-1,0],[0,1],[0,-1],[1,-1],[-1,1]];
+// physical offset of cell (i,j) from the centre cell
+function cellXY(i,j){
+  const c=(N-1)/2, da=i-c, db=j-c;
+  return TRI() ? [da+db*0.5, db*S3H] : [da, db];
+}
+const coLimit=()=> TRI() ? CO_LIMIT_T : (S.stencil===9 ? CO_LIMIT_9 : CO_LIMIT_5);
+
+/* --- band-limited drive waveforms -----------------------------------------
+   An ideal square/saw/triangle has infinitely many harmonics. A grid cannot
+   carry them: harmonic k has wavelength lambda/k cells, and below ~8 cells per
+   wavelength it travels at the wrong speed (grid dispersion) or, below 2 cells,
+   cannot exist at all. So the drive is synthesised additively with the harmonic
+   count the grid can actually carry, k_max = Co/(PPW_MIN * f), and the app
+   reports it. Asking for more does not give you a sharper edge -- it injects
+   components that disperse and smear.                                        */
+const PPW_MIN=8;
+const kMax=()=> Math.max(1, Math.floor(S.Co/(PPW_MIN*Math.max(S.freq,1e-9))));
+function harmonics(){                         // [k, amplitude] pairs actually injected
+  const K=kMax(), out=[];
+  if(S.wave==='sine'){ out.push([1,1]); return out; }
+  for(let k=1;k<=K;k++){
+    if(S.wave==='square'){ if(k%2) out.push([k, 4/(PI*k)]); }
+    else if(S.wave==='saw'){ out.push([k, (k%2?2:-2)/(PI*k)]); }
+    else if(S.wave==='tri'){ if(k%2) out.push([k, 8*(((k-1)/2)%2?-1:1)/(PI*PI*k*k)]); }
+  }
+  if(!out.length) out.push([1, S.wave==='tri'?8/(PI*PI):4/PI]);
+  return out;
+}
+let HARM=[[1,1]];
+function drive(step){
+  let s=0;
+  for(const [k,a] of HARM) s+=a*Math.sin(TAU*S.freq*k*step);
+  return s;
+}
+
+const S={
+  N:160, Co:0.5, damp:0, sub:2, shape:'square', bc:'dirichlet', medium:'uniform',
+  src:'pulse', sigma:3, freq:0.12, playing:false, t:0, step:0,
+  hs:1, cg:1, pal:'div', wire:false, flat:false, stencil:5,
+  rtheta:PI/3, rot:0, rad:1,
+  sx:0, sy:0, vtxDrive:false, prism:false, prismU:true, prismH:2,
+  lattice:'sq', wave:'sine', roomM:10, tailS:0.6, wet:1,
+  wireStep:1, solid:true,
+  alCls:'row', edgeCol:false, vtxInset:'radial'
+};
+
+/* --- domain size ----------------------------------------------------------
+   R is the CIRCUMradius of the flavor shape in cells. The slider scales it, and
+   that makes the slider a RESOLUTION control as much as a size control: at fixed
+   N, halving R halves the cells per wavelength and roughly doubles the staircase
+   error. The readout states R in cells for exactly that reason.
+   innerR is the INradius -- the shortest distance from the centre to the wall --
+   and it is what every "has the front reached the edge yet" test must use. The
+   pre-radius build compared against the grid half-width, which is only the
+   inradius for the full square; on a small triangle that let the anisotropy row
+   keep measuring long after the front had hit the wall.
+   The square at radius 1.00 stays the WHOLE grid, so the boundary control still
+   governs it and it remains the one exactly-represented domain.              */
+// on the triangular lattice the array is a rhombus, so the square domain is always
+// masked -- there is no "the square IS the whole array" case to shortcut
+const sqFull=()=> S.shape==='square' && S.rad>=0.999 && !TRI();
+// the largest disk the array holds: c on the square lattice, (sqrt3/2)c on the
+// triangular one (the array rhombus's inradius -- a 13.4% linear loss at equal N)
+const baseHalf=()=> ((N-1)/2) * (TRI() ? S3H : 1);
+function domR(){
+  const R=(baseHalf()-1.5)*S.rad;
+  if(TRI()){
+    /* The triangular analogue of the square's half-integer snap. A {3,4,6} tiler
+       conforms only when it is at rotation 30 deg AND its side is a whole number of
+       lattice steps -- and the radius slider's 0.005 step cannot land on that exactly
+       (it lands within ~0.13 cells, which is enough to flip boundary lattice points
+       in or out and break the exact count). So R snaps to the conforming value, the
+       readout shows it, and the ledger still MEASURES the resulting cell count
+       against the closed form rather than assuming it. */
+    const at30=atConfRot();
+    if(at30){
+      if(S.shape==='n6') return Math.max(2, Math.round(R));
+      if(S.shape==='rhomb' && Math.abs(S.rtheta-PI/3)<1e-6)
+        return Math.max(2, Math.round(2*R/Math.sqrt(3)))*Math.sqrt(3)/2;
+      if(S.shape==='n3'){                       // side must be a MULTIPLE OF 3, or the
+        let L=Math.round(R*Math.sqrt(3));       // centroid is not a lattice site
+        L=Math.max(3, Math.round(L/3)*3);
+        return L/Math.sqrt(3);
+      }
+    }
+    return R;
+  }
+  // The square is this app's one EXACTLY representable domain -- every other row
+  // is calibrated against it -- and that property has to survive the radius slider.
+  // A masked square holds cells with max(|dx|,|dy|) <= R, so it contains exactly
+  // 2*floor(R)+1 cells per side and its area (2R)^2 is exact only when 2R is an odd
+  // integer. Unsnapped, with a 0.005 step, that happens at radius 1.00 and essentially
+  // nowhere else, so the reference domain would quietly stop being exact the moment
+  // the slider moved. Snapping R to the half-integer makes it exact at EVERY radius;
+  // the cost is that the square's radius moves in whole-cell steps, which the readout
+  // shows. The ledger still MEASURES the exactness rather than assuming it.
+  return (S.shape==='square' && !sqFull()) ? Math.floor(R)+0.5 : R;
+}
+function innerR(){
+  const R=domR(), h=baseHalf();
+  let ir;
+  if(S.shape==='square')      ir = sqFull() ? h : R;
+  else if(S.shape==='circle') ir = R;
+  else if(S.shape==='rhomb'){ const B=R*Math.tan(S.rtheta/2); ir = R*B/Math.hypot(R,B); }
+  else ir = R*Math.cos(PI/(+S.shape.slice(1)));     // regular n-gon inradius
+  return Math.min(ir, h);          // past radius 1 the GRID EDGE is the nearest wall
+}
+/* rot = 30 (mod 60). 30 and 90 are the SAME configuration seen through the triangular
+   lattice's own 60-degree turn about the centre node, so both must snap alike. Before
+   26/09 only 30 did: at 90 the hexagon kept an unsnapped radius, so two configurations
+   that are congruent by lattice symmetry produced masks that were not. */
+const atConfRot=()=>{ const d=(((S.rot*180/PI-30)%60)+60)%60; return Math.min(d,60-d)<0.26; };
+
+/* ══════════════════════════════════════════════════════════════════════════
+   1c. GRID <-> EDGE ALIGNMENT
+   ────────────────────────────────────────────────────────────────────────
+   Measured 26/09 (single-wall experiment, triangular lattice): what a wave sees at a
+   staircased wall is set by the wall's LATTICE DIRECTION, not by how jagged it looks.
+   A wall along lattice direction (a,b) is a sawtooth that repeats every
+       d = sqrt(a^2+ab+b^2)  (triangular)      d = sqrt(a^2+b^2)  (square)
+   cells -- a diffraction grating. For wavelength lambda > 2d every side beam is
+   evanescent at every incidence angle and the wall reflects exactly like a smooth wall
+   shifted 0.35-0.45 cells outward (spurious energy < 1e-7). Below that, side beams
+   leave at the grating angles with strength ~ 3 cos(th_i) cos(th_m)/(m^2 lambda^2).
+   A direction that is not a lattice direction has no period at all and leaks weakly
+   at every wavelength (~1e-3 at lambda = 14 for a 10.3-degree wall).
+   So an edge is classed by its direction:
+     row   -- a nearest-neighbour bond direction, d = 1. The boundary is ONE straight
+              line of nodes. Square: 0, 90. Triangular: 0, 60, 120.
+     diag  -- the shortest non-row direction. Square: 45, 135 (d = sqrt2). Triangular:
+              30, 90, 150 (d = sqrt3, a regular two-level zigzag). Silent for every
+              wavelength the grid carries well (lambda >= 4), i.e. it ACTS smooth.
+     rat   -- any other lattice direction, period d, silent only for lambda > 2d.
+     irr   -- not a lattice direction.
+   An edge of a regular n-gon has its outward normal at rot + 360k/n, so its direction
+   is rot + 360k/n + 90 (mod 180), and it is aligned with lattice direction alpha
+   exactly when rot = alpha - 90 - 360k/n (mod 180). That makes the complete list of
+   aligned rotations a FINITE, exact enumeration -- no scan, no rounding.
+   Everything between ALIGN-BEGIN and ALIGN-END is pure (no S, no DOM, no N), so the
+   node harness can evaluate exactly this code against the Python reference.        */
+/* ALIGN-BEGIN */
+const AL_ROWS={sq:[0,90], tri:[0,60,120]};
+const AL_DIAG={sq:[45,135], tri:[30,90,150]};
+const AL_DPER={sq:Math.SQRT2, tri:Math.sqrt(3)};
+const AL_LROT={sq:90, tri:60};                 // the lattice's own rotation period
+const alMod180=x=>((x%180)+180)%180;
+const alGcdI=(a,b)=>{ a=Math.abs(a); b=Math.abs(b); while(b){ const t=a%b; a=b; b=t; } return a; };
+function alGcdF(a,b){                          // gcd of two angles in degrees (tolerant)
+  a=Math.abs(a); b=Math.abs(b);
+  for(let k=0;k<64 && b>1e-7;k++){ const t=a%b; a=b; b=(t<1e-7||b-t<1e-7)?0:t; }
+  return a;
+}
+// edge DIRECTIONS (degrees, mod 180) of the unrotated flavor polygon, in shapePoly order
+function alEdgeDirs0(shape, rthetaRad){
+  if(shape==='circle') return [];
+  if(shape==='square') return [0,90,0,90];
+  if(shape==='rhomb'){ const h=rthetaRad*90/Math.PI;          // edges at rot -+ theta/2
+    return [alMod180(-h), alMod180(h), alMod180(-h), alMod180(h)]; }
+  const n=+shape.slice(1), out=[];
+  // shapePoly's edge k joins the vertices at pi/n + 2pi k/n and pi/n + 2pi(k+1)/n, so
+  // its outward normal is at 360(k+1)/n and its direction 90 degrees further on
+  for(let k=0;k<n;k++) out.push(alMod180(360*(k+1)/n+90));
+  return out;
+}
+/* The primitive lattice direction (a,b) along angle phi, if phi IS one. The first b
+   that works is primitive (a smaller multiple would have matched earlier), so its
+   period is the length of a*e1 + b*e2. Tolerance 1e-7 per unit of b: exact angles
+   only -- a near miss is 'irr' here and is reported by alNearDir separately.      */
+function alLatticeDir(phi, lat, M){
+  M=M||24;
+  const p=alMod180(phi)*Math.PI/180, c=Math.cos(p), s=Math.sin(p);
+  if(Math.abs(s)<1e-12) return {a:1, b:0, d:1};
+  for(let b=1;b<=M;b++){
+    const aReal = lat==='tri' ? b*(Math.sqrt(3)/2*c/s - 0.5) : b*c/s;
+    const a=Math.round(aReal);
+    if(Math.abs(aReal-a) > 1e-7*b) continue;
+    const g=alGcdI(a,b), A=a/g, B=b/g;
+    const d = lat==='tri' ? Math.sqrt(A*A+A*B+B*B) : Math.sqrt(A*A+B*B);
+    return {a:A, b:B, d};
+  }
+  return null;
+}
+function alClass(phi, lat){
+  const r=alLatticeDir(phi, lat, 24);
+  if(!r) return {cls:'irr'};
+  const cls = r.d<1+1e-9 ? 'row' : Math.abs(r.d-AL_DPER[lat])<1e-9 ? 'diag' : 'rat';
+  return {cls, a:r.a, b:r.b, d:r.d};
+}
+/* For an edge that is NOT a lattice direction: the shortest-period lattice direction
+   whose staircase it follows over its whole length -- i.e. the drift across the edge,
+   len * sin(angle difference), stays under half a row spacing. Over that edge the
+   boundary IS that direction's staircase, so its period is the one that matters.  */
+function alNearDir(phi, lat, len){
+  const sp = lat==='tri' ? Math.sqrt(3)/2 : 1;
+  let best=null;
+  for(let b=0;b<=16;b++) for(let a=-16;a<=16;a++){
+    if(!a && !b) continue;
+    if(alGcdI(a,b)!==1) continue;
+    const vx = lat==='tri' ? a+b/2 : a, vy = lat==='tri' ? b*Math.sqrt(3)/2 : b;
+    const ang=Math.atan2(vy,vx)*180/Math.PI;
+    let dA=Math.abs(alMod180(ang)-alMod180(phi)); dA=Math.min(dA,180-dA);
+    if(len*Math.sin(dA*Math.PI/180) >= sp/2) continue;
+    const d=Math.hypot(vx,vy);
+    if(!best || d<best.d-1e-9) best={a, b, d, dA};
+  }
+  return best;
+}
+function alCount(dirs0, rotDeg, lat){
+  let rows=0, diags=0;
+  for(const p of dirs0){ const c=alClass(p+rotDeg, lat).cls;
+    if(c==='row') rows++; else if(c==='diag') diags++; }
+  return {rows, diags, n:dirs0.length};
+}
+// every rotation in [lo,hi] (degrees) at which >= 1 edge is a row or a diag, exactly
+function alAngles(dirs0, lat, lo, hi){
+  const cand=[];
+  for(const p of dirs0) for(const al of AL_ROWS[lat].concat(AL_DIAG[lat])){
+    const r=alMod180(al-p);
+    for(const q of [r-180, r, r+180]){
+      const qq=Math.round(q*1e9)/1e9;
+      if(qq>=lo-1e-9 && qq<=hi+1e-9) cand.push(Math.min(hi,Math.max(lo,qq)));
+    }
+  }
+  cand.sort((x,y)=>x-y);
+  const out=[];
+  for(const r of cand){
+    if(out.length && Math.abs(out[out.length-1].rot-r)<1e-7) continue;
+    const c=alCount(dirs0, r, lat);
+    if(c.rows+c.diags) out.push({rot:r, rows:c.rows, diags:c.diags, n:c.n});
+  }
+  return out;
+}
+// the best entry: 'row' mode ranks straight rows first, 'smooth' ranks rows+diags first;
+// the list is sorted, so the smallest angle wins a tie
+function alBest(list, mode){
+  const key=e=> mode==='smooth' ? [e.rows+e.diags, e.rows] : [e.rows, e.diags];
+  let best=null;
+  for(const e of list){ if(!best){ best=e; continue; }
+    const k=key(e), kb=key(best);
+    if(k[0]>kb[0] || (k[0]===kb[0] && k[1]>kb[1])) best=e; }
+  return best;
+}
+/* Two rotations give CONGRUENT masks (for a shape that fits inside the array) when
+   they differ by a lattice symmetry composed with a shape symmetry. Rotations:
+   rot ~ rot + g with g = gcd(shape period, lattice period). Mirrors: both the shape
+   and the lattice have one through the axis, so rot ~ -rot as well. The canonical
+   representative is min(r, g - r), r = rot mod g.                                  */
+function alSymPeriod(shape, lat){
+  if(shape==='circle' || shape==='square') return 0;
+  const P = shape==='rhomb' ? 180 : 360/(+shape.slice(1));
+  return alGcdF(P, AL_LROT[lat]);
+}
+function alCanon(rot, g){
+  if(!g) return 0;
+  const r=((rot%g)+g)%g, c=Math.min(r, g-r);
+  return Math.round(c*1e6)/1e6;
+}
+/* ALIGN-END */
+
+/* --- the ideal outline, and what survives the grid ------------------------
+   Radius > 1 pushes the flavor shape past the grid, so part of its boundary is
+   replaced by the grid edge and the domain becomes shape AND square -- a PARTIAL
+   flavor, the intersection family. That is a feature, but only if the ledger
+   stops comparing the mask against a shape that is no longer there: an unclipped
+   comparison would report the missing corners as a staircase error, which is the
+   domain-limit-as-physics-failure bug again. So the exact area is taken on the
+   CLIPPED shape (Sutherland-Hodgman + shoelace for polygons, a closed form for
+   the disk) and the clipped fraction is reported separately.                 */
+function shapePoly(){                              // cell offsets from the centre
+  const R=domR(), P=[];
+  if(S.shape==='square'){ const r=sqFull()?(N-1)/2:R; P.push([-r,-r],[r,-r],[r,r],[-r,r]); }
+  else if(S.shape==='circle'){ for(let k=0;k<256;k++){ const t=TAU*k/256;
+      P.push([R*Math.cos(t), R*Math.sin(t)]); } }
+  else if(S.shape==='rhomb'){ const B=R*Math.tan(S.rtheta/2),
+      co=Math.cos(S.rot), si=Math.sin(S.rot);
+    for(const [x,y] of [[R,0],[0,B],[-R,0],[0,-B]]) P.push([x*co-y*si, x*si+y*co]); }
+  else { const nn=+S.shape.slice(1);
+    for(let k=0;k<nn;k++){ const t=S.rot+PI/nn+k*TAU/nn;
+      P.push([R*Math.cos(t), R*Math.sin(t)]); } }
+  return P;
+}
+const gridHalf=()=> N/2;            // N cells of unit area span [-N/2, +N/2] about the centre
+/* The region the array can actually hold, as a CCW convex polygon. On the square
+   lattice that is a square of side N (half-cell margin all round, area exactly N^2).
+   On the triangular lattice it is the array RHOMBUS through the corner lattice
+   points, scaled by N/(N-1) so its area is exactly N^2 * sqrt(3)/2 -- the same
+   "one Voronoi cell per point" accounting. Verified: 22448.2 both ways at N=161. */
+function clipRegion(){
+  if(!TRI()){ const h=gridHalf(); return [[-h,-h],[h,-h],[h,h],[-h,h]]; }
+  const s=N/(N-1);
+  return [[0,0],[N-1,0],[N-1,N-1],[0,N-1]].map(([i,j])=>{
+    const [x,y]=cellXY(i,j); return [x*s, y*s]; });
+}
+const sideOf=(p,a,nx,ny)=> nx*(p[0]-a[0]) + ny*(p[1]-a[1]);
+function clipConvex(P,C){           // Sutherland-Hodgman against any CCW convex polygon
+  let out=P;
+  for(let e=0;e<C.length;e++){
+    const a=C[e], b=C[(e+1)%C.length];
+    const nx=-(b[1]-a[1]), ny=(b[0]-a[0]);        // inward normal for CCW
+    const src=out; out=[];
+    for(let k=0;k<src.length;k++){
+      const p=src[(k+src.length-1)%src.length], q=src[k];
+      const sp=sideOf(p,a,nx,ny), sq=sideOf(q,a,nx,ny);
+      const cut=()=>{ const t=sp/(sp-sq); return [p[0]+(q[0]-p[0])*t, p[1]+(q[1]-p[1])*t]; };
+      if(sq>=0){ if(sp<0) out.push(cut()); out.push(q); }
+      else if(sp>=0) out.push(cut());
+    }
+    if(!out.length) return [];
+  }
+  return out;
+}
+const clipPoly=(P,h)=> clipConvex(P, clipRegion());
+const fitsInside=P=>{ const C=clipRegion();
+  for(let e=0;e<C.length;e++){ const a=C[e], b=C[(e+1)%C.length];
+    const nx=-(b[1]-a[1]), ny=(b[0]-a[0]);
+    for(const p of P) if(sideOf(p,a,nx,ny) < -1e-9) return false; }
+  return true; };
+const polyArea=P=>{ let s=0;
+  for(let k=0;k<P.length;k++){ const a=P[k], b=P[(k+1)%P.length]; s+=a[0]*b[1]-b[0]*a[1]; }
+  return Math.abs(s)/2; };
+// exact area of a disk of radius R about the origin clipped to [-h,h]^2
+function circleClipArea(R,h){
+  if(R<=h) return PI*R*R;
+  if(R>=h*Math.SQRT2) return 4*h*h;                // the square is wholly inside the disk
+  const x1=Math.sqrt(R*R-h*h), x2=Math.min(R,h);
+  const F=x=> R*R*Math.asin(Math.min(1,Math.max(-1,x/R))) + x*Math.sqrt(Math.max(0,R*R-x*x));
+  return 4*h*x1 + 2*(F(x2)-F(x1));
+}
+const idealArea=()=> S.shape==='circle' ? PI*domR()*domR() : polyArea(shapePoly());
+// probe / source placements, as fractions of the INRADIUS so they stay inside
+// any domain at any radius. At radius 1 on the full square these reproduce the
+// pre-radius absolute offsets (35, 48, 44, ...) exactly.
+const pA=()=> Math.max(3, Math.round(innerR()*0.44));
+const pB=()=> Math.max(4, Math.round(innerR()*0.60));
+
+/* --- where the source is ---------------------------------------------------
+   (sx, sy) are fractions of the INRADIUS, so a source stays in range as the shape
+   and the radius change. Along an axis |s| = 1 lands exactly on the wall; a
+   diagonal offset of the same magnitude does not, so every placement is pushed
+   back inside rather than trusted. Dirichlet clamps any cell outside the mask to
+   zero every step, so a source placed there does not merely move -- it vanishes
+   silently, which is the failure this guard exists to prevent.                */
+/* Round an offset from the centre SYMMETRICALLY. Math.round breaks ties toward +inf,
+   so c+73.5 -> 154 while c-73.5 -> 7, and 154/7 are not mirror images (6 is). Rounding
+   the MAGNITUDE and re-applying the sign makes +d and -d land on mirrored cells for
+   every d. This is not hypothetical: the hexagon's vertices at +-90 deg land on exactly
+   half-integer offsets, and with Math.round the vertex-source mirror residual read
+   7.70e-2 for n = 6 while every other shape read ~3e-16. The new mirror row found it. */
+const symRound=(c,d)=> c + (d===0 ? 0 : Math.sign(d)*Math.round(Math.abs(d)));
+function snapInside(i,j){
+  const c=(N-1)/2;                                    // integer: N is forced odd
+  if(TRI()){
+    /* symRound alone is a SQUARE-lattice trick: it makes +d and -d mirror about the
+       centre, which is the right mirror only when the mirror is (a,b) -> (a,-b). On a
+       triangular lattice it is (a,b) -> (a+b,-b), so rounding the two indices
+       independently puts mirror partners on cells that are not mirror images -- the
+       dodecagon's vertex sources broke the mirror row exactly this way.
+       Rounding b symmetrically and then taking a = round(x - b/2) from the PHYSICAL x
+       is exact: the mirror keeps x, sends b -> -b, and round(x + b/2) = round(x - b/2)
+       + b identically because b is an integer. */
+    const da=i-c, db=j-c, x=da+db*0.5;
+    const B=symRound(0, db);
+    const A=Math.round(x - B*0.5);
+    i=Math.max(1,Math.min(N-2,c+A));
+    j=Math.max(1,Math.min(N-2,c+B));
+  } else {
+    i=Math.max(1,Math.min(N-2,symRound(c,i-c)));
+    j=Math.max(1,Math.min(N-2,symRound(c,j-c)));
+  }
+  if(MASK[idx(i,j)]) return {i,j,moved:false};
+  for(let t=0.96;t>=0;t-=0.02){                       // walk back toward the centre
+    const ii=symRound(c,(i-c)*t), jj=symRound(c,(j-c)*t);
+    if(MASK[idx(ii,jj)]) return {i:ii,j:jj,moved:true};
+  }
+  return {i:c,j:c,moved:true};
+}
+// physical -> (fractional) cell indices: the inverse of cellXY
+function xyToCell(x,y){
+  const c=(N-1)/2;
+  if(!TRI()) return [c+x, c+y];
+  const db=y/S3H, da=x-db*0.5;
+  return [c+da, c+db];
+}
+function srcIJ(){
+  const ir=innerR();
+  const [ci,cj]=xyToCell(S.sx*ir, S.sy*ir);
+  return snapInside(ci, cj);
+}
+/* The flavor shape's VERTICES. insideNgon folds theta about rot, so th = rot puts
+   the bound at R cos(pi/n) (an EDGE MIDPOINT) and th = rot + pi/n puts it at R
+   (a VERTEX) -- verified for n = 3,5,6,8,12 at three rotations. Vertices sit
+   exactly ON the boundary, so each one is pulled inward by `inset` cells before
+   it is used as a source; otherwise the mask clamps it to zero every step. */
+function vertices(inset){
+  const c=(N-1)/2, out=[];
+  if(S.shape==='circle') return [];                   // the infinity flavor has none
+  // the CLIPPED polygon: past radius 1 the domain's real corners are where the flavor
+  // shape meets the grid edge, not where the unclipped shape's vertices used to be
+  for(const [x,y] of clipConvex(shapePoly(), clipRegion())){
+    const L=Math.hypot(x,y) || 1, f=Math.max(0,(L-inset))/L;
+    const [ci,cj]=xyToCell(x*f, y*f);              // physical -> cell, lattice-aware
+    out.push(snapInside(ci, cj));
+  }
+  // dedupe: at small R, or after clipping, two vertices can snap to the same cell
+  const seen=new Set(), uniq=[];
+  for(const v of out){ const key=v.i+','+v.j; if(!seen.has(key)){ seen.add(key); uniq.push(v); } }
+  return uniq;
+}
+/* Clearance = how far the source can radiate before the front meets a wall. With a
+   movable source this is no longer the inradius (that is measured from the CENTRE),
+   so it is scanned once per reseed rather than assumed. */
+function clearanceFrom(i,j){
+  // PHYSICAL distance: on a triangular lattice an index step is not a unit step in
+  // space, so an index-space hypot would over-state the clearance along one axis
+  const [px,py]=cellXY(i,j);
+  let best=Infinity;
+  if(sqFull()) best=Math.min(i,j,N-1-i,N-1-j);
+  for(let jj=0;jj<N;jj++){ const row=jj*N;
+    for(let ii=0;ii<N;ii++) if(!MASK[row+ii]){
+      const [qx,qy]=cellXY(ii,jj);
+      const d=Math.hypot(qx-px,qy-py); if(d<best) best=d; } }
+  return isFinite(best)?best:baseHalf();
+}
+
+let U0=null, U1=null, U2=null, MASK=null, CC=null;   // fields, interior mask, per-cell Co^2
+let N=0, ENERGY=[], PROBE=[], PROBE_B=[], REF=null;
+// source caches: the vertex list and the source's clearance to the nearest wall are
+// O(N^2) to derive, so they are recomputed when the geometry changes, not per step
+let VTX=[], SRC={i:0,j:0,moved:false}, CLEAR=0;
+function recacheSource(){
+  SRC=srcIJ();
+  VTX=vertices(Math.max(2,Math.ceil(1.5*S.sigma)));
+  CLEAR = (S.src==='vtx' && VTX.length)
+    ? Math.min(...VTX.map(v=>clearanceFrom(v.i,v.j)))   // the first front to hit a wall
+    : clearanceFrom(SRC.i,SRC.j);
+}
+
+function alloc(n){
+  N=n;
+  U0=new Float64Array(n*n); U1=new Float64Array(n*n); U2=new Float64Array(n*n);
+  MASK=new Uint8Array(n*n); CC=new Float64Array(n*n);
+  buildDomain();
+}
+/* The flavor domains, straight from canon 3.2:
+       r(th) = a / cos( ((th + pi/n) mod 2pi/n) - pi/n ),   a = R cos(pi/n)
+   One predicate covers every regular n-gon and its isomer rotation. The JS
+   negative-modulus hazard is real here (canon: naive % puts r outside [a,R]),
+   so the fold uses ((x % m) + m) % m.
+   Rhombus(theta) uses the canon R-normalisation: acute tip at (R,0), obtuse tip
+   at (0, R tan(theta/2)), i.e. |x|/R + |y|/(R tan(theta/2)) <= 1.            */
+function insideNgon(dx,dy,R,nn,rot){
+  const r=Math.hypot(dx,dy);
+  if(r<1e-12) return true;
+  const m=TAU/nn;
+  let th=Math.atan2(dy,dx)-rot;
+  const a=(((th+PI/nn)%m)+m)%m - PI/nn;          // guarded fold
+  /* The epsilon is load-bearing on a CONFORMING lattice, where the shape's vertices
+     and edges land exactly ON lattice points. r is preserved exactly by a lattice
+     rotation, but the bound is not: it goes through atan2 and the fold, so two points
+     of the same orbit can straddle the comparison by an ulp and the mask comes out
+     asymmetric. Without it the triangle's 3-fold row and the conforming cell count
+     both failed while the geometry was correct. */
+  return r <= R*Math.cos(PI/nn)/Math.cos(a) + 1e-9;
+}
+function insideRhomb(dx,dy,R,th,rot){
+  const c=Math.cos(rot), s=Math.sin(rot);
+  const x= dx*c+dy*s, y=-dx*s+dy*c;
+  const B=R*Math.tan(th/2);
+  return Math.abs(x)/R + Math.abs(y)/Math.max(B,1e-9) <= 1 + 1e-9;   // see insideNgon
+}
+/* Exact area of the domain AS THE GRID CAN HOLD IT, in cells^2. Below radius 1 the
+   clip is a no-op and the shoelace reproduces the closed forms exactly (regular
+   n-gon 0.5 n R^2 sin(2pi/n), rhombus 2R^2 tan(theta/2)); past it, the clipped area
+   is what the mask is actually trying to be. */
+function shapeArea(R){
+  // the square domain at radius >= 1.00 is the WHOLE grid (the BC lives on the outer
+  // edge), not inset by the 1.5-cell margin the masked shapes use
+  if(sqFull()) return N*N;
+  const P=shapePoly();
+  if(fitsInside(P)){                        // no clipping: use the exact closed forms
+    if(S.shape==='circle') return PI*R*R;
+    if(S.shape==='square') return 4*R*R;
+    return polyArea(P);
+  }
+  // the disk clipped by a SQUARE has a closed form; anything else goes through the
+  // polygon path (the circle is sampled at 256 points there, ~1e-4 relative)
+  if(S.shape==='circle' && !TRI()) return circleClipArea(R, gridHalf());
+  return polyArea(clipConvex(P, clipRegion()));
+}
+function buildDomain(){
+  const n=N, c=(n-1)/2, R=domR(), ir=innerR();
+  // the slow region tracks the DOMAIN, not the grid: pinned to the grid it simply
+  // left the shape entirely at small radii and the medium control did nothing
+  const slabJ=ir*0.16, lensJ=ir*0.19, lensR=ir*0.36;
+  for(let j=0;j<n;j++) for(let i=0;i<n;i++){
+    const k=j*n+i;
+    // PHYSICAL offset, so every shape predicate is lattice-independent
+    const [dx,dy]=cellXY(i,j);
+    let inside=true;
+    if(S.shape==='circle')      inside = (dx*dx+dy*dy) <= R*R;
+    else if(S.shape==='rhomb')  inside = insideRhomb(dx,dy,R,S.rtheta,S.rot);
+    else if(S.shape!=='square') inside = insideNgon(dx,dy,R,+S.shape.slice(1),S.rot);
+    else if(!sqFull())          inside = Math.max(Math.abs(dx),Math.abs(dy)) <= R;
+    MASK[k]=inside?1:0;
+    // per-cell wave speed as a FRACTION of the reference speed; Co_cell = Co * f
+    /* The thresholds are PHYSICAL (scaled by the inradius), so the test must use the
+       physical dy. It used the row index j, which runs 0..N-1 from the array's bottom
+       edge: at radius 1 the "slab" covered 92% of the domain and the lens sat against
+       the bottom wall, and at radius <= 0.5 the slab filled 100% of the domain (no
+       interface at all) while the lens lay entirely outside it -- the exact failure
+       the comment above claims to prevent. Measured 26/09; fixed here. */
+    let f=1;
+    if(S.medium==='slab' && dy>slabJ) f=0.5;
+    else if(S.medium==='lens'){
+      const ddy=dy-lensJ, rr=Math.sqrt(dx*dx+ddy*ddy);
+      if(rr < lensR) f=0.55;
+    }
+    const co=S.Co*f;
+    CC[k]=co*co;
+  }
+}
+const idx=(i,j)=>j*N+i;
+
+function clearField(){
+  U0.fill(0); U1.fill(0); U2.fill(0);
+  ENERGY=[]; PROBE=[]; PROBE_B=[]; S.t=0; S.step=0; REF=null;
+}
+/* Add a gaussian bump at (bi,bj) to the LIVE field. The same value goes into both
+   U0 and U1, so the new bump starts at rest while the velocity (U1-U0) of whatever
+   is already there is left untouched -- superposition, not a reset. */
+function addBump(bi,bj,amp){
+  // No index-space bounding box. A box in INDEX space is a rhombus in PHYSICAL space
+  // on the triangular lattice, so it truncates the gaussian further along one axis
+  // than another and breaks the 6-fold symmetry by exactly the tail it cut: with a
+  // 5-sigma box the residual read 3.80e-6 = exp(-25/2), instead of ~1e-16. Seeding is
+  // O(N^2) and happens on reset, not per step, so the full sweep is free.
+  const n=N, s=S.sigma, [bx,by]=cellXY(bi,bj);
+  for(let j=0;j<n;j++) for(let i=0;i<n;i++){
+    const [x,y]=cellXY(i,j);                        // PHYSICAL offset, not index offset
+    const dx=x-bx, dy=y-by, v=amp*Math.exp(-(dx*dx+dy*dy)/(2*s*s));
+    const k=idx(i,j); U1[k]+=v; U0[k]+=v;
+  }
+}
+function dropPulse(){                                // the manual version of "continuous"
+  const p=srcIJ();
+  addBump(p.i,p.j,1);
+  applyMask();
+  S.drops=(S.drops||0)+1;
+  // S.amax is only refreshed inside record(), which runs on a STEP. Without this the
+  // readout keeps showing the pre-drop peak until the next step, so the drop looks
+  // like it did nothing.
+  let a=0; for(let k=0;k<N*N;k++) if(MASK[k]){ const v=Math.abs(U1[k]); if(v>a) a=v; }
+  S.amax=a;
+  updateMesh(); renderReadout(); buildLedger(); srcNote();
+}
+function seed(){
+  clearField();
+  const n=N, c=(n-1)/2, s=S.sigma, p=SRC;
+  S.drops=0;
+  if(S.src==='impulse'){
+    U1[idx(p.i,p.j)]=1; U0[idx(p.i,p.j)]=1;
+  } else if(S.src==='pulse'){
+    addBump(p.i,p.j,1);
+  } else if(S.src==='vtx'){
+    // every vertex fires in phase: n interfering fronts with the domain's own symmetry
+    for(const v of VTX) addBump(v.i,v.j,1);
+  } else if(S.src==='mode'){
+    // the exact (1,1) Dirichlet eigenmode of the square: sin(pi x/L) sin(pi y/L).
+    // The zeros sit one cell OUTSIDE the interior, so the mode must be built from
+    // where the field is actually clamped -- the outer grid edge for the full square,
+    // the first masked cell for a shrunk one. Hard-coding (n-1) gave the shrunk
+    // square a profile that is not an eigenmode of the domain it is sitting in.
+    const m=modeBox();
+    for(let j=0;j<n;j++) for(let i=0;i<n;i++)
+      U1[idx(i,j)]=U0[idx(i,j)]=Math.sin(PI*(i-m.z)/m.L)*Math.sin(PI*(j-m.z)/m.L);
+  }
+  applyMask();
+}
+// the (1,1) mode's clamped box: z = the zero line, L = its span
+function modeBox(){
+  if(sqFull()) return {z:0, L:N-1};
+  const c=(N-1)/2, hw=Math.floor(domR());
+  return {z:c-hw-1, L:2*hw+2};
+}
+function applyMask(){ for(let k=0;k<N*N;k++) if(!MASK[k]){ U0[k]=0; U1[k]=0; U2[k]=0; } }
+
+function stepOnce(){
+  const n=N, d=S.damp;
+  // TRI is tested FIRST: the periodic branch is the SQUARE-lattice wrap and would
+  // silently run a 4/8-neighbour stencil on a triangular lattice.
+  if(TRI()){
+    // 6 neighbours at distance 1: lap = (2/3)(sum u_m - 6 u_0). Index offsets are
+    // (+-1,0) -> +-1, (0,+-1) -> +-n, (1,-1) -> 1-n, (-1,1) -> n-1; that last pair
+    // is what makes this a triangular lattice and not a sheared square one.
+    for(let j=1;j<n-1;j++){
+      const row=j*n;
+      for(let i=1;i<n-1;i++){
+        const k=row+i;
+        if(!MASK[k]){ U2[k]=0; continue; }
+        const s=U1[k-1]+U1[k+1]+U1[k-n]+U1[k+n]+U1[k+1-n]+U1[k-1+n];
+        U2[k]=(2*U1[k]-U0[k]+CC[k]*(2/3)*(s-6*U1[k])) - d*(U1[k]-U0[k]);
+      }
+    }
+    // v1 carries only a clamped array edge; every domain here is masked anyway, so
+    // the BC selector has nothing to act on and the UI says so rather than pretending
+    for(let i=0;i<n;i++){ U2[idx(i,0)]=0; U2[idx(i,n-1)]=0; U2[idx(0,i)]=0; U2[idx(n-1,i)]=0; }
+  } else if(S.bc==='periodic'){
+    // A torus has no boundary, so it must be ONE wrapped update over every cell, not an
+    // interior pass plus an edge patch-up. The patched version broke the exact 8-fold
+    // symmetry check -- which is precisely what that check exists to catch.
+    for(let j=0;j<n;j++){
+      const jm=((j-1)+n)%n, jp=(j+1)%n;
+      for(let i=0;i<n;i++){
+        const k=j*n+i;
+        if(!MASK[k]){ U2[k]=0; continue; }
+        const im=((i-1)+n)%n, ip=(i+1)%n;
+        let lap;
+        if(S.stencil===9){
+          const e=U1[j*n+im]+U1[j*n+ip]+U1[jm*n+i]+U1[jp*n+i];
+          const dg=U1[jm*n+im]+U1[jm*n+ip]+U1[jp*n+im]+U1[jp*n+ip];
+          lap=(2/3)*e+(1/6)*dg-(10/3)*U1[k];
+        } else lap=U1[j*n+im]+U1[j*n+ip]+U1[jm*n+i]+U1[jp*n+i]-4*U1[k];
+        U2[k]=(2*U1[k]-U0[k]+CC[k]*lap) - d*(U1[k]-U0[k]);
+      }
+    }
+  } else {
+  // interior update
+  for(let j=1;j<n-1;j++){
+    const row=j*n;
+    for(let i=1;i<n-1;i++){
+      const k=row+i;
+      if(!MASK[k]){ U2[k]=0; continue; }
+      let lap;
+      if(S.stencil===9){
+        const e=U1[k-1]+U1[k+1]+U1[k-n]+U1[k+n];
+        const dg=U1[k-n-1]+U1[k-n+1]+U1[k+n-1]+U1[k+n+1];
+        lap=(2/3)*e+(1/6)*dg-(10/3)*U1[k];
+      } else lap=U1[k-1]+U1[k+1]+U1[k-n]+U1[k+n]-4*U1[k];
+      U2[k]=(2*U1[k]-U0[k]+CC[k]*lap) - d*(U1[k]-U0[k]);
+    }
+  }
+  // boundaries
+  const bc=S.bc, co=S.Co, kmur=(co-1)/(co+1);
+  if(bc==='dirichlet'){
+    for(let i=0;i<n;i++){ U2[idx(i,0)]=0; U2[idx(i,n-1)]=0; U2[idx(0,i)]=0; U2[idx(n-1,i)]=0; }
+  } else if(bc==='neumann'){
+    for(let i=0;i<n;i++){ U2[idx(i,0)]=U2[idx(i,1)]; U2[idx(i,n-1)]=U2[idx(i,n-2)];
+                          U2[idx(0,i)]=U2[idx(1,i)]; U2[idx(n-1,i)]=U2[idx(n-2,i)]; }
+  } else if(bc==='mur'){
+    // 1st-order Mur:  u[0]^{n+1} = u[1]^n + k (u[1]^{n+1} - u[0]^n),  k=(Co-1)/(Co+1)
+    for(let i=1;i<n-1;i++){
+      U2[idx(i,0)]   = U1[idx(i,1)]   + kmur*(U2[idx(i,1)]   - U1[idx(i,0)]);
+      U2[idx(i,n-1)] = U1[idx(i,n-2)] + kmur*(U2[idx(i,n-2)] - U1[idx(i,n-1)]);
+      U2[idx(0,i)]   = U1[idx(1,i)]   + kmur*(U2[idx(1,i)]   - U1[idx(0,i)]);
+      U2[idx(n-1,i)] = U1[idx(n-2,i)] + kmur*(U2[idx(n-2,i)] - U1[idx(n-1,i)]);
+    }
+    for(const k of [idx(0,0),idx(n-1,0),idx(0,n-1),idx(n-1,n-1)]) U2[k]=0;
+  }
+  }   // end of the non-periodic branch
+  // ANY masked domain is Dirichlet on the mask edge, regardless of the BC control.
+  // The test is "is there a mask at all", NOT "is the shape a square", because once the
+  // radius slider exists a shrunk square IS masked. Honest note: this is a correctness-
+  // of-the-predicate change, NOT a bug fix. I expected the BC block above to leave live
+  // Mur/Neumann values in the outer ring and leak them inward, and measured instead that
+  // it cannot: the ring is read only by row 1, and row 1 is inside the mask only when
+  // R >= 79, which needs radius >= 1.006 -- above the slider's maximum. Both predicates
+  // measure 0.000e+00 outside the mask for neumann and mur at radius 0.995 down to 0.3.
+  if(!sqFull()) for(let k=0;k<n*n;k++) if(!MASK[k]) U2[k]=0;
+
+  // driven sources -- placed relative to the INRADIUS so they stay inside the
+  // domain at any radius. Pinned to the grid they fell outside a shrunk shape and
+  // the mask then zeroed them every step, so the source silently did nothing.
+  const c=Math.round((n-1)/2), ir=innerR();
+  if(S.src==='cont'){
+    const a=drive(S.step), p=srcIJ();
+    U2[idx(p.i,p.j)]=a;
+  } else if(S.src==='vtx' && S.vtxDrive){
+    const a=drive(S.step);
+    for(const v of VTX) U2[idx(v.i,v.j)]=a;         // every vertex in phase
+  } else if(S.src==='slit'){
+    const a=drive(S.step);
+    // the whole apparatus rides the source offset, so the position sliders still mean
+    // something for a source that is a line rather than a point
+    const ox=Math.round(S.sx*ir), oy=Math.round(S.sy*ir);
+    const jw=c+oy-Math.round(ir*0.40), jd=c+oy-Math.round(ir*0.76);
+    const half=Math.max(2,Math.round(ir*0.07)), off=Math.round(ir*0.24);
+    // a rigid wall with two openings, driven from below
+    if(jw>0 && jw<n) for(let i=0;i<n;i++){
+      const inA=Math.abs(i-(c+ox-off))<half, inB=Math.abs(i-(c+ox+off))<half;
+      if(!inA && !inB) U2[idx(i,jw)]=0;
+    }
+    if(jd>0 && jd<n) for(let i=0;i<n;i++) U2[idx(i,jd)]=a;
+  }
+
+  const tmp=U0; U0=U1; U1=U2; U2=tmp;
+  S.step++; S.t+=S.Co;
+  record();
+}
+
+function record(){
+  const n=N;
+  let kin=0, pot=0, amax=0;
+  for(let j=1;j<n-1;j++){ const row=j*n;
+    for(let i=1;i<n-1;i++){ const k=row+i; if(!MASK[k]) continue;
+      const dv=U1[k]-U0[k]; kin+=dv*dv;
+      const gx=U1[k+1]-U1[k], gy=U1[k+n]-U1[k]; pot+=gx*gx+gy*gy;
+      const a=Math.abs(U1[k]); if(a>amax) amax=a;
+    } }
+  const E=kin/(2*Math.max(S.Co*S.Co,1e-12)) + 0.5*pot;
+  ENERGY.push(E); if(ENERGY.length>4000) ENERGY.shift();
+  const c=Math.round((n-1)/2);
+  PROBE.push(U1[idx(c+pA(), c)]);
+  PROBE_B.push(U1[idx(c, c+pB())]);
+  if(PROBE.length>4000){ PROBE.shift(); PROBE_B.shift(); }
+  S.amax=amax;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   1. PALETTES.  A real field is SIGNED and does not wrap, so the correct map
+   is DIVERGING (one colour for +, another for -, neutral at 0) -- NOT the
+   cyclic hue used for phase in the 1D app. Using a cyclic map here would
+   imply a wrap that the data does not have.
+   ══════════════════════════════════════════════════════════════════════ */
+function colorOf(v){
+  const x=Math.max(-1,Math.min(1, v*S.cg));
+  if(S.pal==='gray'){ const g=(x+1)/2; return [g,g,g]; }
+  if(S.pal==='hot'){ const a=Math.abs(x);
+    return [Math.min(1,a*1.6), Math.max(0,Math.min(1,a*1.6-0.6)), Math.max(0,a*1.6-1.3)]; }
+  if(S.pal==='cust'){ const i=Math.round((x+1)*0.5*256);
+    return [LUT_M[3*i],LUT_M[3*i+1],LUT_M[3*i+2]]; }
+  // diverging: teal (-) -> near-black (0) -> red (+), the project palette's pass/fail pair
+  if(x>=0) return [0.05+0.83*x, 0.05+0.08*x, 0.05+0.05*x];
+  return [0.05+0.00*(-x), 0.05+0.57*(-x), 0.05+0.47*(-x)];
+}
+
+/* --- editable gradient, with the OPPOSITE constraint to the 1D app ---------
+   There, cyclicity is FORCED: phase wraps, so stop 360 is made equal to stop 0 and
+   a hand-made ramp can never open a seam. Here the quantity is a signed amplitude,
+   which does NOT wrap, so the same rule would be a bug: if the two ends match, the
+   map is two-to-one and +u is indistinguishable from -u.
+   So this editor measures the three things a signed map can get wrong, rather than
+   silently repairing any of them:
+     sign separation  |colour(+u) - colour(-u)| for |u| >= 1/2   -> 0 means sign is unreadable
+     luminance reversals  as |u| grows away from 0               -> each one is a false contour
+     zero contrast    how far the midpoint sits from both ends   -> 0 means the rest line hides
+   The default reproduces the built-in diverging ramp, so editing starts from it.
+   The sign window starts at |u| = 1/2 deliberately. Taking the minimum over ALL u
+   scores the house ramp at 0.035, because near zero a diverging map MUST have both
+   sides meeting at the neutral -- that metric penalises the very property that makes
+   it diverging. Measured on the house ramp: 0.035 at |u| = 0.03, 0.139 at 0.125,
+   0.555 at 0.5, 1.110 at 1.0. The thresholds below are read off those numbers.  */
+const hex2rgb=h=>[parseInt(h.slice(1,3),16)/255,parseInt(h.slice(3,5),16)/255,parseInt(h.slice(5,7),16)/255];
+const srgbLin=u=> u<=0.04045 ? u/12.92 : Math.pow((u+0.055)/1.055, 2.4);
+const relLum=c=> 0.2126*srgbLin(c[0])+0.7152*srgbLin(c[1])+0.0722*srgbLin(c[2]);
+const DIV_DEFAULT=[{p:0,c:'#009E86'},{p:0.5,c:'#0D0D0D'},{p:1,c:'#E22211'}];
+let GRADM=DIV_DEFAULT.map(s=>({...s}));
+const LUT_M=new Float32Array(257*3);
+function buildMembLUT(){
+  const st=GRADM.slice().sort((a,b)=>a.p-b.p);
+  if(!st.length) st.push({p:0,c:'#FFFFFF'});
+  for(let i=0;i<=256;i++){
+    const u=i/256;
+    let j=0; while(j+1<st.length && st[j+1].p<u) j++;
+    const a=st[j], b=st[Math.min(j+1,st.length-1)];
+    const span=b.p-a.p, t=span>1e-9 ? Math.max(0,Math.min(1,(u-a.p)/span)) : 0;
+    const ca=hex2rgb(a.c), cb=hex2rgb(b.c);           // ends CLAMP -- no wrap, by design
+    for(let q=0;q<3;q++) LUT_M[3*i+q]=ca[q]+(cb[q]-ca[q])*t;
+  }
+}
+function gradDiag(){
+  const sm=i=>[LUT_M[3*i],LUT_M[3*i+1],LUT_M[3*i+2]];
+  const dist=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1],a[2]-b[2]);
+  let sign=Infinity;
+  for(let d=64;d<=128;d++) sign=Math.min(sign, dist(sm(128+d),sm(128-d)));   // |u| >= 1/2
+  const ends=dist(sm(256),sm(0));
+  let rev=0, prev=relLum(sm(128));
+  for(let i=129;i<=256;i++){ const Y=relLum(sm(i)); if(Y<prev-2e-3) rev++; prev=Y; }
+  prev=relLum(sm(128));
+  for(let i=127;i>=0;i--){ const Y=relLum(sm(i)); if(Y<prev-2e-3) rev++; prev=Y; }
+  const z=Math.min(dist(sm(128),sm(0)), dist(sm(128),sm(256)));
+  return {sign, ends, rev, zero:z};
+}
+buildMembLUT();                                   // before the first colorOf() call
+
+/* ══════════════════════════════════════════════════════════════════════════
+   2. SCENE
+   ══════════════════════════════════════════════════════════════════════ */
+const canvas=document.getElementById('cv');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+const scene=new THREE.Scene(); scene.background=new THREE.Color(0x000000);
+const camera=new THREE.PerspectiveCamera(42,2,0.1,500);
+camera.up.set(0,0,1);
+const controls=new OrbitControls(camera,canvas);
+controls.enablePan=false; controls.target.set(0,0,0);
+
+let mesh=null, geo=null, wire=null, mesh2=null, geo2=null, walls=null, wallLines=null;
+const SPAN=8;
+const cellToMesh=()=> SPAN/(N-1);
+
+/* --- the prism -------------------------------------------------------------
+   The two flavor-shape faces are the SAME membrane drawn twice, mirrored about the
+   mid-plane: the bottom cap sits at -H/2 + u, the top at +H/2 - u, so the prism
+   thins where u > 0 and fattens where u < 0. That mirroring is what makes the
+   author's "cap each surface at H/2" rule mean something -- with it the two caps can
+   touch in the middle and can never cross.
+   IMPORTANT, and it must not be oversold: this is a RENDERING. The two membranes are
+   not coupled -- nothing propagates between them -- which is exactly why the height
+   is a free parameter. The moment H carries physics it stops being adjustable and
+   becomes a third grid dimension with its own cell count and its own CFL.
+   A UNIFORM prism has every face regular, so the side faces are squares exactly when
+   H = the cap's edge length: 2R for the axis-aligned square (which makes it a CUBE),
+   2R sin(pi/n) for a regular n-gon (R for the hexagon, exactly), R/cos(theta/2) for
+   the rhombus. The circle has no edge, so it gets the equilateral cylinder H = 2R. */
+function prismHCells(){
+  const R=domR();
+  if(S.shape==='square') return sqFull() ? (N-1) : 2*R;
+  if(S.shape==='circle') return 2*R;
+  if(S.shape==='rhomb')  return R/Math.cos(S.rtheta/2);
+  return 2*R*Math.sin(PI/(+S.shape.slice(1)));
+}
+function prismH(){ return S.prismU ? prismHCells()*cellToMesh() : S.prismH; }
+// the IDEAL outline, in mesh units -- taken from the exact shape, not from the
+// staircased mask, so the wall shows what the mask is trying to be
+function outline(){                                 // clipped, so the walls stay on the caps
+  const f=cellToMesh();
+  return clipPoly(shapePoly(), gridHalf()).map(p=>[p[0]*f, p[1]*f]);
+}
+function buildWalls(){
+  if(walls){ scene.remove(walls); walls.geometry.dispose(); walls.material.dispose(); walls=null; }
+  if(wallLines){ scene.remove(wallLines); wallLines.geometry.dispose();
+                 wallLines.material.dispose(); wallLines=null; }
+  if(!S.prism) return;
+  const P=outline(), h=prismH()/2, m=P.length, pos=[], lin=[];
+  for(let k=0;k<m;k++){
+    const a=P[k], b=P[(k+1)%m];
+    pos.push(a[0],a[1],-h, b[0],b[1],-h, b[0],b[1],h);
+    pos.push(a[0],a[1],-h, b[0],b[1], h, a[0],a[1],h);
+    lin.push(a[0],a[1],-h, b[0],b[1],-h);          // bottom rim
+    lin.push(a[0],a[1], h, b[0],b[1], h);          // top rim
+    lin.push(a[0],a[1],-h, a[0],a[1], h);          // vertical edge
+  }
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(pos),3));
+  walls=new THREE.Mesh(g,new THREE.MeshBasicMaterial({color:0x502FA5, transparent:true,
+    opacity:0.13, side:THREE.DoubleSide, depthWrite:false}));
+  walls.frustumCulled=false; scene.add(walls);
+  const gl=new THREE.BufferGeometry();
+  gl.setAttribute('position',new THREE.BufferAttribute(new Float32Array(lin),3));
+  wallLines=new THREE.LineSegments(gl,new THREE.LineBasicMaterial({color:0x485FC7}));
+  wallLines.frustumCulled=false; scene.add(wallLines);
+}
+
+/* --- the wireframe, decoupled from the grid --------------------------------
+   material.wireframe draws every TRIANGLE EDGE, so its density is the grid's by
+   construction -- there is no knob. This draws an independent lattice-line overlay
+   instead: every k-th row and column, as segments between adjacent in-mask cells.
+   It follows the surface (the positions are read from the same buffer), it respects
+   the mask so it stops at the flavor wall, and on the triangular lattice it picks up
+   that lattice's own rows rather than a square one's. */
+let wireIdx=null, wireLines=null;
+function buildWire(){
+  if(wireLines){ scene.remove(wireLines); wireLines.geometry.dispose();
+                 wireLines.material.dispose(); wireLines=null; }
+  wireIdx=null;
+  if(!S.wire) return;
+  const k=Math.max(1,S.wireStep|0), n=N, pairs=[];
+  for(let j=0;j<n;j+=k) for(let i=0;i<n-1;i++){
+    const a=j*n+i; if(MASK[a]&&MASK[a+1]) pairs.push(a,a+1);
+  }
+  for(let i=0;i<n;i+=k) for(let j=0;j<n-1;j++){
+    const a=j*n+i; if(MASK[a]&&MASK[a+n]) pairs.push(a,a+n);
+  }
+  if(!pairs.length) return;
+  wireIdx=new Int32Array(pairs);
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(wireIdx.length*3),3));
+  wireLines=new THREE.LineSegments(g,new THREE.LineBasicMaterial({color:0x9fb4ff,
+    transparent:true, opacity:0.55}));
+  wireLines.frustumCulled=false; scene.add(wireLines);
+}
+function buildMesh(){
+  if(mesh){ scene.remove(mesh); geo.dispose(); mesh.material.dispose(); }
+  if(mesh2){ scene.remove(mesh2); geo2.dispose(); mesh2.material.dispose(); mesh2=null; geo2=null; }
+  if(wire){ scene.remove(wire); wire.geometry.dispose(); wire.material.dispose(); wire=null; }
+  const n=N, span=SPAN;
+  geo=new THREE.BufferGeometry();
+  const pos=new Float32Array(n*n*3), col=new Float32Array(n*n*3);
+  const f=cellToMesh();
+  for(let j=0;j<n;j++) for(let i=0;i<n;i++){
+    const k=(j*n+i)*3;
+    const [x,y]=cellXY(i,j);                    // physical, so a tri lattice renders sheared
+    pos[k]=x*f; pos[k+1]=y*f; pos[k+2]=0;
+  }
+  const tri=[];
+  for(let j=0;j<n-1;j++) for(let i=0;i<n-1;i++){
+    const a=j*n+i,b=a+1,c2=a+n,d=c2+1;
+    if(MASK[a]&&MASK[b]&&MASK[c2]&&MASK[d]){
+      // split along the SHORT diagonal. On the triangular lattice the parallelogram
+      // (i,j),(i+1,j),(i,j+1),(i+1,j+1) has diagonals of length sqrt3 and 1; cutting
+      // the short one (b--c2) gives two equilateral triangles, the lattice's own cells.
+      tri.push(a,c2,b, b,c2,d);
+    }
+  }
+  geo.setAttribute('position',new THREE.BufferAttribute(pos,3));
+  geo.setAttribute('color',new THREE.BufferAttribute(col,3));
+  geo.setIndex(tri);
+  const mat=new THREE.MeshBasicMaterial({vertexColors:true, side:THREE.DoubleSide});
+  mesh=new THREE.Mesh(geo,mat); mesh.frustumCulled=false; scene.add(mesh);
+  buildWire();
+  if(S.prism){
+    // the second cap shares the COLOUR buffer -- same field, same colours -- so only
+    // the z column is written twice per frame, not the colours
+    geo2=new THREE.BufferGeometry();
+    geo2.setAttribute('position',new THREE.BufferAttribute(pos.slice(),3));
+    geo2.setAttribute('color',geo.attributes.color);
+    geo2.setIndex(tri);
+    mesh2=new THREE.Mesh(geo2,new THREE.MeshBasicMaterial({vertexColors:true,
+      side:THREE.DoubleSide}));
+    mesh2.frustumCulled=false; scene.add(mesh2);
+  }
+  buildWalls();
+}
+function updateMesh(){
+  const n=N, pos=geo.attributes.position.array, col=geo.attributes.color.array;
+  const hs=S.hs*1.2;
+  const pr=S.prism, hz=pr?prismH()/2:0, pos2=pr&&geo2?geo2.attributes.position.array:null;
+  let clipped=false;
+  for(let k=0;k<n*n;k++){
+    const v=MASK[k]?U1[k]:0;
+    if(pr){
+      let d=v*hs;
+      if(d>hz){ d=hz; clipped=true; } else if(d<-hz){ d=-hz; clipped=true; }
+      pos[3*k+2]=-hz+d;                       // bottom cap rises with u
+      if(pos2) pos2[3*k+2]= hz-d;             // top cap falls with u: the prism thins
+    } else pos[3*k+2]=v*hs;
+    const c=colorOf(v);
+    col[3*k]=c[0]; col[3*k+1]=c[1]; col[3*k+2]=c[2];
+  }
+  S.clipped=clipped;
+  if(pos2){ geo2.attributes.position.needsUpdate=true; geo2.attributes.color.needsUpdate=true;
+            mesh2.visible=S.solid; }
+  geo.attributes.position.needsUpdate=true;
+  geo.attributes.color.needsUpdate=true;
+  if(wireLines && wireIdx){
+    const wp=wireLines.geometry.attributes.position.array;
+    for(let t=0;t<wireIdx.length;t++){
+      const c3=wireIdx[t]*3;
+      wp[t*3]=pos[c3]; wp[t*3+1]=pos[c3+1]; wp[t*3+2]=pos[c3+2];
+    }
+    wireLines.geometry.attributes.position.needsUpdate=true;
+  }
+  mesh.visible=S.solid;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   3. LEDGER
+   ══════════════════════════════════════════════════════════════════════ */
+const fmt=(x,d)=> (x===null||x===undefined||!isFinite(x))?'&mdash;':x.toFixed(d===undefined?6:d);
+const fe=x=> (x===null||x===undefined||!isFinite(x))?'&mdash;':x.toExponential(2);
+const st=(r,t)=> r<=t?`<span class="ok">PASS</span>`:`<span class="bad">FAIL</span>`;
+const NA=`<span class="na">n/a</span>`;
+const DSG=t=>`<span class="dsg">${t}</span>`;
+
+function symmetryResidual(){
+  // a centred source on a symmetric domain must keep 8-fold symmetry EXACTLY
+  const n=N; let worst=0;
+  if(n%2===0) return null;                       // need a true centre cell
+  const c=(n-1)/2;
+  for(let j=0;j<=c;j+=2) for(let i=0;i<=c;i+=2){
+    const a=U1[idx(c+i,c+j)];
+    for(const b of [U1[idx(c-i,c+j)], U1[idx(c+i,c-j)], U1[idx(c-i,c-j)],
+                    U1[idx(c+j,c+i)], U1[idx(c-j,c+i)], U1[idx(c+j,c-i)], U1[idx(c-j,c-i)]])
+      worst=Math.max(worst, Math.abs(a-b));
+  }
+  return worst;
+}
+/* MIRROR symmetry about the x-axis is exact on a square grid -- it is a row swap, no
+   interpolation -- and unlike the 8-fold orbit it survives ODD n. That matters: the
+   triangle and pentagon have no 8-fold orbit at all, so before this row they had no
+   exact solver test. It also gives the new source-position slider an invariant: a
+   source moved along x alone must preserve it, and the residual must stay at machine
+   precision while it does.
+   The n-gon mask is mirror-symmetric about x exactly when rot is a multiple of pi/n
+   (the fold in insideNgon is symmetric in theta and cos is even, so the radial bound
+   is mirror-symmetric even where the half-open fold interval is not). */
+function mirrorSymmetric(){
+  // The triangular LATTICE is mirror-symmetric about y = 0 -- the map is
+  // (a,b) -> (a+b, -b), which mirrorResidual handles. But the triangular ARRAY is a
+  // RHOMBUS, which is point-symmetric and NOT mirror-symmetric, so any shape the array
+  // clips loses the mirror even though the shape itself has it. Measured: an
+  // axis-aligned square on the triangular lattice has its top-left corner cut and its
+  // bottom-left kept. So on that lattice the shape must fit entirely inside the array.
+  if(TRI() && !fitsInside(shapePoly())) return false;
+  if(S.shape==='square'||S.shape==='circle') return true;
+  const q = S.shape==='rhomb' ? PI/2 : PI/(+S.shape.slice(1));
+  const t = S.rot/q;
+  return Math.abs(t-Math.round(t))<1e-9;
+}
+function mirrorResidual(){
+  const n=N; if(n%2===0) return null;
+  const c=(n-1)/2;
+  let worst=0;
+  if(TRI()){
+    // the physical mirror y -> -y is, in lattice coordinates, (a,b) -> (a+b, -b):
+    // integer, so still exact -- but NOT the naive row swap
+    for(let b=1;b<=c;b+=2) for(let a=-c;a<=c;a+=2){
+      const i=c+a, j=c+b, i2=c+a+b, j2=c-b;
+      if(i<0||i>=n||i2<0||i2>=n) continue;
+      worst=Math.max(worst, Math.abs(U1[idx(i,j)]-U1[idx(i2,j2)]));
+    }
+  } else {
+    for(let d=1;d<=c;d+=2) for(let i=0;i<n;i+=2)
+      worst=Math.max(worst, Math.abs(U1[idx(i,c+d)]-U1[idx(i,c-d)]));
+  }
+  return worst;
+}
+/* The triangular lattice's own exact orbit: a 60 deg rotation maps e1 -> e2 and
+   e2 -> e2 - e1, so in lattice coordinates it is (a,b) -> (-b, a+b) -- INTEGER
+   arithmetic, order exactly 6, and it permutes the six neighbours in a single
+   cycle, so the stencil is 6-fold symmetric by construction. This is the
+   triangular analogue of the square lattice's 8-fold octant orbit, and it is the
+   sharpest solver test available on this lattice. Measured 7.3e-16 on a centred
+   pulse in a hexagon.
+   NOTE, checked and NOT true: this does not detect whether the shape CONFORMS to
+   the lattice. A regular hexagon is 6-fold symmetric at any rotation, so the
+   residual is ~1e-16 at rot = 0 and at rot = 30 alike. Conformance is a separate
+   measurement -- the cell count against the exact lattice-point formula.        */
+function symRotResidual(fold){
+  // fold = 6 applies the 60 deg map once per hop; fold = 3 applies it twice (120 deg).
+  // A TRIANGLE is only 3-fold: the 60 deg map sends it to the inverted triangle, so
+  // testing 6-fold there reads 7.5e-2 and that is correct physics, not a solver fault.
+  const n=N, c=(n-1)/2, per=6/fold;
+  let worst=0;
+  for(let b=-c;b<=c;b+=2) for(let a=-c;a<=c;a+=2){
+    const i=c+a, j=c+b;
+    if(i<0||i>=n||j<0||j>=n) continue;
+    let p=a, q=b;
+    const v=U1[idx(i,j)];
+    for(let hop=1;hop<fold;hop++){
+      for(let t=0;t<per;t++){ const np=-q, nq=p+q; p=np; q=nq; }
+      const i2=c+p, j2=c+q;
+      if(i2<0||i2>=n||j2<0||j2>=n){ if(Math.abs(v)>1e-12) return null; continue; }
+      worst=Math.max(worst, Math.abs(v-U1[idx(i2,j2)]));
+    }
+  }
+  return worst;
+}
+/* Anisotropy is only meaningful for a front that is still expanding FREELY. Once the
+   wave has touched a reflecting edge there is no single front left to find, and the
+   argmax returns whatever interference happens to peak -- it read 4.48 before this
+   gate, which is not an anisotropy at all. Same class as the domain-error-reported-
+   as-physics bugs the v2 review caught: measure only where the measurement applies. */
+function frontFree(){
+  // against the source's own CLEARANCE, not the inradius: the inradius is measured
+  // from the centre, so once the source can move it is the wrong bound -- a source
+  // pushed near a wall meets it almost immediately while the inradius still says
+  // there is room. CLEAR is scanned from the actual source cell.
+  return S.step*S.Co < CLEAR-4;
+}
+function frontRadii(){
+  if(!frontFree()) return null;
+  const n=N, ci=SRC.i, cj=SRC.j;                  // measure from the SOURCE, not the grid centre
+  let ba=0, bav=-1, bd=0, bdv=-1;
+  const rmax=Math.min(Math.floor(CLEAR)-2, Math.ceil(S.step*S.Co)+6);
+  for(let r=3;r<rmax;r++){
+    if(ci+r<n && MASK[idx(ci+r,cj)]){
+      const av=Math.abs(U1[idx(ci+r,cj)]); if(av>bav){bav=av; ba=r;} }
+    const dd=Math.round(r/Math.SQRT2);
+    if(ci+dd<n-1 && cj+dd<n-1 && MASK[idx(ci+dd,cj+dd)]){
+      const dv=Math.abs(U1[idx(ci+dd,cj+dd)]); if(dv>bdv){bdv=dv; bd=dd*Math.SQRT2;} }
+  }
+  return (bav>1e-9&&bdv>1e-9&&ba>0)?{ax:ba, dg:bd, ratio:bd/ba}:null;
+}
+const srcCentred=()=> Math.abs(S.sx)<1e-9 && Math.abs(S.sy)<1e-9;
+function energyStats(){
+  // The energy of a standing mode oscillates at 2*omega. Over a window of only a few
+  // periods a straight-line fit reads that oscillation as a TREND, which is what made
+  // the (1,1) mode look like it was drifting. Require many periods before grading.
+  if(ENERGY.length<1200) return null;
+  const E=ENERGY.slice(-1500);
+  const mean=E.reduce((a,b)=>a+b,0)/E.length;
+  if(mean<=1e-12) return null;
+  let lo=Infinity,hi=-Infinity; for(const e of E){lo=Math.min(lo,e);hi=Math.max(hi,e);}
+  // secular drift = slope of a linear fit, normalised
+  let sx=0,sy=0,sxx=0,sxy=0;
+  E.forEach((y,i)=>{sx+=i;sy+=y;sxx+=i*i;sxy+=i*y;});
+  const m=E.length, slope=(m*sxy-sx*sy)/(m*sxx-sx*sx);
+  return {mean, spread:(hi-lo)/mean, drift:Math.abs(slope*m/mean)};
+}
+
+function buildLedger(){
+  const rows=[], n=N;
+  const live = S.step>5 && isFinite(S.amax) && S.amax>1e-12;
+
+  // ---- 1. THE CFL ROW, finally live -----------------------------------
+  {
+    const L=coLimit();
+    const Lname = TRI() ? '&radic;(2/3)' : (S.stencil===9?'&radic;3/2':'1/&radic;2');
+    const Lwho  = TRI() ? 'triangular, 6-neighbour' : `${S.stencil}-point`;
+    const over = S.Co>L;
+    const diverged = !isFinite(S.amax) || S.amax>1e6;
+    let statusHtml, detail;
+    if(S.step<40){ statusHtml=NA; detail='run a few dozen steps first'; }
+    else if(!over){ statusHtml = diverged?`<span class="bad">FAIL</span>`:`<span class="ok">PASS</span>`;
+      detail=`Co = ${fmt(S.Co,4)} &le; ${Lname} = ${fmt(L,6)} (${Lwho}) &middot; bounded, max|u| = ${fe(S.amax)}`; }
+    else { statusHtml = diverged?`<span class="ok">RED&nbsp;OK</span>`:`<span class="bad">not yet</span>`;
+      detail=`Co = ${fmt(S.Co,4)} &gt; ${Lname} &mdash; <b>must diverge</b>; max|u| = ${fe(S.amax)} after ${S.step} steps`; }
+    rows.push([(over?DSG(`CFL: above ${Lname} it MUST blow up (it cannot be stable)`)
+                    :`CFL: the limit belongs to the LATTICE+STENCIL &mdash; ${Lwho} &rarr; ${Lname}`),
+      statusHtml, detail, 'proof &sect;5']);
+  }
+
+  // ---- 2. 8-fold symmetry: exact, and the sharpest test of the solver --
+  {
+    // the octant orbit needs the DOMAIN to be 8-fold symmetric too: square, circle,
+    // and the aligned 8- and 12-gons are; a triangle, pentagon, hexagon or rhombus
+    // is not, so the row must say n/a rather than fail on a correct solver
+    // the octant orbit is a SQUARE-lattice construction: on a triangular lattice a
+    // 90 deg rotation is not a lattice map at all, so the row cannot apply there
+    const sym8 = !TRI() && (S.shape==='circle'
+              || ((S.shape==='square'||S.shape==='n8'||S.shape==='n12') && Math.abs(S.rot)<1e-9));
+    // A SOURCE that has been moved off centre breaks the orbit by construction -- the
+    // field is genuinely no longer 8-fold symmetric and the solver is fine. Grading it
+    // would be the domain-limit-as-physics-failure bug again, so it gates to n/a.
+    const onAxis = srcCentred();
+    const centred = (S.src==='pulse'||S.src==='impulse') && S.medium==='uniform' && sym8 && onAxis
+                    && (S.bc==='dirichlet'||S.bc==='neumann'||S.bc==='periodic');
+    const r = centred ? symmetryResidual() : null;
+    rows.push(['centred source keeps 8-fold symmetry (exact, machine precision)',
+      (centred && r!==null && live) ? st(r, 1e-12) : NA,
+      (centred && r!==null && live)
+        ? `max asymmetry ${fe(r)} over the octant orbit &middot; any solver bug breaks this first`
+        : (n%2===0 ? 'needs an odd grid N for a true centre cell'
+           : !sym8 ? `the ${S.shape} domain is not 8-fold symmetric, so this orbit does not apply`
+           : !onAxis ? `the source is offset to (${fmt(S.sx,3)}, ${fmt(S.sy,3)}) &mdash; the field is `+
+                       `correctly NOT 8-fold symmetric; press "centre" to restore the orbit`
+           : !centred ? 'needs a centred source, uniform medium, symmetric BC' : 'not running yet'),
+      'solver']);
+  }
+
+  // ---- 2a-tri. the triangular lattice's own 6-fold orbit -------------------
+  if(TRI()){
+    // the lattice supports 60 deg rotations, so a domain must be 6-fold (circle, hexagon,
+    // dodecagon) or 3-fold (triangle) for an orbit to exist. A square or a rhombus is
+    // 4- or 2-fold: those are NOT lattice rotations here, so the row says so.
+    const fold = (S.shape==='circle'||S.shape==='n6'||S.shape==='n12') ? 6
+               : S.shape==='n3' ? 3 : 0;
+    // a shape the rhombic array CLIPS loses its rotational symmetry along with it
+    const whole = fitsInside(shapePoly());
+    const good = fold && whole && srcCentred() && S.medium==='uniform' && !S.drops
+                 && (S.src==='pulse'||S.src==='impulse') && live;
+    const r = good ? symRotResidual(fold) : null;
+    rows.push([`triangular lattice: centred source keeps ${fold||6}-fold symmetry (exact)`,
+      (good && r!==null) ? st(r,1e-12) : NA,
+      (good && r!==null)
+        ? `max |u(p) &minus; u(rot p)| = ${fe(r)} over the ${fold}-fold orbit &middot; the `+
+          `rotation is (a,b) &rarr; (&minus;b, a+b) in LATTICE coordinates &mdash; integer, `+
+          `order exactly 6, and it permutes the six neighbours in one cycle`
+        : !fold ? `the ${S.shape} domain is 4- or 2-fold, and neither is a rotation of the `+
+                  `triangular lattice &mdash; only 3- and 6-fold orbits exist here`
+        : !whole ? 'the shape overflows the rhombic array, and the clip is not rotationally '+
+                   'symmetric &mdash; lower the radius until it fits'
+        : !srcCentred() ? 'the source is offset, so the field is correctly not rotationally symmetric'
+        : 'needs a centred pulse or impulse in a uniform medium', 'tier C']);
+
+    // conformance: the mask IS the lattice points of the shape, at the right rotation
+    // conformance also needs the shape to FIT: a clipped tiler is not a tiler
+    const rotDeg=S.rot*180/PI, at30=Math.abs(rotDeg-30)<0.26 && fitsInside(shapePoly());
+    let cells=0; for(let k=0;k<N*N;k++) if(MASK[k]) cells++;
+    let exactN=null, form='';
+    const R=domR();
+    if(S.shape==='n6'){ const L=Math.round(R); if(Math.abs(R-L)<0.26 && at30){
+        exactN=3*L*L+3*L+1; form=`3L&sup2;+3L+1, L = ${L}`; } }
+    else if(S.shape==='rhomb' && Math.abs(S.rtheta-PI/3)<1e-6){
+      const s=Math.round(2*R/Math.sqrt(3)); if(at30){ exactN=(s+1)*(s+1); form=`(s+1)&sup2;, s = ${s}`; } }
+    else if(S.shape==='n3'){ const L=Math.round(R*Math.sqrt(3));
+      if(at30 && L%3===0){ exactN=(L+1)*(L+2)/2; form=`(L+1)(L+2)/2, L = ${L}`; } }
+    rows.push([(exactN!==null?'conforming tiler: the mask IS the shape&rsquo;s lattice points'
+                              :DSG('conformance: this pair is not lattice-conforming')),
+      exactN!==null ? (cells===exactN?`<span class="ok">PASS</span>`:`<span class="bad">FAIL</span>`)
+                    : NA,
+      exactN!==null
+        ? `${cells} cells vs the exact lattice-point count ${exactN} (${form}) &mdash; `+
+          `zero staircase, the boundary runs along lattice rows`
+        : (S.shape==='n6'||S.shape==='n3'||(S.shape==='rhomb'&&Math.abs(S.rtheta-PI/3)<1e-6))
+          ? `{3,4,6} tilers conform at <b>rotation 30&deg;</b> (currently ${fmt(rotDeg,1)}&deg;)`+
+            (S.shape==='n3'?' with side L a multiple of 3 &mdash; otherwise the centroid is not a lattice site':'')+
+            ` and an integer side; press "snap conforming"`
+          : `only the triangle, hexagon and rhombus(60&deg;) tile the triangular lattice &mdash; `+
+            `the crystallographic restriction allows n = 3,4,6 only, so {5,8,12,&infin;} never conform`,
+      'tier C']);
+  }
+
+  // ---- 2b. MIRROR symmetry: exact, and it works where the octant orbit cannot ----
+  {
+    const sy0 = Math.abs(S.sy)<1e-9;
+    const srcOK = (S.src==='pulse'||S.src==='impulse') ? sy0
+                : (S.src==='vtx') ? true          // the vertex set is mirror-symmetric too
+                : false;
+    const geo = mirrorSymmetric() && S.medium==='uniform' && S.bc!=='mur';
+    const good = srcOK && geo && live && !S.drops;
+    const r = good ? mirrorResidual() : null;
+    rows.push(['source on the x-axis keeps MIRROR symmetry (exact &mdash; works for odd n)',
+      (good && r!==null) ? st(r, 1e-12) : NA,
+      (good && r!==null)
+        ? `max |u(x, +y) &minus; u(x, &minus;y)| = ${fe(r)} &middot; a row swap, so it is exact on the `+
+          `grid &middot; the triangle and pentagon have NO 8-fold orbit, so this is their only `+
+          `exact solver test`
+        : !geo ? (S.medium!=='uniform' ? 'the slab and lens are not mirror-symmetric about x'
+                 : (TRI() && !fitsInside(shapePoly()))
+                   ? 'the triangular ARRAY is a rhombus &mdash; point-symmetric but not '+
+                     'mirror-symmetric &mdash; so a shape it clips loses the mirror. Reduce '+
+                     'the radius until the shape fits inside the array.'
+                 : S.bc==='mur' ? 'first-order Mur is not exactly mirror-symmetric off-axis'
+                 : `rot = ${fmt(S.rot*180/PI,1)}&deg; is not a multiple of 180&deg;/n, so the domain `+
+                   `itself is not mirror-symmetric about x`)
+        : S.drops ? `${S.drops} manual pulse(s) dropped &mdash; reset to restore a clean invariant`
+        : !sy0 ? `source y = ${fmt(S.sy,3)} &ne; 0 &mdash; move it back onto the x-axis (source x is free)`
+        : 'needs a pulse, impulse or vertex source', 'solver']);
+  }
+
+  // ---- 3. energy: bounded, and no SECULAR drift ------------------------
+  {
+    const es=energyStats();
+    // The functional below assumes a UNIFORM wave speed. With a variable medium the
+    // conserved quantity is c-weighted, so grading the naive one there is measuring the
+    // wrong invariant -- it reported FAIL on the slab while the solver was fine.
+    const undamped = S.damp<1e-9 && (S.bc==='dirichlet'||S.bc==='periodic'||S.bc==='neumann');
+    const uniform = S.medium==='uniform';
+    // a continuously driven source INJECTS energy every step -- growth there is correct.
+    // So does a manually dropped pulse, which is the same objection one drop at a time.
+    const closed = S.src!=='cont' && S.src!=='slit' && !(S.src==='vtx'&&S.vtxDrive) && !S.drops;
+    rows.push(['energy bounded, no secular drift (leapfrog conserves a MODIFIED energy)',
+      (es && undamped && uniform && closed && live) ? st(es.drift, 0.02) : NA,
+      !uniform ? 'variable medium: this functional assumes uniform c, so it is not the '+
+                 'conserved quantity here (the correct one is c-weighted)'
+      : S.drops ? `${S.drops} manual pulse(s) dropped &mdash; each one ADDS energy, so drift is `+
+                  `correct here; reset for a closed system`
+      : !closed ? 'a driven source injects energy every step &mdash; growth is correct here, not drift'
+      : !undamped ? (S.damp>=1e-9?'damping is on, so energy SHOULD decay':'absorbing edge removes energy by design')
+      : es ? `drift ${fe(es.drift)} of the mean over the window &middot; oscillation &plusmn;${fmt(100*es.spread/2,2)}% `+
+             `is EXPECTED (O(&Delta;t&sup2;)), not an error`
+           : `run to ~1200 steps: the window must span many oscillation periods before a `+
+             `slope fit can tell drift from the standing-wave beat`,
+      'scheme']);
+  }
+
+  // ---- 4. reciprocity -------------------------------------------------
+  rows.push(['reciprocity: swapping source and receiver gives the same signal', NA,
+    'press "reciprocity" &mdash; not yet wired in this build', 'linear']);
+
+  // ---- 5. absorbing vs fixed boundary ---------------------------------
+  {
+    const p=PROBE;
+    if(p.length>300 && (S.src==='pulse'||S.src==='impulse')){
+      let early=0, late=0;
+      const q=Math.min(p.length, 1200);
+      for(let i=0;i<Math.min(140,q);i++) early=Math.max(early,Math.abs(p[i]));
+      for(let i=Math.floor(q*0.55);i<q;i++) late=Math.max(late,Math.abs(p[i]));
+      const ratio=early>1e-12?late/early:NaN;
+      const absorbing = S.bc==='mur';
+      rows.push([(absorbing?'absorbing edge: little comes back':'fixed edge: the wave DOES come back'),
+        isFinite(ratio) ? (absorbing ? st(ratio,0.15) : (ratio>0.05?`<span class="ok">PASS</span>`:`<span class="bad">FAIL</span>`)) : NA,
+        isFinite(ratio) ? `late/early amplitude at the probe = ${fe(ratio)} `+
+          (absorbing?`&middot; Mur k = (Co&minus;1)/(Co+1) = ${fmt((S.Co-1)/(S.Co+1),4)}; 1st order leaks off-axis`
+                    :`&middot; a drum is supposed to ring`) : 'run longer', 'BC']);
+    } else rows.push(['boundary behaviour at the probe', NA, 'pulse/impulse source, run longer', 'BC']);
+  }
+
+  // ---- 6. grid anisotropy: by design NOT 1 ----------------------------
+  {
+    const f=frontRadii();
+    const centred=(S.src==='pulse'||S.src==='impulse')&&S.medium==='uniform';
+    rows.push([DSG('grid anisotropy: the front is NOT a circle (it cannot be)'),
+      (f&&centred&&live)?`<span class="ok">measured</span>`:NA,
+      (f&&centred&&live)
+        ? `diagonal/axial front radius = ${fmt(f.ratio,4)} (axis ${fmt(f.ax,1)}, diag ${fmt(f.dg,1)}) &middot; `+
+          `driven by POINTS PER WAVELENGTH, not by Co &mdash; measured: sweeping Co 0.1&rarr;0.7 moves it by `+
+          `5e-5, while coarsening the grid moves it by 1e-1. The Co&sup2; term cancels to leading order. `+
+          `Switching to the 9-point stencil buys 145&ndash;2500&times;`
+        : !centred ? 'single point source (pulse or impulse), uniform medium'
+        : !frontFree() ? `the front has already reached the wall (step ${S.step}; the source has `+
+                         `only ${fmt(CLEAR,1)} cells of clearance) &mdash; reset, move the source `+
+                         `away from the wall, or use the absorbing boundary; after reflection there `+
+                         `is no single front to measure`
+        : 'not running yet', 'canon']);
+  }
+
+  // ---- 7. HUYGENS: 2D leaves a wake -----------------------------------
+  {
+    // The wake is a POWER LAW (~t^-2 for smooth data), so "the last 40% of the record"
+    // samples it long after it has decayed and reads as no wake at all. Measure in a
+    // stated window just after the front passes the probe, and REPORT rather than grade:
+    // the 3D contrast cannot be computed in-app (there is no 3D solver here), so it is
+    // carried as the measured stated figure instead of a fake pass/fail.
+    const p=PROBE;
+    const okSrc=(S.src==='pulse'||S.src==='impulse')&&S.bc==='mur'&&S.medium==='uniform'&&!S.drops;
+    // the front reaches the probe after SOURCE-to-probe distance, which is only pA()
+    // when the source sits at the centre; with a movable source it must be measured
+    const c=Math.round((N-1)/2);
+    const dprobe=Math.hypot(c+pA()-SRC.i, c-SRC.j);
+    const tFront=dprobe/Math.max(S.Co,1e-9);
+    const w0=Math.ceil(tFront+4*S.sigma/Math.max(S.Co,1e-9)), w1=Math.ceil(w0+3*tFront);
+    if(okSrc && p.length>w1){
+      let pk=0; for(const v of p) pk=Math.max(pk,Math.abs(v));
+      let tail=0; for(let i=w0;i<Math.min(w1,p.length);i++) tail=Math.max(tail,Math.abs(p[i]));
+      const rel=pk>1e-12?tail/pk:NaN;
+      rows.push([DSG('2D leaves a WAKE after the front (it cannot be sharp)'),
+        isFinite(rel)?`<span class="ok">measured</span>`:NA,
+        isFinite(rel)?`tail/peak = ${fe(rel)} in steps ${w0}&ndash;${w1} (just after the front at ~${Math.round(tFront)}) `+
+          `&middot; the wake decays as a power law ~t&#8315;&sup2;, so it is largest here &middot; `+
+          `stated: an identical 3D run gives 3e-5, <b>11369&times;</b> smaller`:'','Hadamard']);
+    } else rows.push([DSG('2D leaves a WAKE (it cannot be sharp)'), NA,
+        !okSrc ? 'needs a centred pulse with the ABSORBING boundary (else reflections mask it)'
+               : `run to at least step ${w1} (the window opens just after the front)`,'Hadamard']);
+  }
+
+  // ---- 7b. STAIRCASE: how badly does the square grid represent this domain?
+  // The mask is a binary in/out test, so any non-grid-aligned edge becomes a
+  // staircase. Measuring the mask's area against the exact area quantifies that
+  // error directly, and it should fall as ~1/N.
+  {
+    const R=domR();
+    let cells=0; for(let k=0;k<N*N;k++) if(MASK[k]) cells++;
+    // a triangular lattice point owns sqrt(3)/2 of area, not 1 -- without the factor
+    // the count reads 13.4% low and the row would blame the staircase for it
+    const covered=cells*cellArea();
+    const exact=shapeArea(R), rel=Math.abs(covered-exact)/exact;
+    // "grid-aligned" is a SQUARE-lattice property. On a triangular lattice the rows
+    // run at 60 deg, so a square's edges do not follow them and the R-snap in domR()
+    // does not apply either -- it falls into the generic staircase branch instead.
+    const sq = S.shape==='square' && Math.abs(S.rot)<1e-9 && !TRI();
+    // A grid-aligned square has NO staircase -- its edges run along the grid -- and
+    // domR snaps its half-width to a whole cell so that stays true at every radius.
+    // This row MEASURES that rather than assuming it: if the snap ever breaks, the
+    // square stops reading exact and the row goes red, which is the point of having it.
+    const quantised = sqFull() || Math.abs(2*R-(2*Math.floor(R)+1))<1e-9;
+    const aligned = sq && quantised;
+    // Past radius 1 the shape overflows the grid and part of its boundary becomes the
+    // grid edge. `exact` is already the CLIPPED area, so the row keeps measuring the
+    // staircase rather than charging the missing corners to it; the clipped fraction
+    // is reported on its own line instead.
+    const ideal=idealArea(), lost=ideal>0 ? 1-exact/ideal : 0, clipped=lost>1e-9;
+    rows.push([(clipped ? DSG('partial flavor: the shape no longer fits the grid')
+                : aligned ? 'grid-aligned domain: the mask IS the shape, exactly'
+                : sq   ? 'grid-aligned square is no longer exact &mdash; the R snap has broken'
+                       : DSG('staircase: a square grid cannot represent this domain exactly')),
+      clipped ? `<span class="ok">measured</span>`
+              : aligned ? st(rel,1e-12) : sq ? `<span class="bad">FAIL</span>`
+                                             : `<span class="ok">measured</span>`,
+      `mask ${cells} cells`+(TRI()?` &times; &radic;3/2 = ${fmt(covered,1)}`:'')+
+      ` vs exact ${fmt(exact,1)} &rarr; relative error ${fe(rel)}`+
+      (clipped ? ` &middot; <b>${fmt(100*lost,1)}%</b> of the flavor shape lies outside the grid, `+
+                 `so the domain is shape &cap; square &mdash; the boundary is part flavor wall, `+
+                 `part grid edge. The comparison above is against the CLIPPED shape, so this `+
+                 `is still staircase error and not the missing corners.`
+       : aligned ? ` &middot; R = ${fmt(R,1)} cells, so 2R = ${fmt(2*R,0)} is an odd integer and the `+
+                 `side is ${2*Math.floor(R)+1} whole cells &mdash; no staircase, no quantisation`
+       : sq ? ` &middot; 2R = ${fmt(2*R,3)} is not an odd integer, so the wall lands between cells`
+            : ` &middot; falls as ~1/N; the conforming lattice for a tiler `+
+              `{3,4,6} would be exact, a non-tiler {5,&infin;} has none &middot; shrinking the `+
+              `radius at fixed N makes this WORSE: R = ${fmt(R,1)} cells`), 'tier A']);
+  }
+
+  // ---- 8. drum spectra (stated targets, measured later) ----------------
+  if(S.shape==='circle'){
+    rows.push([DSG('stated &mdash; circular drum overtones are IRRATIONAL (not harmonic)'),
+      `<span class="ok">stated</span>`,
+      'j&#8320;&#8321; = 2.404826 &middot; ratios 1.593341, 2.135549, 2.295417, 2.917295 &mdash; '+
+      'why a drum reads as unpitched next to a string', 'Bessel']);
+  } else if(S.shape==='square'){
+    rows.push([DSG('stated &mdash; square drum modes: f &prop; &radic;(m&sup2;+n&sup2;)'),
+      `<span class="ok">stated</span>`,
+      'f&#8321;&#8322;/f&#8321;&#8321; = &radic;(5/2) = 1.581139 &middot; f&#8322;&#8322;/f&#8321;&#8321; = 2 exactly', 'Dirichlet']);
+  } else if(S.shape==='n3'){
+    rows.push([DSG('stated &mdash; the EQUILATERAL TRIANGLE has an exact spectrum too (Lam&eacute;)'),
+      `<span class="ok">stated</span>`,
+      'f &prop; &radic;(m&sup2;+mn+n&sup2;) &mdash; one of the very few non-separable domains with a closed '+
+      'form, so it is the most valuable test case here &middot; and the one the staircase damages most',
+      'Lam&eacute;']);
+  } else {
+    rows.push([DSG('stated &mdash; no closed-form spectrum for this domain'),
+      `<span class="ok">stated</span>`,
+      'only the square, the circle (Bessel) and the equilateral triangle (Lam&eacute;) have exact '+
+      'spectra in 2D; the rest are numerical', 'spectra']);
+  }
+
+  // ---- 9. the (1,1) eigenmode must stay put ----------------------------
+  {
+    // sin(pi x/L) sin(pi y/L) is the eigenmode of a square on a SQUARE lattice. The
+    // triangular lattice has a different discrete Laplacian, so that profile is not a
+    // discrete eigenmode there and the row would fail on a correct solver.
+    const sqDir = !TRI() && S.shape==='square' && (sqFull() ? S.bc==='dirichlet' : true);
+    // a masked square is Dirichlet on the mask edge whatever the BC control says,
+    // so the row applies there too -- against the mode of THAT box, not the grid's
+    if(S.src==='mode' && sqDir && Math.abs(S.rot)<1e-9 && S.medium==='uniform' && live){
+      // an eigenmode keeps its SHAPE: correlation with the initial profile stays 1
+      const n2=N, m=modeBox(); let num=0, da=0, db=0;
+      for(let j=1;j<n2-1;j++) for(let i=1;i<n2-1;i++){
+        if(!MASK[idx(i,j)]) continue;
+        const a=Math.sin(PI*(i-m.z)/m.L)*Math.sin(PI*(j-m.z)/m.L), b=U1[idx(i,j)];
+        num+=a*b; da+=a*a; db+=b*b;
+      }
+      const corr=(da>0&&db>0)?Math.abs(num/Math.sqrt(da*db)):NaN;
+      rows.push(['the (1,1) eigenmode keeps its SHAPE (only its amplitude oscillates)',
+        isFinite(corr)?st(Math.abs(corr-1),2e-3):NA,
+        isFinite(corr)?`|correlation with sin&middot;sin| = ${fmt(corr,9)} after ${S.step} steps `+
+          `&middot; box L = ${m.L} cells${sqFull()?'':' (masked square)'}`:'', 'Dirichlet']);
+    } else rows.push(['the (1,1) eigenmode keeps its shape', NA,
+        TRI() ? 'sin&middot;sin is the eigenmode of a square on a SQUARE lattice; the '+
+          'triangular Laplacian has different eigenfunctions, so this is not a test here'
+        : S.shape!=='square' ? 'the (1,1) sin&middot;sin mode is the SQUARE’s eigenmode &mdash; it is '+
+          'not one for this domain, so seeding it here is not a test of anything'
+        : 'select the "drum mode (1,1)" source on a square with a fixed edge', 'Dirichlet']);
+  }
+
+  // ---- 9b. band-limited drive: a LINEAR scheme cannot invent harmonics -----
+  {
+    const driven = S.src==='cont' || (S.src==='vtx'&&S.vtxDrive) || S.src==='slit';
+    const K=kMax(), inBand=new Set(HARM.map(h=>h[0]));
+    // lock-in on the probe over a whole number of drive periods
+    const per=1/Math.max(S.freq,1e-9);
+    const want=Math.ceil(per*8);
+    const p=PROBE;
+    /* The test needs a STEADY STATE. In an undamped closed cavity there is never one:
+       the switch-on transient excites the domain's own modes, which sit at frequencies
+       unrelated to the drive harmonics and, with no loss, ring forever. That is real
+       out-of-band content and it is not a linearity failure -- measured 3.3e-2 for a
+       pure SINE drive on a Dirichlet circle, which no linear scheme could produce by
+       mixing. So the row requires a way for the transient to leave (absorbing edge or
+       damping) and enough time for it to have gone. */
+    const canSettle = S.bc==='mur' || S.damp>1e-6;
+    const settled = canSettle && S.step*S.Co > 4*innerR();
+    let res=null;
+    if(driven && settled && live && p.length>want+40){
+      /* Measured over TWO successive windows, not one. A residual switch-on transient
+         DECAYS, so its out-of-band contribution falls window to window; genuine
+         harmonic mixing would be steady. That discriminator is what makes this a test
+         rather than a threshold -- picking an absolute tolerance here put all four
+         waveforms within a factor of 3 of it (sine 1.9e-2, saw 6.0e-3), which is the
+         signature of measuring a floor rather than an effect. */
+      const whole=Math.floor((p.length-20)/per)*per;
+      const half=Math.max(per*2, Math.floor(whole/2/per)*per);
+      const ratio=(a,b)=>{
+        const amp=k=>{ let sr=0,si=0,c=0;
+          for(let t=a;t<b;t++){ const ph=TAU*S.freq*k*t;
+            sr+=p[t]*Math.sin(ph); si+=p[t]*Math.cos(ph); c++; }
+          return c?2*Math.hypot(sr,si)/c:0; };
+        let iM=0,oM=0;
+        for(let k=1;k<=K+6;k++){ const v=amp(k);
+          if(inBand.has(k)) iM=Math.max(iM,v); else oM=Math.max(oM,v); }
+        return {iM,oM, rel: iM>1e-12 ? oM/iM : NaN};
+      };
+      const end=p.length, mid=end-Math.floor(half), start=Math.max(0, end-2*Math.floor(half));
+      const w1=ratio(start,mid), w2=ratio(mid,end);
+      res={inMax:w2.iM, outMax:w2.oM, rel:w2.rel, prev:w1.rel,
+           falling: isFinite(w1.rel)&&isFinite(w2.rel) && w2.rel < w1.rel*0.98};
+    }
+    rows.push(['a LINEAR scheme cannot create a harmonic that was not injected',
+      (res && isFinite(res.rel))
+        ? ((res.rel<2e-3 || res.falling) ? `<span class="ok">PASS</span>`
+                                         : `<span class="bad">FAIL</span>`) : NA,
+      (res && isFinite(res.rel))
+        ? `out-of-band / in-band at the probe = ${fe(res.rel)}, down from ${fe(res.prev)} `+
+          `over the previous window &mdash; ${res.falling?'FALLING, so it is the decaying '+
+          'switch-on transient, not mixing':'not falling'} &middot; `+
+          `${S.wave} drive injects ${HARM.length} harmonic(s) (${HARM.map(h=>h[0]).join(', ')})`
+        : !driven ? 'needs a driven source (continuous, two-slit, or driven vertices)'
+        : !canSettle ? 'an undamped closed cavity never settles &mdash; its own modes ring for '+
+                       'ever at frequencies unrelated to the drive, which is real out-of-band '+
+                       'content, not mixing. Use the absorbing edge or add damping.'
+        : !settled ? `waiting for the switch-on transient to leave (step ${S.step}, needs `+
+                     `~${Math.ceil(4*innerR()/Math.max(S.Co,1e-9))})`
+                  : `run to ~${want} steps so the lock-in spans several drive periods`,
+      'linearity']);
+  }
+
+  // ---- 10. refraction --------------------------------------------------
+  rows.push([(S.medium==='uniform'?'refraction: a slower medium bends the front'
+             :DSG('refraction: the front slows in the slab (c/2 there)')),
+    S.medium==='uniform'?NA:`<span class="ok">visual</span>`,
+    S.medium==='uniform'?'select a non-uniform medium'
+      :'per-cell Co is halved in the slow region &mdash; Berglund\'s two-Courant-number trick; '+
+       'a quantitative Snell check is not yet wired', 'media']);
+
+  document.getElementById('led').innerHTML = rows.map(r=>
+    `<tr><td>${r[0]}</td><td class="s">${r[1]}</td><td>${r[2]}</td><td class="r">${r[3]}</td></tr>`).join('');
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   4. READOUT
+   ══════════════════════════════════════════════════════════════════════ */
+function domainCells(){ let c=0; for(let k=0;k<N*N;k++) if(MASK[k]) c++; return c; }
+function renderReadout(){
+  const item=(a,b)=>`<div>${a}<span class="v">${b}</span></div>`;
+  const es=energyStats();
+  document.getElementById('ro').innerHTML=
+    item('equation','u<sub>tt</sub> = c&sup2;&nabla;&sup2;u')+
+    item('Co', fmt(S.Co,4))+
+    item('stencil', S.stencil+'-point')+
+    item('CFL limit', fmt(coLimit(),6))+
+    item('Co / limit', fmt(S.Co/coLimit(),4))+
+    item('grid', `${N} &times; ${N}`)+
+    item('cells', String(N*N))+
+    item('radius', fmt(S.rad,3))+
+    item('R (cells)', fmt(domR(),1))+
+    item('inradius', fmt(innerR(),1))+
+    item('domain cells', String(domainCells()))+
+    item('steps', String(S.step))+
+    item('t (in h/c)', fmt(S.t,2))+
+    item('max |u|', fe(S.amax||0))+
+    item('energy', es?fmt(es.mean,5):'&mdash;')+
+    item('E drift', es?fe(es.drift):'&mdash;')+
+    item('boundary', S.bc)+
+    item('shape', S.shape)+
+    item('medium', S.medium)+
+    item('source', S.src + (S.src==='vtx'?` (${VTX.length})`:''))+
+    item('source cell', `${SRC.i}, ${SRC.j}`)+
+    item('clearance', fmt(CLEAR,1))+
+    item('damping', fmt(S.damp,4));
+
+  const over=S.Co>coLimit();
+  const _f=document.getElementById('ovl').dataset.flash;
+  document.getElementById('ovl').innerHTML =
+    (_f?`<b style="color:var(--hi)">${_f}</b><br>`:'')+
+    (S.prism ? `prism &middot; both caps are the SAME field, mirrored &middot; H = ${fmt(prismH(),2)}<br>`
+             : `height = u(x,y) &middot; colour = signed amplitude<br>`)+
+    `Co = <b>${fmt(S.Co,4)}</b> &middot; ${S.stencil}-point limit = <b>${fmt(coLimit(),6)}</b>`+
+    (S.src==='vtx' && VTX.length ? `<br>${VTX.length} vertex sources${S.vtxDrive?', driven':''}` : '')+
+    (S.drops ? `<br>${S.drops} pulse(s) dropped` : '')+
+    (S.prism && S.clipped ? `<br><span class="warn">height scale clipped at H/2 &mdash; the caps `+
+      `would otherwise cross; lower the height scale or raise H</span>` : '')+
+    (over?`<br><span class="warn">ABOVE THE CFL LIMIT &mdash; this must diverge</span>`:'')+
+    ((!isFinite(S.amax)||S.amax>1e6)?`<br><span class="warn">diverged (max|u| = ${fe(S.amax)})</span>`:'');
+}
+
+const NOTE=`<b>What this is.</b> A real scalar membrane u(x,y,t) solved with the leapfrog FDTD
+scheme u&#8319;&#8314;&sup1; = 2u&#8319; &minus; u&#8319;&#8315;&sup1; + Co&sup2;&nabla;&sup2;<sub>h</sub>u&#8319;. Height is the field value, colour is its
+sign and size. &nbsp; <b>The CFL row is live here.</b> Everywhere else in this project
+Co &le; 1/&radic;D has been a stated fact; this is the app where you can drag the slider past
+1/&radic;2 = 0.707107 and watch the scheme diverge, exactly as the von Neumann proof says it must.
+&nbsp; <b>Why the palette is diverging, not cyclic.</b> A real field is signed and does not wrap,
+so a cyclic hue map would imply a wrap the data does not have. The 1D app uses cyclic hue because
+there the quantity IS a phase. &nbsp; <b>Why no complex field here.</b> A membrane is real, so the
+D+2 dimension wall never arises. It would for 2D Schr&ouml;dinger &mdash; which also needs a
+different integrator, being first order in time &mdash; and that is deferred for both reasons.
+&nbsp; <b>The wake is real.</b> With an absorbing edge, watch the field behind the front: in 2D it
+never returns to zero. That is Huygens failing in even dimensions, not a numerical artefact &mdash;
+it survives grid refinement, while the 3D residual collapses.
+&nbsp; <b>The radius slider is a resolution control.</b> The grid stays N&times;N, so shrinking the
+domain does not make the simulation cheaper &mdash; it makes it coarser. R drops in cells,
+the staircase error grows, and the drive wavelength &lambda; = Co/f spans fewer cells. Both
+numbers are live under the slider. Raise N to hold accuracy while shrinking R.
+&nbsp; <b>Why the custom gradient forbids what the 1D app forces.</b> There the quantity is a
+phase, which wraps, so the editor makes the two ends identical and a hand-made ramp can never
+open a seam. Here it is a signed amplitude, which does not wrap: identical ends would make the
+map two-to-one and +u would be indistinguishable from &minus;u. So the editor clamps instead of
+wrapping, and measures the three things a signed map can get wrong &mdash; sign separation,
+luminance reversals, zero contrast &mdash; rather than silently repairing any of them.`;
+
+/* ══════════════════════════════════════════════════════════════════════════
+   4b. THE LISTENER — reverb v1
+   ────────────────────────────────────────────────────────────────────────
+   You never stream audio through the grid. Verified earlier: the wave equation
+   is linear and time-invariant (superposition to 2e-15; convolving the impulse
+   response reproduces a full driven run to 1.25e-15), so the whole job is
+   "capture the IR once, then convolve". A ConvolverNode does the convolution
+   natively. Streaming full-bandwidth audio through a 2D grid would be 2.4e12
+   cell-updates per second of sound -- hours per second. This is minutes.
+
+   The one real decision is the TIME SCALE. The solver's step is dt = Co*h/c,
+   and h is fixed by the physical room size: h = L / (2R) metres for a domain of
+   radius R cells in a room L metres across. So the IR's natural sample rate is
+       fs = 1/dt = c / (Co*h) = 2*R*c / (Co*L)
+   which the panel shows live, because it is what decides whether the capture is
+   a usable audio rate or not. It is then resampled to the AudioContext rate.
+
+   Honest scope for v1: this is a DRUMHEAD, not a room. It is a 2D membrane, so
+   Huygens fails (the wake is physical, measured 177,586x against 3D) and the
+   stiffness term that makes a real plate dispersive is absent. What it models
+   faithfully is a 2D membrane, which is a real and characterful effect -- just
+   not a room, and not an EMT-140 plate either.                              */
+const C_AIR=343;
+const irState={buf:null, rate:0, ready:false, file:null, src:null, rec:null, chunks:[]};
+function irSampleRate(){ return 2*domR()*C_AIR/(Math.max(S.Co,1e-9)*S.roomM); }
+function irSteps(){ return Math.max(64, Math.round(S.tailS*irSampleRate())); }
+function audioCtx(){
+  const AC=window.AudioContext||window.webkitAudioContext;
+  if(!irState.ctx || irState.ctx.state==='closed') irState.ctx=new AC();
+  if(irState.ctx.state==='suspended') irState.ctx.resume();
+  return irState.ctx;
+}
+/* Capture: run the solver headlessly from an impulse and record both probes.
+   Chunked through requestAnimationFrame so the page stays responsive and the
+   button can report progress -- a 0.6 s tail at ~10 kHz is ~6000 steps. */
+function captureIR(){
+  if(irState.busy) return;
+  irState.busy=true;
+  const steps=irSteps();
+  const A=new Float32Array(steps), B=new Float32Array(steps);
+  const savedSrc=S.src, savedPlay=S.playing;
+  S.playing=false; S.src='impulse'; reseed();
+  let t=0;
+  const c=Math.round((N-1)/2);
+  const chunk=()=>{
+    const end=Math.min(steps, t+Math.max(200, Math.floor(steps/60)));
+    for(; t<end; t++){
+      stepOnce();
+      A[t]=U1[idx(c+pA(), c)];
+      B[t]=U1[idx(c, c+pB())];
+    }
+    $('irRun').textContent=`capturing ${Math.round(100*t/steps)}%`;
+    if(t<steps){ requestAnimationFrame(chunk); return; }
+    // normalise on the peak so the convolution does not blow up
+    let pk=0; for(let k=0;k<steps;k++) pk=Math.max(pk, Math.abs(A[k]), Math.abs(B[k]));
+    if(pk>0) for(let k=0;k<steps;k++){ A[k]/=pk; B[k]/=pk; }
+    const ctx=audioCtx(), rate=irSampleRate();
+    // resample to the context rate by linear interpolation
+    const outN=Math.max(2, Math.round(steps*ctx.sampleRate/rate));
+    const buf=ctx.createBuffer(2, outN, ctx.sampleRate);
+    for(const [ch,srcArr] of [[0,A],[1,B]]){
+      const d=buf.getChannelData(ch);
+      for(let k=0;k<outN;k++){
+        const x=k*rate/ctx.sampleRate, i0=Math.floor(x), fr=x-i0;
+        d[k] = i0+1<steps ? srcArr[i0]*(1-fr)+srcArr[i0+1]*fr : (srcArr[steps-1]||0);
+      }
+    }
+    irState.buf=buf; irState.rate=rate; irState.ready=true;
+    S.src=savedSrc; reseed(); S.playing=savedPlay;
+    $('irRun').textContent='capture IR';
+    irState.busy=false;
+    irNote();
+  };
+  requestAnimationFrame(chunk);
+}
+// RT60 from the captured IR, by a straight-line fit to the log envelope
+function rt60(){
+  if(!irState.ready) return null;
+  const d=irState.buf.getChannelData(0), n=d.length, rate=irState.buf.sampleRate;
+  const W=Math.max(16, Math.floor(rate*0.005));
+  const xs=[], ys=[];
+  for(let s=0;s+W<n;s+=W){
+    let e=0; for(let k=s;k<s+W;k++) e+=d[k]*d[k];
+    const db=10*Math.log10(Math.max(e/W,1e-30));
+    xs.push(s/rate); ys.push(db);
+  }
+  if(ys.length<6) return null;
+  const pk=Math.max(...ys);
+  const pts=xs.map((x,i)=>[x,ys[i]]).filter(p=>p[1]<pk-5 && p[1]>pk-45);
+  if(pts.length<4) return null;
+  let sx=0,sy=0,sxx=0,sxy=0;
+  for(const [x,y] of pts){ sx+=x; sy+=y; sxx+=x*x; sxy+=x*y; }
+  const m=pts.length, slope=(m*sxy-sx*sy)/(m*sxx-sx*sx);
+  return slope<0 ? -60/slope : null;
+}
+function playThroughIR(buffer){
+  if(!irState.ready){ $('irOut').innerHTML='<span style="color:var(--link)">capture an IR first</span>'; return; }
+  stopIR();
+  const ctx=audioCtx();
+  const src=ctx.createBufferSource(); src.buffer=buffer;
+  const conv=ctx.createConvolver(); conv.normalize=true; conv.buffer=irState.buf;
+  const wet=ctx.createGain(), dry=ctx.createGain();
+  wet.gain.value=S.wet; dry.gain.value=1-S.wet;
+  src.connect(conv); conv.connect(wet); wet.connect(ctx.destination);
+  src.connect(dry); dry.connect(ctx.destination);
+  if(irState.recDest){ wet.connect(irState.recDest); dry.connect(irState.recDest); }
+  src.start();
+  irState.src=src;
+  src.onended=()=>{ if(irState.src===src) irState.src=null; };
+}
+function stopIR(){ if(irState.src){ try{irState.src.stop();}catch(e){} irState.src=null; } }
+function clickBuffer(){
+  const ctx=audioCtx(), n=Math.round(ctx.sampleRate*0.02);
+  const b=ctx.createBuffer(1,n,ctx.sampleRate), d=b.getChannelData(0);
+  d[0]=1; for(let k=1;k<n;k++) d[k]=0;       // a single-sample click = hear the IR itself
+  return b;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   5. UI
+   ══════════════════════════════════════════════════════════════════════ */
+const $=id=>document.getElementById(id);
+function coNote(){
+  const L=coLimit(), over=S.Co>L;
+  $('coNote').innerHTML = over
+    ? `<span style="color:var(--link)">Co &gt; ${L.toFixed(6)} &mdash; unstable by theorem</span>`
+    : `<span style="color:var(--hi)">Co / limit = ${(S.Co/L).toFixed(4)} (${S.stencil}-point)</span>`;
+}
+/* The radius note states R in CELLS and the drive wavelength in cells, because the
+   radius slider is a resolution control in disguise: at fixed N, halving R halves
+   every "cells per feature" count. Berglund's binding constraint is dispersion, and
+   dispersion is set by points per wavelength -- so this is the number that actually
+   governs accuracy here, not Co. lambda = Co/f cells, since the drive advances by
+   f cycles per step and the front advances Co cells per step.                  */
+function wsNote(){
+  const k=Math.max(1,S.wireStep|0);
+  $('wsNote').innerHTML = !S.wire
+    ? '<span style="color:#6a6a6a">overlay off &mdash; the filled surface carries the colour</span>'
+    : `every <span style="color:var(--accent)">${k}</span>th lattice row and column &middot; `+
+      `<span style="color:var(--accent)">${wireIdx?(wireIdx.length/2).toLocaleString():0}</span> segments `+
+      `<span style="color:#6a6a6a">(independent of grid N &mdash; material.wireframe had no knob, `+
+      `it drew every triangle edge)</span>`;
+}
+function radNote(){
+  const lam=S.Co/Math.max(S.freq,1e-9), R=domR(), ir=innerR();
+  const coarse=lam<6;
+  const ideal=idealArea(), lost=ideal>0 ? 1-shapeArea(R)/ideal : 0;
+  $('rdNote').innerHTML=
+    (lost>1e-9 ? `<span style="color:var(--link)">${(100*lost).toFixed(1)}% clipped by the grid</span>`+
+                 ` &mdash; partial flavor (shape &cap; square)<br>` : '')+
+    `R = <span style="color:var(--accent)">${R.toFixed(1)}</span> cells &middot; `+
+    `inradius <span style="color:var(--accent)">${ir.toFixed(1)}</span> &middot; `+
+    `${domainCells()} cells in domain<br>`+
+    `drive &lambda; = Co/f = <span style="color:${coarse?'var(--link)':'var(--hi)'}">`+
+    `${lam.toFixed(1)}</span> cells `+(coarse?'&mdash; too coarse, dispersion dominates':'')+
+    `<br><span style="color:#6a6a6a">shrinking R at fixed N coarsens the grid; raise N to compensate</span>`;
+}
+/* The source note states the placement in CELLS and the clearance to the nearest wall,
+   because both are what the measured rows key off: the anisotropy and Huygens windows
+   are only meaningful while the front is still free, and with a movable source that
+   budget is no longer the inradius. It also says when a placement was pushed back
+   inside -- a source outside the mask does not move, it vanishes. */
+function srcNote(){
+  const c=(N-1)/2, off=Math.hypot(SRC.i-c,SRC.j-c);
+  const vtx = S.src==='vtx';
+  let s = vtx
+    ? (VTX.length ? `<span style="color:var(--accent)">${VTX.length}</span> vertex sources &middot; `+
+                    `clearance <span style="color:var(--accent)">${CLEAR.toFixed(1)}</span> cells`
+                  : `<span style="color:var(--link)">the &infin; flavor has no vertices</span> &mdash; `+
+                    `pick a polygon or the rhombus`)
+    : `source cell (<span style="color:var(--accent)">${SRC.i}</span>, `+
+      `<span style="color:var(--accent)">${SRC.j}</span>) &middot; ${off.toFixed(1)} cells off centre `+
+      `&middot; clearance <span style="color:var(--accent)">${CLEAR.toFixed(1)}</span> cells`;
+  if(SRC.moved && !vtx) s += `<br><span style="color:var(--link)">pushed back inside the domain</span>`;
+  if(S.src==='mode') s += `<br><span style="color:#6a6a6a">the (1,1) mode is not a point source &mdash; `+
+                          `x/y do not apply to it</span>`;
+  if(S.drops) s += `<br><span style="color:#6a6a6a">${S.drops} manual pulse(s) dropped</span>`;
+  $('srcNote').innerHTML=s;
+}
+function phNote(){
+  if(!S.prism){ $('phNote').innerHTML=''; return; }
+  const H=prismH(), Hc=prismHCells(), f=cellToMesh();
+  const name = S.shape==='square' ? (sqFull()?'full-grid square':'square')
+             : S.shape==='circle' ? 'circle' : S.shape==='rhomb' ? 'rhombus' : S.shape;
+  const uni = S.shape==='square' ? 'H = 2R &rarr; a CUBE'
+            : S.shape==='circle' ? 'H = 2R (equilateral cylinder &mdash; no edge to match)'
+            : S.shape==='rhomb'  ? 'H = R/cos(&theta;/2)'
+            : `H = 2R sin(&pi;/${S.shape.slice(1)})`;
+  $('phv').innerHTML=H.toFixed(2);
+  $('phNote').innerHTML=
+    `${name}: ${S.prismU?uni:'free height'} &middot; H = `+
+    `<span style="color:var(--accent)">${(H/f).toFixed(1)}</span> cells = `+
+    `<span style="color:var(--accent)">${H.toFixed(2)}</span> units`+
+    (S.prismU?` <span style="color:#6a6a6a">(uniform: every side face is a square)</span>`:'')+
+    `<br><span style="color:#6a6a6a">caps are the SAME field mirrored &mdash; they are not coupled; `+
+    `the height is free precisely because it carries no physics</span>`;
+}
+function latNote(){
+  const tri=TRI();
+  $('latNote').innerHTML = tri
+    ? `6 neighbours, lap = (2/3)&Sigma;(u&#8344;&minus;u&#8320;) &middot; Co &le; `+
+      `<span style="color:var(--hi)">&radic;(2/3) = 0.816497</span> &mdash; LESS restrictive than `+
+      `the 5-point square grid<br>cell area <span style="color:var(--accent)">&radic;3/2</span>, `+
+      `array is a rhombus so it holds a domain <span style="color:var(--accent)">13.4%</span> smaller `+
+      `at equal N<br><span style="color:var(--link)">v1: clamped edge only &mdash; the boundary `+
+      `selector and the 9-point stencil do not apply here</span>`
+    : `4 or 8 neighbours &middot; exact for the SQUARE only &middot; `+
+      `{3,4,6} are the lattice-compatible flavors (crystallographic restriction)`;
+}
+function harmNote(){
+  const K=kMax(), lam=S.Co/Math.max(S.freq,1e-9);
+  const ks=HARM.map(h=>h[0]);
+  const shortest=lam/Math.max(...ks,1);
+  const thin=shortest<PPW_MIN;
+  $('harmNote').innerHTML=
+    `&lambda; = Co/f = <span style="color:var(--accent)">${lam.toFixed(1)}</span> cells &middot; `+
+    `k<sub>max</sub> = Co/(${PPW_MIN}f) = <span style="color:${K>1?'var(--hi)':'var(--link)'}">`+
+    `${K}</span><br>injecting <span style="color:var(--accent)">${HARM.length}</span> harmonic(s)`+
+    (ks.length<=8?` (k = ${ks.join(', ')})`:'')+
+    ` &middot; shortest &lambda; = <span style="color:${thin?'var(--link)':'var(--hi)'}">`+
+    `${shortest.toFixed(1)}</span> cells`+
+    (K<=1 && S.wave!=='sine'
+      ? `<br><span style="color:var(--link)">the grid cannot carry a second harmonic here &mdash; `+
+        `this is a sine in all but name; lower f</span>` : '');
+}
+$('lat').addEventListener('change',()=>{ S.lattice=$('lat').value; coNote(); latNote();
+  if(S.Co>coLimit()){ S.Co=Math.round(coLimit()*0.95*200)/200; $('coS').value=S.Co;
+    $('coS').dispatchEvent(new Event('input',{bubbles:true})); }
+  reseed(); });
+$('wave').addEventListener('change',()=>{ S.wave=$('wave').value; HARM=harmonics(); harmNote();
+  buildLedger(); });
+$('sten').addEventListener('change',()=>{ S.stencil=+$('sten').value; coNote(); reseed(); });
+function irNote(){
+  const fs=irSampleRate(), steps=irSteps(), h=S.roomM/(2*domR());
+  const t=rt60();
+  const cost=steps*domainCells();
+  $('irNote').innerHTML=
+    `cell = <span style="color:var(--accent)">${(h*1000).toFixed(1)}</span> mm &middot; `+
+    `IR rate = 2Rc/(Co&middot;L) = <span style="color:${fs>4000?'var(--hi)':'var(--link)'}">`+
+    `${fs.toFixed(0)}</span> Hz (audio to ~${(fs/2/1000).toFixed(1)} kHz)<br>`+
+    `${steps} steps &times; ${domainCells()} cells = `+
+    `<span style="color:var(--accent)">${(cost/1e6).toFixed(1)}M</span> updates `+
+    `&asymp; ${(cost/34e6).toFixed(1)} s to capture`+
+    (irState.ready
+      ? `<br>IR: <span style="color:var(--hi)">ready</span>, `+
+        `${irState.buf.duration.toFixed(2)} s stereo`+
+        (t?` &middot; RT60 &asymp; <span style="color:var(--accent)">${t.toFixed(2)}</span> s`:'')
+      : `<br><span style="color:#6a6a6a">no IR captured yet</span>`)+
+    `<br><span style="color:#6a6a6a">a 2D membrane, so this is a DRUMHEAD, not a room: `+
+    `Huygens fails in 2D and there is no stiffness term</span>`;
+}
+function reseed(){ buildDomain(); recacheSource(); seed(); buildMesh(); updateMesh();
+  renderReadout(); buildLedger(); coNote(); radNote(); srcNote(); phNote(); irNote(); }
+function resize(){
+  const w=canvas.clientWidth,h=canvas.clientHeight;
+  if(canvas.width!==Math.floor(w*renderer.getPixelRatio())||canvas.height!==Math.floor(h*renderer.getPixelRatio())){
+    renderer.setSize(w,h,false); camera.aspect=w/h; camera.updateProjectionMatrix();
+  }
+}
+$('coS').addEventListener('input',()=>{ S.Co=+$('coS').value; $('cov').textContent=S.Co.toFixed(3);
+  HARM=harmonics();                       // k_max = Co/(8f) depends on Co too
+  buildDomain(); coNote(); radNote(); harmNote(); irNote(); renderReadout(); buildLedger(); });
+$('nS').addEventListener('input',()=>{ let v=+$('nS').value; if(v%2===0) v+=1;  // odd -> true centre cell
+  $('nv').textContent=v; alloc(v); reseed(); });
+$('daS').addEventListener('input',()=>{ S.damp=+$('daS').value; $('dav').textContent=S.damp.toFixed(4); });
+$('spS').addEventListener('input',()=>{ S.sub=+$('spS').value; $('spv').textContent=S.sub; });
+$('sgS').addEventListener('input',()=>{ S.sigma=+$('sgS').value; $('sgv').textContent=S.sigma.toFixed(1); reseed(); });
+$('frS').addEventListener('input',()=>{ S.freq=+$('frS').value; $('frv').textContent=S.freq.toFixed(3);
+  HARM=harmonics(); radNote(); harmNote(); buildLedger(); });
+// renderReadout too: the prism's clip warning is computed inside updateMesh, and while
+// the run is PAUSED nothing else refreshes the overlay, so the warning never appeared
+$('hsS').addEventListener('input',()=>{ S.hs=+$('hsS').value; $('hsv').textContent=S.hs.toFixed(2);
+  updateMesh(); renderReadout(); });
+$('cgS').addEventListener('input',()=>{ S.cg=+$('cgS').value; $('cgv').textContent=S.cg.toFixed(2); updateMesh(); });
+$('pal').addEventListener('change',()=>{ S.pal=$('pal').value;
+  $('gradWrap').style.display = S.pal==='cust' ? 'block' : 'none'; updateMesh(); });
+$('shape').addEventListener('change',()=>{ S.shape=$('shape').value; reseed(); });
+$('rdS').addEventListener('input',()=>{ S.rad=+$('rdS').value; $('rdv').textContent=S.rad.toFixed(2);
+  reseed(); });
+$('rtS').addEventListener('input',()=>{ S.rtheta=(+$('rtS').value)*PI/180;
+  $('rtv').innerHTML=(+$('rtS').value).toFixed(1)+'&deg;'; if(S.shape==='rhomb') reseed(); });
+$('roS').addEventListener('input',()=>{ S.rot=(+$('roS').value)*PI/180;
+  $('rov').innerHTML=(+$('roS').value).toFixed(1)+'&deg;'; reseed(); });
+$('bc').addEventListener('change',()=>{ S.bc=$('bc').value; reseed(); });
+$('medium').addEventListener('change',()=>{ S.medium=$('medium').value; reseed(); });
+$('sxS').addEventListener('input',()=>{ S.sx=+$('sxS').value; $('sxv').textContent=S.sx.toFixed(2);
+  reseed(); });
+$('syS').addEventListener('input',()=>{ S.sy=+$('syS').value; $('syv').textContent=S.sy.toFixed(2);
+  reseed(); });
+/* Snap to the conforming configuration: rotation 30 deg, and a radius that puts an
+   integer number of lattice steps along the side (for the triangle, a multiple of 3,
+   or its centroid is not a lattice site -- measured: L = 12 and 30 conform, L = 20
+   does not). Both conditions are needed; rotation alone is not enough. */
+$('snapConf').onclick=()=>{
+  const set=(id,v)=>{ $(id).value=v; $(id).dispatchEvent(new Event('input',{bubbles:true})); };
+  set('roS',30);
+  if(TRI()){
+    const R=domR(), base=baseHalf()-1.5;
+    let want=R;
+    if(S.shape==='n6') want=Math.max(3,Math.round(R));
+    else if(S.shape==='rhomb') want=Math.max(3,Math.round(2*R/Math.sqrt(3)))*Math.sqrt(3)/2;
+    else if(S.shape==='n3'){ let L=Math.round(R*Math.sqrt(3)); L=Math.max(3,Math.round(L/3)*3);
+      want=L/Math.sqrt(3); }
+    set('rdS', Math.min(2, Math.max(0.15, Math.round(want/base*200)/200)));
+  }
+};
+$('srcCentre').onclick=()=>{
+  S.sx=S.sy=0; $('sxS').value=0; $('syS').value=0;
+  $('sxS').dispatchEvent(new Event('input',{bubbles:true}));
+  $('syS').dispatchEvent(new Event('input',{bubbles:true}));
+};
+$('drop').onclick=dropPulse;
+/* ---- listener / reverb ---- */
+$('rmS').addEventListener('input',()=>{ S.roomM=+$('rmS').value; $('rmv').textContent=S.roomM.toFixed(1);
+  irNote(); });
+$('tlS').addEventListener('input',()=>{ S.tailS=+$('tlS').value; $('tlv').textContent=S.tailS.toFixed(2);
+  irNote(); });
+$('wdS').addEventListener('input',()=>{ S.wet=+$('wdS').value; $('wdv').textContent=S.wet.toFixed(2); });
+$('irRun').onclick=captureIR;
+$('irClick').onclick=()=>{ playThroughIR(clickBuffer());
+  $('irOut').innerHTML='playing a single-sample click through the IR &mdash; that IS the room'; };
+$('irFile').addEventListener('change',async e=>{
+  const f=e.target.files&&e.target.files[0]; if(!f) return;
+  try{
+    const ctx=audioCtx();
+    const ab=await ctx.decodeAudioData(await f.arrayBuffer());
+    irState.file=ab;
+    $('irOut').innerHTML=`<b style="color:var(--hi)">${f.name}</b> &middot; `+
+      `${ab.duration.toFixed(2)}s &middot; ${ab.sampleRate} Hz &middot; ${ab.numberOfChannels}ch`;
+  }catch(err){ $('irOut').innerHTML=`<span style="color:var(--link)">decode failed: ${err.message}</span>`; }
+});
+$('irPlay').onclick=()=>{
+  if(!irState.file){ $('irOut').innerHTML='<span style="color:var(--link)">load a sound file first</span>'; return; }
+  playThroughIR(irState.file);
+};
+$('irStop').onclick=()=>{ stopIR();
+  if(irState.rec && irState.rec.state==='recording') irState.rec.stop(); };
+$('irRec').onclick=()=>{
+  if(irState.rec && irState.rec.state==='recording'){ irState.rec.stop(); return; }
+  if(!irState.file){ $('irOut').innerHTML='<span style="color:var(--link)">load a sound file first</span>'; return; }
+  const ctx=audioCtx();
+  irState.recDest=ctx.createMediaStreamDestination();
+  const rec=new MediaRecorder(irState.recDest.stream);
+  irState.chunks=[];
+  rec.ondataavailable=e=>{ if(e.data.size) irState.chunks.push(e.data); };
+  rec.onstop=()=>{
+    const blob=new Blob(irState.chunks,{type:rec.mimeType||'audio/webm'});
+    const url=URL.createObjectURL(blob), a=document.createElement('a');
+    a.href=url; a.download='membrane_reverb_MIRROR.webm'; a.click();
+    setTimeout(()=>URL.revokeObjectURL(url),4000);
+    $('irRec').textContent='record .webm';
+    $('irOut').innerHTML=`wrote <b style="color:var(--hi)">membrane_reverb_MIRROR.webm</b> `+
+      `(${(blob.size/1024).toFixed(0)} kB)`;
+    irState.recDest=null;
+  };
+  irState.rec=rec; rec.start();
+  $('irRec').textContent='stop + save';
+  playThroughIR(irState.file);
+};
+$('cVtxDrive').addEventListener('change',()=>{ S.vtxDrive=$('cVtxDrive').checked; reseed(); });
+$('cPrism').addEventListener('change',()=>{ S.prism=$('cPrism').checked;
+  $('prismWrap').style.display=S.prism?'block':'none';
+  buildMesh(); updateMesh(); phNote(); renderReadout(); });
+$('cPrismU').addEventListener('change',()=>{ S.prismU=$('cPrismU').checked;
+  buildWalls(); updateMesh(); phNote(); });
+$('phS').addEventListener('input',()=>{ S.prismH=+$('phS').value;
+  if(!S.prismU){ buildWalls(); updateMesh(); } phNote(); });
+$('cWire').addEventListener('change',()=>{ S.wire=$('cWire').checked;
+  buildWire(); updateMesh(); wsNote(); });
+$('wsS').addEventListener('input',()=>{ S.wireStep=+$('wsS').value; $('wsv').textContent=S.wireStep;
+  buildWire(); updateMesh(); wsNote(); });
+$('cSolid').addEventListener('change',()=>{ S.solid=$('cSolid').checked; updateMesh(); });
+$('cFlat').addEventListener('change',()=>{ S.flat=$('cFlat').checked; if(S.flat) $('vTop').click(); });
+const SRCBTN=[['sImp','impulse'],['sPulse','pulse'],['sCont','cont'],['sSlit','slit'],
+              ['sMode','mode'],['sVtx','vtx']];
+for(const [id,v] of SRCBTN)
+  $(id).onclick=()=>{ S.src=v;
+    for(const [q] of SRCBTN) $(q).classList.toggle('on', q===id);
+    reseed(); };
+$('play').onclick=()=>{ S.playing=!S.playing; $('play').classList.toggle('on',S.playing);
+  $('play').innerHTML=S.playing?'&#10073;&#10073; pause':'&#9654; play'; };
+$('step1').onclick=()=>{ stepOnce(); updateMesh(); renderReadout(); buildLedger(); };
+$('reset').onclick=()=>reseed();
+function snap(dir,up){
+  const d=14;
+  camera.position.set(dir[0]*d,dir[1]*d,dir[2]*d); camera.up.set(up[0],up[1],up[2]);
+  controls.target.set(0,0,0); controls.update();
+}
+$('v34').onclick=()=>snap([0.55,-0.75,0.5],[0,0,1]);
+$('vTop').onclick=()=>snap([0,0,1],[0,1,0]);
+$('vSide').onclick=()=>snap([0,-1,0.06],[0,0,1]);
+
+/* ---- gradient editor ------------------------------------------------------
+   Stop positions are shown in FIELD units (-1 .. +1), not 0 .. 1, because that is
+   what the stop actually means on a signed field and it makes the midpoint stop
+   read as 0 rather than 0.50.                                                */
+const rgb2hex=c=>'#'+c.map(v=>Math.round(Math.max(0,Math.min(1,v))*255).toString(16).padStart(2,'0')).join('');
+const sgn2=u=>(u>=0?'+':'')+u.toFixed(2);
+function drawGradStops(){
+  $('gradStops').innerHTML=GRADM.map((s,i)=>
+    `<div class="gstop">
+       <input type="color" data-g="${i}" value="${s.c}">
+       <input type="range" data-gp="${i}" min="0" max="1" step="0.002" value="${s.p}">
+       <span>${sgn2(s.p*2-1)}</span>
+     </div>`).join('');
+  $('gradStops').querySelectorAll('input').forEach(el=>{
+    el.addEventListener('input',()=>{
+      if(el.dataset.g!==undefined) GRADM[+el.dataset.g].c=el.value;
+      else { const p=+el.value; GRADM[+el.dataset.gp].p=p;
+             el.nextElementSibling.textContent=sgn2(p*2-1); }
+      buildMembLUT(); drawGrad(); updateMesh();
+    });
+  });
+}
+function drawGrad(){
+  const cv=$('gradcv'); if(!cv) return; const g=cv.getContext('2d');
+  for(let i=0;i<cv.width;i++){
+    const q=Math.round(i/(cv.width-1)*256);
+    g.fillStyle=`rgb(${Math.round(LUT_M[3*q]*255)},${Math.round(LUT_M[3*q+1]*255)},${Math.round(LUT_M[3*q+2]*255)})`;
+    g.fillRect(i,0,1,cv.height);
+  }
+  const d=gradDiag();
+  const tag=(v,good,txt)=>`<span class="${good?'':'bad'}"><b class="${good?'':'bad'}">${v}</b></span> ${txt}`;
+  const sOK=d.sign>0.15, rOK=d.rev===0, zOK=d.zero>0.08;
+  $('gradInfo').innerHTML=
+    `sign separation ${tag(d.sign.toFixed(3), sOK, `for |u| &ge; &frac12; (${d.ends.toFixed(2)} at the ends) `+
+       (sOK?'&mdash; +u and &minus;u stay distinct'
+          :'&mdash; <b class="bad">near-symmetric: sign is unreadable</b>'))}<br>`+
+    `luminance reversals ${tag(String(d.rev), rOK, rOK?'&mdash; |u| reads monotonically'
+       :'&mdash; each one paints a false contour')}<br>`+
+    `zero contrast ${tag(d.zero.toFixed(3), zOK, zOK?'&mdash; the rest line is visible'
+       :'&mdash; u = 0 is hard to pick out')}<br>`+
+    `<span style="color:#6a6a6a">cyclic: <b style="color:var(--link)">forbidden</b> here &mdash; `+
+    `a signed field does not wrap, so matching ends would make the map two-to-one. `+
+    `The 1D app forces the exact opposite.</span>`;
+}
+$('gAdd').onclick=()=>{
+  // insert at the midpoint of the widest gap, coloured from the CURRENT ramp, so
+  // adding a stop does not change the gradient -- it only gives you a handle
+  const st=GRADM.slice().sort((a,b)=>a.p-b.p);
+  let bi=0, bg=-1;
+  for(let i=0;i+1<st.length;i++){ const gp=st[i+1].p-st[i].p; if(gp>bg){bg=gp;bi=i;} }
+  const p=st.length>1 ? (st[bi].p+st[bi+1].p)/2 : 0.5, q=Math.round(p*256);
+  GRADM.push({p, c:rgb2hex([LUT_M[3*q],LUT_M[3*q+1],LUT_M[3*q+2]])});
+  GRADM.sort((a,b)=>a.p-b.p);
+  buildMembLUT(); drawGradStops(); drawGrad(); updateMesh();
+};
+$('gDel').onclick=()=>{ if(GRADM.length>2){ GRADM.pop();
+  buildMembLUT(); drawGradStops(); drawGrad(); updateMesh(); } };
+$('gRev').onclick=()=>{ GRADM=GRADM.map(s=>({p:1-s.p,c:s.c})).sort((a,b)=>a.p-b.p);
+  buildMembLUT(); drawGradStops(); drawGrad(); updateMesh(); };
+$('gDiv').onclick=()=>{ GRADM=DIV_DEFAULT.map(s=>({...s}));
+  buildMembLUT(); drawGradStops(); drawGrad(); updateMesh(); };
+
+/* ---- typed number box beside every slider ---------------------------------
+   The box writes back through the range element, so the value SNAPS to the
+   slider's own step and then echoes the snapped value -- typing 0.7071 into a
+   step-0.005 control must not leave the box claiming a value the solver is not
+   using. The synthetic 'input' event then runs the existing handler unchanged,
+   so there is exactly one code path per control.                             */
+function attachNumbers(){
+  document.querySelectorAll('.panel input[type=range]').forEach(r=>{
+    if(r.dataset.numd || r.closest('#gradStops')) return;
+    r.dataset.numd='1';
+    const box=document.createElement('input');
+    box.type='number'; box.className='numin';
+    box.min=r.min; box.max=r.max; box.step=r.step; box.value=r.value;
+    const wrap=document.createElement('div'); wrap.className='rowwrap';
+    r.parentNode.insertBefore(wrap,r); wrap.appendChild(r); wrap.appendChild(box);
+    r.addEventListener('input',()=>{ box.value=r.value; });
+    const commit=()=>{
+      const v=parseFloat(box.value);
+      if(!isFinite(v)){ box.value=r.value; return; }
+      r.value=Math.min(+r.max, Math.max(+r.min, v));       // clamp, then snap to step
+      box.value=r.value;                                    // echo what was ACTUALLY set
+      r.dispatchEvent(new Event('input',{bubbles:true}));
+    };
+    box.addEventListener('change',commit);
+    box.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); commit(); box.blur(); } });
+  });
+}
+
+/* ---- select cycling for the D / B hotkeys ---------------------------------
+   Advances a <select> by one and dispatches 'change', so the existing handler
+   runs -- no duplicated state updates. Shift goes backwards. Disabled options
+   are skipped, and the wrap is modulo so it never lands out of range. */
+function cycleSelect(id, back){
+  const el=$(id); if(!el) return null;
+  const n=el.options.length; if(!n) return null;
+  let i=el.selectedIndex;
+  for(let t=0;t<n;t++){
+    i=(i+(back?-1:1)+n)%n;
+    if(!el.options[i].disabled) break;
+  }
+  el.selectedIndex=i;
+  el.dispatchEvent(new Event('change',{bubbles:true}));
+  return el.options[i].textContent.trim();
+}
+function flashOvl(msg){
+  const o=$('ovl'); if(!o) return;
+  o.dataset.flash=msg;
+  clearTimeout(flashOvl._t);
+  flashOvl._t=setTimeout(()=>{ delete o.dataset.flash; renderReadout(); },1400);
+  renderReadout();
+}
+/* ---- presentation: full screen, photo mode, overlay ---------------------- */
+const stageEl=document.querySelector('.stage');
+function setPhoto(on){
+  document.body.classList.toggle('photo',on);
+  $('bPhoto').classList.toggle('on',on);
+}
+function setOvl(vis){
+  document.body.classList.toggle('hideovl',!vis);
+  $('bOvl').classList.toggle('on',!vis);
+  $('bOvl').textContent = vis ? 'hide overlay' : 'show overlay';
+}
+function toggleFull(){
+  if(document.fullscreenElement){ document.exitFullscreen().catch(()=>{}); return; }
+  // Some embedded contexts refuse the Fullscreen API even from a trusted click.
+  // Measured in one: document.fullscreenEnabled reads TRUE, and a call WITHOUT a user
+  // gesture throws "Permissions check failed" while a call WITH one leaves the promise
+  // unsettled forever -- neither resolved nor rejected. Cause is the page being served
+  // from a data: URL, an opaque origin; opening the file directly (file://) is fine.
+  // So the fallback cannot hang off .catch() alone: it is armed on a timer as well, and
+  // photo mode -- which is most of what full screen is for here -- takes over, saying so
+  // rather than leaving a button that silently does nothing.
+  let settled=false;
+  const fallback=()=>{
+    if(settled || document.fullscreenElement) return;
+    settled=true; setPhoto(true);
+    $('bFull').textContent='full screen blocked — photo mode';
+    setTimeout(()=>{ $('bFull').textContent='full screen'; },2600);
+  };
+  const p = stageEl.requestFullscreen ? stageEl.requestFullscreen()
+                                      : Promise.reject(new Error('unsupported'));
+  Promise.resolve(p).then(()=>{ settled=true; }).catch(fallback);
+  setTimeout(fallback,500);
+}
+document.addEventListener('fullscreenchange',()=>
+  $('bFull').classList.toggle('on', !!document.fullscreenElement));
+$('bFull').onclick=toggleFull;
+$('bPhoto').onclick=()=>setPhoto(!document.body.classList.contains('photo'));
+$('bOvl').onclick=()=>setOvl(document.body.classList.contains('hideovl'));
+addEventListener('keydown',e=>{
+  if(e.ctrlKey||e.metaKey||e.altKey) return;
+  // never hijack a key that is being typed into a control
+  if(e.target && /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
+  const k=e.key.toLowerCase();
+  if(k==='f'){ e.preventDefault(); toggleFull(); }
+  else if(k==='h'){ e.preventDefault(); setPhoto(!document.body.classList.contains('photo')); }
+  else if(k==='o'){ e.preventDefault(); setOvl(document.body.classList.contains('hideovl')); }
+  else if(k===' '){ e.preventDefault(); $('play').click(); }
+  else if(k==='n'){ e.preventDefault(); $('step1').click(); }
+  else if(k==='r'){ e.preventDefault(); $('reset').click(); }
+  else if(k==='p'){ e.preventDefault(); dropPulse(); }
+  else if(k==='w'){ e.preventDefault(); $('cWire').click(); flashOvl('wireframe '+($('cWire').checked?'on':'off')); }
+  else if(k==='d'){ e.preventDefault(); const v=cycleSelect('shape', e.shiftKey); if(v) flashOvl('domain: '+v); }
+  else if(k==='b'){ e.preventDefault(); const v=cycleSelect('bc', e.shiftKey); if(v) flashOvl('boundary: '+v); }
+  else if(e.key==='Escape' && document.body.classList.contains('photo')) setPhoto(false);
+});
+
+let last=performance.now(), acc=0;
+function frame(now){
+  const dt=Math.min((now-last)/1000,0.05); last=now;
+  if(S.playing){
+    for(let s=0;s<S.sub;s++) stepOnce();
+    updateMesh(); renderReadout();
+    acc+=dt; if(acc>0.25){ acc=0; buildLedger(); }
+  }
+  resize(); controls.update(); renderer.render(scene,camera);
+  requestAnimationFrame(frame);
+}
+$('note').innerHTML=NOTE;
+HARM=harmonics();
+alloc(161); reseed(); resize(); $('v34').click();
+drawGradStops(); drawGrad(); attachNumbers(); setOvl(true); latNote(); harmNote(); wsNote();
+requestAnimationFrame(frame);
+</script>

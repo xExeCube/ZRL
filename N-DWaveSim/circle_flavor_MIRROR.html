@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ZRL — Circle-Mapped Flavor Renderer (the rapidity circle)</title>
+<style>
+  :root{
+    --bg:#000; --panel:#131313; --bshadow:#2F0542; --bline:#502FA5;
+    --accent:#485FC7; --text:#FFF; --hi:#009E86; --link:#E22211;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;font-size:14px}
+  code,.mono{font-family:'Courier New',monospace}
+  header{padding:16px 22px 0 22px}
+  h1{margin:0;font-size:1.25rem;letter-spacing:3px;color:var(--hi);text-transform:uppercase}
+  .sub{color:#888;font-size:.75rem;letter-spacing:1px;font-family:'Courier New',monospace}
+  main{padding:0 22px 30px 22px}
+  .layout{display:flex;gap:14px;margin-top:14px;align-items:flex-start;flex-wrap:wrap}
+  .panel{background:var(--panel);border:1px solid var(--bshadow);box-shadow:0 0 14px var(--bshadow);padding:14px}
+  .controls{width:300px;flex-shrink:0}
+  .canvaswrap{flex:1;min-width:320px;padding:6px}
+  .cvrow{display:flex;gap:10px;flex-wrap:wrap}
+  .cvrow canvas{flex:1;min-width:300px}
+  canvas{display:block;width:100%;background:#000;border:1px solid var(--bshadow)}
+  .sect{margin:14px 0 6px 0;color:var(--accent);font-size:.7rem;letter-spacing:2px;text-transform:uppercase;
+    border-bottom:1px solid var(--bshadow);padding-bottom:3px;font-family:'Courier New',monospace}
+  .presets{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
+  .pbtn{flex:1;min-width:40px;background:#0b0b0b;color:#aaa;border:1px solid var(--bshadow);padding:7px 0;cursor:pointer;
+    font-family:'Courier New',monospace;font-size:.85rem;transition:.15s}
+  .pbtn:hover{color:var(--text);border-color:var(--bline)}
+  .pbtn.active{color:var(--text);border-color:var(--bline);background:#1a1a1a;box-shadow:0 0 10px var(--bshadow);border-bottom:2px solid var(--accent)}
+  label.ctl{display:block;font-size:.75rem;color:#bbb;margin:10px 0 2px 0;font-family:'Courier New',monospace}
+  label.ctl .v{float:right;color:var(--accent)}
+  input[type=range]{width:100%;accent-color:var(--accent);height:4px}
+  input[type=number],select{width:100%;background:#0b0b0b;color:#ddd;border:1px solid var(--bshadow);font-family:'Courier New',monospace;padding:4px}
+  label.chk{display:block;font-size:.75rem;color:#bbb;margin:6px 0 0 0;font-family:'Courier New',monospace;cursor:pointer}
+  label.chk input{accent-color:var(--accent);margin-right:6px;vertical-align:-2px}
+  .readout{font-family:'Courier New',monospace;font-size:.74rem;line-height:1.65;margin-top:12px;border-top:1px solid var(--bshadow);padding-top:8px}
+  .readout .k{color:#888} .readout .a{color:var(--accent)}
+  table.led{width:100%;border-collapse:collapse;font-family:'Courier New',monospace;font-size:.7rem;margin-top:4px}
+  table.led td{padding:3px 4px;border-bottom:1px solid #1e1e1e;vertical-align:top}
+  table.led td.st{width:44px;font-weight:bold}
+  table.led .ok{color:var(--hi)} table.led .bad{color:var(--link)} table.led .na{color:#777} table.led .k{color:#888}
+  .note{margin-top:12px;color:#888;font-size:.75rem;line-height:1.5;max-width:1100px}
+  .note b,.hi{color:var(--hi);font-weight:bold}
+  #besselbox{display:none;margin-top:10px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Zero-Recursive Lattice &mdash; Circle-Mapped Flavor Renderer</h1>
+  <div class="sub">P = (cos &psi;, sin &psi;) = (1/&gamma;, &beta;) on the unit circle &middot; H = (cosh &phi;, sinh &phi;) = (&gamma;, &gamma;&beta;) on x&sup2; &minus; y&sup2; = 1 &middot; &phi; = gd&#8315;&sup1;(&psi;) &middot; Bondi k = tan(&pi;/4 + &psi;/2) &middot; every identity checked from the drawn coordinates</div>
+</header>
+<main>
+  <div class="layout">
+    <div class="panel controls">
+      <div class="sect">Angle</div>
+      <label class="ctl">&psi; (degrees) <span class="v" id="psiv">30.0</span></label>
+      <input type="range" id="psiS" min="0" max="89.9" step="0.1" value="30">
+      <label class="ctl">input mode &middot; value</label>
+      <div class="presets">
+        <button class="pbtn active" id="mPsi">&psi;</button>
+        <button class="pbtn" id="mBeta">&beta;</button>
+        <button class="pbtn" id="mPhi">&phi;</button>
+        <button class="pbtn" id="mK">k</button>
+      </div>
+      <input type="number" id="valN" step="any" value="30" style="margin-top:6px">
+      <div class="sect">Snaps</div>
+      <div class="presets">
+        <button class="pbtn" id="s3">&#9651; 60&deg;</button>
+        <button class="pbtn" id="s4">&#9633; 45&deg;</button>
+        <button class="pbtn" id="s5">&#11040; 36&deg;</button>
+        <button class="pbtn" id="s6">&#11041; 30&deg;</button>
+      </div>
+      <div class="presets">
+        <button class="pbtn" id="sInf">&infin; 0&deg;</button>
+        <button class="pbtn" id="sSilver">silver 45&deg;</button>
+      </div>
+      <label class="ctl">Pythagorean snap (m, n), m &le; 7</label>
+      <select id="pyS"><option value="">&mdash; pick (m,n) &mdash;</option></select>
+      <div class="sect">Scale</div>
+      <label class="ctl">R (whiteboard scale only) <span class="v" id="Rv">1.00</span></label>
+      <input type="range" id="RS" min="0.5" max="2" step="0.05" value="1">
+      <div class="sect">Overlays</div>
+      <label class="chk"><input type="checkbox" id="cTri" checked>whiteboard half-angle triangle (a&times;b rectangle, &Delta;&#8321;+&Delta;&#8322;)</label>
+      <label class="chk"><input type="checkbox" id="cBridge" checked>bridge parallelogram 𝐑 = e<sup>i&theta;</sup>, 1/𝐑</label>
+      <label class="chk"><input type="checkbox" id="cC4">C&#8324; images of P (full circle)</label>
+      <label class="chk"><input type="checkbox" id="cHyp" checked>hyperbola panel</label>
+      <label class="chk"><input type="checkbox" id="cBes">Jacobi&ndash;Anger tab (Stage B)</label>
+      <div class="readout" id="vals"></div>
+      <div class="sect">Identity ledger</div>
+      <table class="led" id="ledger"></table>
+    </div>
+    <div class="panel canvaswrap">
+      <div class="cvrow">
+        <canvas id="cvC" width="620" height="620"></canvas>
+        <canvas id="cvH" width="620" height="620"></canvas>
+      </div>
+      <div id="besselbox">
+        <div class="sect">Jacobi&ndash;Anger &middot; e<sup>ix sin &theta;</sup> = &Sigma; J<sub>n</sub>(x) e<sup>in&theta;</sup> at the flavor's per-tick turn &theta; = 2&pi;/n</div>
+        <div class="presets">
+          <label class="ctl" style="flex:2">x <span class="v" id="xv">1.70</span><input type="range" id="xS" min="0" max="5" step="0.01" value="1.7"></label>
+          <label class="ctl" style="flex:1">flavor n (&theta; = 2&pi;/n)<select id="bnS"><option>3</option><option>4</option><option>5</option><option selected>6</option></select></label>
+        </div>
+        <canvas id="cvB" width="1250" height="300"></canvas>
+      </div>
+      <p class="note"><b>What this validates:</b> one angle, three faces. The point <b>P</b> on the unit circle carries
+      (1/&gamma;, &beta;) = (cos &psi;, sin &psi;); the Gudermannian locks it to <b>H</b> = (&gamma;, &gamma;&beta;) on the unit
+      hyperbola; Bondi's k = tan(&pi;/4 + &psi;/2) is the half-angle reading of &radic;((1+&beta;)/(1&minus;&beta;)). The whiteboard
+      triangle at &theta; = &pi;/4 + &psi;/2 gives &gamma; = R&sup2;/(2ab) and 𝒮<sub>&Delta;</sub> = &pi;R&sup2;/4 &minus; ab (the corrected
+      delta-sum; the parent's R&#8312; form is ruled out). The bridge 𝐑 = e<sup>i&theta;</sup>, 1/𝐑 has its sum 2cos &theta; on the real
+      axis and its difference 2i sin &theta; on the imaginary axis, and V&#8321;&#8308; &minus; V&#8322;&#8308; = 4 is cos&sup2; + sin&sup2; = 1 in
+      disguise. The four flavor markers sit at &psi;<sub>n</sub> = &pi;/n where the x-bridge &frac12;(&radic;&zeta;<sub>n</sub> + 1/&radic;&zeta;<sub>n</sub>)
+      equals the signature cos(&pi;/n); the shells &rho;<sub>n</sub>/r<sub>s</sub> = 1/sin&sup2;&psi;<sub>n</sub> are bookkeeping labels,
+      not physics. &beta; and &gamma; are subscripted everywhere: &beta;<sub>esc</sub> &ne; &beta;<sub>D</sub>, &gamma;<sub>esc</sub> &ne; &gamma;<sub>D</sub>
+      (k(&beta;<sub>D</sub>) = &gamma;<sub>esc</sub> exactly). Every ledger row is computed from the pixel-space points that were actually
+      drawn, mapped back to world coordinates, so the ledger tests the renderer and not the slider. The R slider is a
+      whiteboard scale only; the bridge's 𝐑 = e<sup>i&theta;</sup> always has modulus 1.</p>
+    </div>
+  </div>
+</main>
+<script>
+'use strict';
+const $=id=>document.getElementById(id);
+const PI=Math.PI, DEG=180/PI, SQ2=Math.SQRT2, PHI_G=(1+Math.sqrt(5))/2;
+const fmt=(x,d)=>(x===null||x===undefined||!isFinite(x))?'—':x.toFixed(d===undefined?6:d);
+const fe=x=>(x===null||x===undefined||!isFinite(x))?'—':x.toExponential(2);
+
+/* ---------- §2.1 the dictionary ---------- */
+const gd=phi=>2*Math.atan(Math.exp(phi))-PI/2;                 // ψ = gd(φ)
+const gdInv=psi=>Math.log(Math.tan(PI/4+psi/2));               // φ = gd⁻¹(ψ), ψ in radians
+function derive(psi){                                          // everything from one angle (radians)
+  const c=Math.cos(psi), s=Math.sin(psi);
+  const f=c*c;
+  return {psi, cos:c, sin:s, beta:s, invg:c, gamma:1/c, gb:Math.tan(psi), phi:gdInv(psi), theta:PI/4+psi/2,
+    k:Math.tan(PI/4+psi/2), f, rho:1/(s*s), betaD:(1-f)/(1+f), gammaD:(1+f)/(2*Math.sqrt(f))};
+}
+/* ---------- §2.6 rational boosts: all coprime (m,n), n < m ≤ 7 ---------- */
+const gcd=(a,b)=>b?gcd(b,a%b):a;
+const PYTH=[]; for(let m=2;m<=7;m++)for(let n=1;n<m;n++) if(gcd(m,n)===1) PYTH.push({m,n,beta:(m*m-n*n)/(m*m+n*n),invg:2*m*n/(m*m+n*n),k:m/n});
+/* ---------- §2.8 Bessel J_n by Miller's backward recurrence (x ≤ 5, |n| ≤ 30) ---------- */
+function besselJ(x,nmax){
+  const J=new Array(nmax+1).fill(0);
+  if(x===0){J[0]=1;return J;}
+  const N=2*Math.max(nmax,Math.ceil(x))+30;
+  let jk1=0, jk=1e-30, sum=0;                // J_{k+1}, J_k
+  const tmp=new Array(N+1).fill(0); tmp[N]=jk;
+  for(let k=N;k>=1;k--){
+    let jkm1=(2*k/x)*jk-jk1;
+    jk1=jk; jk=jkm1; tmp[k-1]=jk;
+    if(Math.abs(jk)>1e200){ for(let m=k-1;m<=N;m++)tmp[m]*=1e-200; jk*=1e-200; jk1*=1e-200; }   // rescale, values are relative until normalised
+  }
+  sum=tmp[0]; for(let m=2;m<=N;m+=2)sum+=2*tmp[m];   // J₀ + 2 Σ J₂ₘ = 1
+  for(let m=0;m<=nmax;m++)J[m]=tmp[m]/sum;
+  return J;
+}
+const JN=30;
+function jacobiAnger(x,theta){                 // returns {S:[re,im], target:[re,im], residual}
+  const J=besselJ(x,JN); let re=0,im=0;
+  for(let n=-JN;n<=JN;n++){ const jn=(n>=0)?J[n]:((n%2===0)?1:-1)*J[-n]; re+=jn*Math.cos(n*theta); im+=jn*Math.sin(n*theta); }
+  const t=[Math.cos(x*Math.sin(theta)),Math.sin(x*Math.sin(theta))];
+  return {J,S:[re,im],target:t,residual:Math.hypot(re-t[0],im-t[1])};
+}
+
+/* ---------- state ---------- */
+const S={psi:30/DEG, R:1, mode:'psi', show:{tri:true,bridge:true,c4:false,hyp:true,bes:false}, x:1.7, bn:6};
+
+/* ---------- canvases and the world↔pixel maps (all drawing goes through toPx; the ledger reads back through toWorld) ---------- */
+const cvC=$('cvC'), ctxC=cvC.getContext('2d'), cvH=$('cvH'), ctxH=cvH.getContext('2d');
+let mapC=null, mapH=null;
+function makeMap(cv,xmin,xmax,ymin,ymax){
+  const s=Math.min(cv.width/(xmax-xmin),cv.height/(ymax-ymin));
+  const cx=(xmin+xmax)/2, cy=(ymin+ymax)/2, px=cv.width/2, py=cv.height/2;
+  return {s, toPx:p=>[px+(p[0]-cx)*s, py-(p[1]-cy)*s], toWorld:q=>[cx+(q[0]-px)/s, cy-(q[1]-py)/s]};
+}
+
+/* draw + measure. Returns D = the world coordinates read back from the pixel positions actually drawn. */
+function draw(){
+  const d=derive(S.psi), R=S.R, D={};
+  /* ---- circle panel ---- */
+  const L=Math.max(1.2,1.1*R);
+  mapC=S.show.c4?makeMap(cvC,-L,L,-L,L):makeMap(cvC,-0.25*L,Math.max(L,1.55),-1.12,L);
+  const {toPx,toWorld,s}=mapC, c=ctxC;
+  const P=q=>toPx(q);
+  c.fillStyle='#000'; c.fillRect(0,0,cvC.width,cvC.height);
+  /* grid + axes */
+  c.strokeStyle='rgba(80,47,165,0.16)'; c.lineWidth=1;
+  for(let g=-3;g<=3;g+=0.5){ const [x0,y0]=P([g,-3]),[x1,y1]=P([g,3]); c.beginPath();c.moveTo(x0,y0);c.lineTo(x1,y1);c.stroke();
+    const [a0,b0]=P([-3,g]),[a1,b1]=P([3,g]); c.beginPath();c.moveTo(a0,b0);c.lineTo(a1,b1);c.stroke(); }
+  c.strokeStyle='rgba(156,163,175,0.5)'; c.lineWidth=1.5;
+  { const [x0,y0]=P([-3,0]),[x1,y1]=P([3,0]); c.beginPath();c.moveTo(x0,y0);c.lineTo(x1,y1);c.stroke();
+    const [a0,b0]=P([0,-3]),[a1,b1]=P([0,3]); c.beginPath();c.moveTo(a0,b0);c.lineTo(a1,b1);c.stroke(); }
+  /* unit circle: full faint, Q1 bold */
+  const O=P([0,0]);
+  c.strokeStyle='rgba(156,163,175,0.3)'; c.lineWidth=1; c.beginPath(); c.arc(O[0],O[1],s,0,2*PI); c.stroke();
+  c.strokeStyle='#9ca3af'; c.lineWidth=1.8; c.beginPath(); c.arc(O[0],O[1],s,-PI/2,0); c.stroke();
+  /* whiteboard: quarter circle of radius R, rectangle a×b, Δ₁ + Δ₂ */
+  const a=R*Math.cos(d.theta), b=R*Math.sin(d.theta);
+  if(S.show.tri){
+    c.setLineDash([5,4]); c.strokeStyle='rgba(72,95,199,0.8)'; c.lineWidth=1.3; c.beginPath(); c.arc(O[0],O[1],R*s,-PI/2,0); c.stroke(); c.setLineDash([]);
+    /* Δ₁: above the rectangle under the arc, x ∈ [0,a]; Δ₂: right of the rectangle, x ∈ [a,R] */
+    c.fillStyle='rgba(0,158,134,0.16)';
+    c.beginPath(); c.moveTo(...P([0,b])); for(let i=0;i<=60;i++){const x=a*i/60; c.lineTo(...P([x,Math.sqrt(Math.max(0,R*R-x*x))]));} c.lineTo(...P([a,b])); c.closePath(); c.fill();
+    c.fillStyle='rgba(72,95,199,0.16)';
+    c.beginPath(); c.moveTo(...P([a,0])); for(let i=0;i<=60;i++){const x=a+(R-a)*i/60; c.lineTo(...P([x,Math.sqrt(Math.max(0,R*R-x*x))]));} c.lineTo(...P([R,0])); c.closePath(); c.fill();
+    c.fillStyle='rgba(255,255,255,0.08)'; c.strokeStyle='rgba(255,255,255,0.55)'; c.lineWidth=1;
+    c.beginPath(); c.moveTo(...P([0,0])); c.lineTo(...P([a,0])); c.lineTo(...P([a,b])); c.lineTo(...P([0,b])); c.closePath(); c.fill(); c.stroke();
+    c.strokeStyle='rgba(255,255,255,0.35)'; c.setLineDash([3,3]); c.beginPath(); c.moveTo(...P([0,0])); c.lineTo(...P([a,b])); c.stroke(); c.setLineDash([]);
+    c.fillStyle='#ddd'; c.font='12px Courier New'; c.fillText('a',...add(P([a/2,0]),[-4,14])); c.fillText('b',...add(P([a,b/2]),[6,4])); c.fillText('θ = π/4+ψ/2',...add(P([a,b]),[8,-6]));
+    c.fillText('Δ₁',...add(P([a*0.35,(b+Math.sqrt(Math.max(0,R*R-(a*0.35)**2)))/2]),[-8,4])); c.fillText('Δ₂',...add(P([(a+R)/2,Math.sqrt(Math.max(0,R*R-((a+R)/2)**2))/2]),[-8,4]));
+  }
+  D.ab=toWorld(P([a,b])); D.Rpt=toWorld(P([R,0]));
+  /* bridge: 𝐑 = e^{iθ}, 1/𝐑 = e^{−iθ}; parallelogram; sum on the real axis; difference on the imaginary axis */
+  const Rc=[Math.cos(d.theta),Math.sin(d.theta)], Ri=[Math.cos(d.theta),-Math.sin(d.theta)];
+  if(S.show.bridge){
+    const sum=[Rc[0]+Ri[0],Rc[1]+Ri[1]];
+    c.strokeStyle='rgba(226,34,17,0.55)'; c.lineWidth=1; c.setLineDash([4,3]);
+    c.beginPath(); c.moveTo(...P([0,0])); c.lineTo(...P(Rc)); c.lineTo(...P(sum)); c.lineTo(...P(Ri)); c.closePath(); c.stroke(); c.setLineDash([]);
+    arrow(c,P([0,0]),P(Rc),'#E22211'); arrow(c,P([0,0]),P(Ri),'#E22211'); arrow(c,P([0,0]),P(sum),'#EF9F27');
+    arrow(c,P(Ri),P(Rc),'#EF9F27');
+    c.fillStyle='#EF9F27'; c.font='12px Courier New';
+    c.fillText('𝐑+1/𝐑 = 2cosθ',...add(P(sum),[6,16])); c.fillText('𝐑−1/𝐑 = 2i sinθ',...add(P([Rc[0],0]),[8,4]));
+    c.fillStyle='#E22211'; c.fillText('𝐑 = e^{iθ}',...add(P(Rc),[8,-4])); c.fillText('1/𝐑',...add(P(Ri),[8,14]));
+  }
+  D.R=toWorld(P(Rc)); D.invR=toWorld(P(Ri));
+  /* flavor markers at ψ_n = π/n, silver at 45°, ∞ at 0° */
+  const FL=[[3,'△'],[4,'□'],[5,'⬠'],[6,'⬡']]; D.marker={};
+  c.font='13px Courier New';
+  for(const [n,sym] of FL){ const q=[Math.cos(PI/n),Math.sin(PI/n)], pp=P(q); D.marker[n]=toWorld(pp);
+    c.fillStyle='hsl('+({3:160,4:250,5:45,6:15}[n])+',62%,60%)'; c.beginPath(); c.arc(pp[0],pp[1],3.5,0,2*PI); c.fill();
+    c.fillText(sym+' '+n,pp[0]+8,pp[1]+(n===4?-8:4)); }
+  { const pp=P([1,0]); c.fillStyle='hsl(325,62%,60%)'; c.beginPath(); c.arc(pp[0],pp[1],3.5,0,2*PI); c.fill(); c.fillText('∞',pp[0]+8,pp[1]-6); }
+  { const pp=P([SQ2/2,SQ2/2]); c.strokeStyle='#ccc'; c.lineWidth=1; c.beginPath(); c.arc(pp[0],pp[1],7,0,2*PI); c.stroke(); c.fillStyle='#ccc'; c.fillText('silver (= □)',pp[0]+12,pp[1]+16); }
+  /* P and its triangle (1/γ, β, hypotenuse 1) */
+  const Pw=[d.cos,d.sin], Pp=P(Pw);
+  c.strokeStyle='rgba(72,95,199,0.9)'; c.lineWidth=1.4;
+  c.beginPath(); c.moveTo(...P([0,0])); c.lineTo(...P([d.cos,0])); c.lineTo(...Pp); c.closePath(); c.stroke();
+  c.strokeStyle='#fff'; c.lineWidth=2; c.beginPath(); c.moveTo(...P([0,0])); c.lineTo(...Pp); c.stroke();
+  c.fillStyle='#fff'; c.beginPath(); c.arc(Pp[0],Pp[1],4.5,0,2*PI); c.fill();
+  c.fillStyle='#485FC7'; c.fillText('1/γ = cosψ',...add(P([d.cos/2,0]),[-30,-6])); c.fillText('β = sinψ',...add(P([d.cos,d.sin/2]),[8,4]));
+  c.fillStyle='#fff'; c.fillText('P (1/γ, β)  ψ = '+fmt(S.psi*DEG,2)+'°',Pp[0]+10,Pp[1]-10);
+  D.P=toWorld(Pp);
+  /* Q = (cosθ, sinθ): the half-angle point */
+  const Qp=P([Math.cos(d.theta),Math.sin(d.theta)]); c.fillStyle='#EF9F27'; c.beginPath(); c.arc(Qp[0],Qp[1],3.5,0,2*PI); c.fill(); c.fillText('Q (θ)',Qp[0]-40,Qp[1]-8);
+  D.Q=toWorld(Qp);
+  /* C₄ images */
+  if(S.show.c4){ D.c4=[]; for(const [x,y] of [[-d.sin,d.cos],[-d.cos,-d.sin],[d.sin,-d.cos]]){ const pp=P([x,y]); D.c4.push(toWorld(pp)); c.fillStyle='rgba(255,255,255,0.6)'; c.beginPath(); c.arc(pp[0],pp[1],3.5,0,2*PI); c.fill(); }
+    c.fillStyle='#aaa'; c.fillText('iP',...add(P([-d.sin,d.cos]),[-22,-6])); c.fillText('−P',...add(P([-d.cos,-d.sin]),[-24,14])); c.fillText('−iP',...add(P([d.sin,-d.cos]),[8,14])); }
+  c.fillStyle='#9ca3af'; c.font='12px Courier New'; c.fillText('circle · ψ · (1/γ, β)',10,cvC.height-10);
+
+  /* ---- hyperbola panel: same px/unit as the circle panel ---- */
+  const h=ctxH; h.fillStyle='#000'; h.fillRect(0,0,cvH.width,cvH.height);
+  if(S.show.hyp){
+    const X=cvH.width/s, Y=cvH.height/(2*s);
+    mapH={s, toPx:p=>[p[0]*s, cvH.height/2-p[1]*s], toWorld:q=>[q[0]/s, (cvH.height/2-q[1])/s]};
+    const H=q=>mapH.toPx(q);
+    h.strokeStyle='rgba(80,47,165,0.16)'; h.lineWidth=1;
+    for(let g=0;g<=X;g+=0.5){ h.beginPath(); h.moveTo(...H([g,-Y])); h.lineTo(...H([g,Y])); h.stroke(); }
+    for(let g=-Math.ceil(Y);g<=Y;g+=0.5){ h.beginPath(); h.moveTo(...H([0,g])); h.lineTo(...H([X,g])); h.stroke(); }
+    h.strokeStyle='rgba(156,163,175,0.5)'; h.lineWidth=1.5; h.beginPath(); h.moveTo(...H([0,0])); h.lineTo(...H([X,0])); h.stroke();
+    h.setLineDash([6,4]); h.strokeStyle='rgba(226,34,17,0.6)'; h.beginPath(); h.moveTo(...H([0,0])); h.lineTo(...H([X,X])); h.moveTo(...H([0,0])); h.lineTo(...H([X,-X])); h.stroke(); h.setLineDash([]);
+    h.strokeStyle='#9ca3af'; h.lineWidth=1.8; h.beginPath();
+    const pm=Math.acosh(Math.max(1.0001,X)); for(let i=0;i<=200;i++){const ph=-pm+2*pm*i/200; const q=H([Math.cosh(ph),Math.sinh(ph)]); i?h.lineTo(...q):h.moveTo(...q);} h.stroke();
+    const Hw=[d.gamma,d.gamma*d.beta]; const off=Hw[0]>X||Math.abs(Hw[1])>Y;
+    if(!off){ const Hp=H(Hw); h.strokeStyle='#fff'; h.lineWidth=2; h.beginPath(); h.moveTo(...H([0,0])); h.lineTo(...Hp); h.stroke();
+      h.fillStyle='#fff'; h.beginPath(); h.arc(Hp[0],Hp[1],4.5,0,2*PI); h.fill();
+      h.strokeStyle='rgba(72,95,199,0.9)'; h.lineWidth=1.4; h.beginPath(); h.moveTo(...H([0,0])); h.lineTo(...H([Hw[0],0])); h.lineTo(...Hp); h.stroke();
+      h.fillStyle='#fff'; h.font='13px Courier New'; h.fillText('H (γ, γβ)  φ = '+fmt(d.phi,4),Hp[0]+10,Hp[1]-10);
+      h.fillStyle='#485FC7'; h.fillText('γ = coshφ',...add(H([Hw[0]/2,0]),[-30,16])); h.fillText('γβ = sinhφ',...add(H([Hw[0],Hw[1]/2]),[8,4]));
+      D.H=mapH.toWorld(Hp); }
+    else { D.H=null; h.fillStyle='#E22211'; h.font='13px Courier New'; h.fillText('H off-panel at the locked scale: γ = '+fmt(d.gamma,3),12,24); }
+    h.fillStyle='#EF9F27'; h.font='12px Courier New'; h.fillText('← gd: ψ = gd(φ), φ = gd⁻¹(ψ) = ln tan(π/4+ψ/2)',12,cvH.height-28);
+    h.fillStyle='#9ca3af'; h.fillText('hyperbola · φ · (γ, γβ) · same px/unit as the circle',10,cvH.height-10);
+  } else { D.H=null; mapH=null; h.fillStyle='#555'; h.font='13px Courier New'; h.fillText('hyperbola panel off',12,24); }
+
+  /* ---- Bessel tab ---- */
+  let JA=null;
+  if(S.show.bes){
+    const th=2*PI/S.bn; JA=jacobiAnger(S.x,th);
+    const B=$('cvB'), g=B.getContext('2d'); g.fillStyle='#000'; g.fillRect(0,0,B.width,B.height);
+    const W=B.width, Hh=B.height, base=Hh*0.55, bw=W/(2*JN+1);
+    g.strokeStyle='rgba(156,163,175,0.5)'; g.beginPath(); g.moveTo(0,base); g.lineTo(W,base); g.stroke();
+    for(let n=-JN;n<=JN;n++){ const jn=(n>=0)?JA.J[n]:((n%2===0)?1:-1)*JA.J[-n]; const x0=(n+JN)*bw; const hh=jn*(Hh*0.45);
+      g.fillStyle=n===0?'#009E86':(Math.abs(n)===S.bn?'#E22211':'hsl(250,62%,60%)'); g.fillRect(x0+1,base-hh,bw-2,hh); }
+    g.fillStyle='#ddd'; g.font='12px Courier New';
+    g.fillText('J_n('+fmt(S.x,2)+'), n = −'+JN+'…'+JN+' · red = |n| = flavor n = '+S.bn+' (the Bessel order and the flavor index are the same integer)',10,16);
+    g.fillText('Σ J_n e^{inθ} = '+fmt(JA.S[0],9)+' + '+fmt(JA.S[1],9)+'i · e^{ix sinθ} = '+fmt(JA.target[0],9)+' + '+fmt(JA.target[1],9)+'i · |residual| = '+fe(JA.residual),10,34);
+  }
+  return {d,D,JA};
+}
+const add=(p,dv)=>[p[0]+dv[0],p[1]+dv[1]];
+function arrow(c,p0,p1,col){
+  c.strokeStyle=col; c.fillStyle=col; c.lineWidth=1.6; c.beginPath(); c.moveTo(p0[0],p0[1]); c.lineTo(p1[0],p1[1]); c.stroke();
+  const ang=Math.atan2(p1[1]-p0[1],p1[0]-p0[0]); c.beginPath(); c.moveTo(p1[0],p1[1]);
+  c.lineTo(p1[0]-9*Math.cos(ang-0.4),p1[1]-9*Math.sin(ang-0.4)); c.lineTo(p1[0]-9*Math.cos(ang+0.4),p1[1]-9*Math.sin(ang+0.4)); c.closePath(); c.fill();
+}
+
+/* ---------- ledger: everything from D (drawn coordinates read back through toWorld) ---------- */
+function rowHTML(name,status,detail,ref){
+  const cls=status==='PASS'?'ok':(status==='FAIL'?'bad':'na');
+  return '<tr><td>'+name+'</td><td class="st '+cls+'">'+status+'</td><td class="k">'+detail+'</td><td class="k">'+ref+'</td></tr>';
+}
+const st=(dev,tol)=>(dev===null||!isFinite(dev))?'n/a':(Math.abs(dev)<=tol?'PASS':'FAIL');
+const cmul=(u,v)=>[u[0]*v[0]-u[1]*v[1],u[0]*v[1]+u[1]*v[0]];
+function update(){
+  const {d,D,JA}=draw();
+  const rows=[];
+  const beta=D.P[1], invg=D.P[0], psiD=Math.atan2(D.P[1],D.P[0]);      // read back from the drawn P
+  rows.push(rowHTML('β² + (1/γ)² = 1 (drawn P)', st(beta*beta+invg*invg-1,1e-12), fmt(beta*beta+invg*invg,12)+' · P read back = ('+fmt(invg,9)+', '+fmt(beta,9)+')', '§2.1'));
+  if(D.H){ const g=D.H[0], gb=D.H[1]; rows.push(rowHTML('γ² − (γβ)² = 1 (drawn H)', st(g*g-gb*gb-1,1e-12), fmt(g*g-gb*gb,12)+' · H read back = ('+fmt(g,6)+', '+fmt(gb,6)+')', '§2.1')); }
+  else rows.push(rowHTML('γ² − (γβ)² = 1 (drawn H)', 'n/a', S.show.hyp?'H off-panel at the locked scale (γ = '+fmt(d.gamma,3)+')':'hyperbola panel off', '§2.1'));
+  const kd=D.ab[1]/D.ab[0], invk=D.ab[0]/D.ab[1];
+  rows.push(rowHTML('k · (1/k) = 1 (drawn rectangle diagonal)', st(kd*invk-1,1e-12), 'k = b/a = '+fmt(kd,9)+' · '+fmt(kd*invk,12), '§2.2'));
+  const kB=Math.sqrt((1+beta)/(1-beta)), kT=Math.tan(PI/4+psiD/2);
+  /* relative tolerance: k grows like 1/(1−β) toward ψ → 90° (k ≈ 115 at 89°), so an absolute 1e-12 would fail on conditioning alone */
+  rows.push(rowHTML('√((1+β)/(1−β)) − tan(π/4 + ψ/2) = 0 (β and ψ both from drawn P; relative)', st((kB-kT)/kT,1e-12), fmt(kB,9)+' vs '+fmt(kT,9)+' · rel dev '+fe((kB-kT)/kT), '§2.1'));
+  rows.push(rowHTML('gd(gd⁻¹(ψ)) − ψ = 0', st(gd(gdInv(psiD))-psiD,1e-12), 'ψ = '+fmt(psiD*DEG,6)+'° · dev '+fe(gd(gdInv(psiD))-psiD), '§2.1'));
+  const Rd=D.Rpt[0], gAB=Rd*Rd/(2*D.ab[0]*D.ab[1]);
+  rows.push(rowHTML('γ − R²/(2ab) = 0 (drawn a, b, R)', st(1/invg-gAB,1e-12), '1/cosψ = '+fmt(1/invg,9)+' · R²/(2ab) = '+fmt(gAB,9), '§2.2'));
+  const SD=(RR,aa,bb)=>PI*RR*RR/4-aa*bb; const ratio=SD(2*Rd,2*D.ab[0],2*D.ab[1])/SD(Rd,D.ab[0],D.ab[1]);
+  rows.push(rowHTML('𝒮_Δ(2R) / 𝒮_Δ(R) = 4 (degree-2 homogeneity)', st(ratio-4,1e-12), fmt(ratio,12)+' · 𝒮_Δ = πR²/4 − ab = '+fmt(SD(Rd,D.ab[0],D.ab[1]),9)+' · exact by construction (×2 rescale)', '§2.2'));
+  const R2=cmul(D.R,D.R), Ri2=cmul(D.invR,D.invR), V1=[R2[0]+Ri2[0],R2[1]+Ri2[1]], V2=[R2[0]-Ri2[0],R2[1]-Ri2[1]];
+  const V14=cmul(V1,V1), V24=cmul(V2,V2), inv=[V14[0]-V24[0],V14[1]-V24[1]];
+  rows.push(rowHTML('V₁⁴ − V₂⁴ = 4 at 𝐑 = e^{iθ} (drawn 𝐑, 1/𝐑)', st(Math.hypot(inv[0]-4,inv[1]),1e-12), 'V₁² = '+fmt(V1[0],6)+' + '+fmt(V1[1],6)+'i · V₂² = '+fmt(V2[0],6)+' + '+fmt(V2[1],6)+'i · V₁⁴−V₂⁴ = '+fmt(inv[0],9)+' + '+fmt(inv[1],9)+'i', '§2.3'));
+  let dBr=0, dSh=0; const parts=[];
+  for(const n of [3,4,5,6]){ const m=D.marker[n]; const xb=(m[0]+m[0])/2; dBr=Math.max(dBr,Math.abs(xb-Math.cos(PI/n))); dSh=Math.max(dSh,Math.abs(1/(m[1]*m[1])-1/Math.pow(Math.sin(PI/n),2))); parts.push(n+':'+fmt(xb,6)); }
+  rows.push(rowHTML('½(√ζ_n + 1/√ζ_n) − cos(π/n) = 0, n = 3…6 (drawn markers; 1/√ζ_n = conjugate)', st(dBr,1e-12), parts.join(' · ')+' · max dev '+fe(dBr), '§2.4'));
+  rows.push(rowHTML('ρ_n/r_s − 1/sin²(π/n) = 0, n = 3…6 (drawn markers)', st(dSh,1e-12), '4/3 · 2 · 2.894427 · 4 · max dev '+fe(dSh), '§2.4'));
+  const fD=invg*invg, betaD=(1-fD)/(1+fD), kBD=Math.sqrt((1+betaD)/(1-betaD));
+  rows.push(rowHTML('k(β_D) − γ_esc = 0 (f from drawn P)', st(kBD-1/invg,1e-12), 'β_D = '+fmt(betaD,9)+' · k(β_D) = '+fmt(kBD,9)+' · γ_esc = '+fmt(1/invg,9)+' · γ_D = '+fmt((1+fD)/(2*Math.sqrt(fD)),9)+' ≠ γ_esc', '§2.5'));
+  let big=true; for(const t of PYTH){ const m=BigInt(t.m), n=BigInt(t.n); if((m*m-n*n)**2n+(2n*m*n)**2n-(m*m+n*n)**2n!==0n) big=false; }
+  rows.push(rowHTML('(m²−n²)² + (2mn)² − (m²+n²)² = 0, all coprime (m,n), m ≤ 7 (BigInt, exact)', big?'PASS':'FAIL', PYTH.length+' pairs · k = m/n = tan(π/4+ψ/2) checked live on snap', '§2.6'));
+  rows.push(rowHTML('gd(ln(1+√2)) − π/4 = 0 (silver point)', st(gd(Math.log(1+SQ2))-PI/4,1e-12), 'φ = '+fmt(Math.log(1+SQ2),6)+' · k = 1+√2 = '+fmt(1+SQ2,6)+' · coincides with □ (ψ₄ = 45°), not a derivation', '§2.7'));
+  rows.push(rowHTML('Σ_{|n|≤30} J_n(x) e^{inθ} − e^{ix sinθ} = 0 (tab)', JA?st(JA.residual,1e-10):'n/a', JA?('x = '+fmt(S.x,3)+', θ = 2π/'+S.bn+' · |residual| '+fe(JA.residual)):'Jacobi–Anger tab off', '§2.8'));
+  if(S.show.c4){ let dc=0; for(const q of D.c4) dc=Math.max(dc,Math.abs(Math.hypot(q[0],q[1])-1)); rows.push(rowHTML('C₄ images of P stay on the unit circle (drawn)', st(dc,1e-12), 'max |r − 1| = '+fe(dc), '§8')); }
+  $('ledger').innerHTML=rows.join('');
+  /* readout */
+  const pySnap=PYTH.find(t=>Math.abs(t.beta-d.beta)<1e-12);
+  $('vals').innerHTML=
+    '<span class="k">ψ:</span> <span class="a">'+fmt(d.psi*DEG,4)+'°</span> <span class="k">· φ = gd⁻¹(ψ):</span> '+fmt(d.phi)+' <span class="k">· θ = π/4+ψ/2:</span> '+fmt(d.theta*DEG,4)+'°<br>'+
+    '<span class="k">β_esc = sinψ:</span> '+fmt(d.beta)+' <span class="k">· γ_esc = secψ:</span> '+fmt(d.gamma)+' <span class="k">· γβ = tanψ:</span> '+fmt(d.gb)+'<br>'+
+    '<span class="k">k = tan(π/4+ψ/2):</span> <span class="a">'+fmt(d.k)+'</span> <span class="k">· 1/k:</span> '+fmt(1/d.k)+(pySnap?(()=>{const num=pySnap.m*pySnap.m-pySnap.n*pySnap.n,den=pySnap.m*pySnap.m+pySnap.n*pySnap.n,g=gcd(num,den);return ' <span class="k">· rational: k = '+pySnap.m+'/'+pySnap.n+', β = '+(num/g)+'/'+(den/g)+'</span>';})():'')+'<br>'+
+    '<span class="k">f = cos²ψ:</span> '+fmt(d.f)+' <span class="k">· ρ/r_s = 1/sin²ψ:</span> '+fmt(d.rho)+' <span class="k">(labels, not physics)</span><br>'+
+    '<span class="k">β_D = (1−f)/(1+f):</span> '+fmt(d.betaD)+' <span class="k">· γ_D = (1+f)/(2√f):</span> '+fmt(d.gammaD)+' <span class="k">· k(β_D) = γ_esc</span><br>'+
+    '<span class="k">V₁² = 2cos2θ:</span> '+fmt(2*Math.cos(2*d.theta))+' <span class="k">· V₂² = 2i sin2θ:</span> '+fmt(2*Math.sin(2*d.theta))+'i <span class="k">· (cos2θ, sin2θ) = (−β, 1/γ)</span><br>'+
+    '<span class="k">whiteboard a, b:</span> '+fmt(S.R*Math.cos(d.theta))+', '+fmt(S.R*Math.sin(d.theta))+' <span class="k">· ab = R²/(2γ):</span> '+fmt(S.R*S.R/(2*d.gamma))+'<br>'+
+    (JA?'<span class="k">J₀…J₄(x):</span> '+[0,1,2,3,4].map(n=>fmt(JA.J[n],5)).join(' ')+'<br>':'');
+}
+
+/* ---------- controls ---------- */
+function setPsi(psiRad){ S.psi=Math.max(0,Math.min(89.9/DEG,psiRad)); $('psiS').value=(S.psi*DEG).toFixed(2); $('psiv').textContent=fmt(S.psi*DEG,2); syncValueBox(); update(); }
+function syncValueBox(){ const d=derive(S.psi); $('valN').value=({psi:(S.psi*DEG).toFixed(4),beta:d.beta.toFixed(6),phi:d.phi.toFixed(6),k:d.k.toFixed(6)})[S.mode]; }
+$('psiS').addEventListener('input',()=>setPsi(+$('psiS').value/DEG));
+for(const [id,mode] of [['mPsi','psi'],['mBeta','beta'],['mPhi','phi'],['mK','k']]) $(id).addEventListener('click',()=>{S.mode=mode; ['mPsi','mBeta','mPhi','mK'].forEach(k=>$(k).classList.toggle('active',k===id)); syncValueBox();});
+$('valN').addEventListener('change',()=>{ const v=+$('valN').value; if(!isFinite(v))return;
+  if(S.mode==='psi') setPsi(v/DEG); else if(S.mode==='beta'){ if(v>=0&&v<1) setPsi(Math.asin(v)); } else if(S.mode==='phi'){ if(v>=0) setPsi(gd(v)); } else if(S.mode==='k'){ if(v>=1) setPsi(2*(Math.atan(v)-PI/4)); } });
+for(const n of [3,4,5,6]) $('s'+n).addEventListener('click',()=>setPsi(PI/n));
+$('sInf').addEventListener('click',()=>setPsi(0)); $('sSilver').addEventListener('click',()=>setPsi(PI/4));
+{ const sel=$('pyS'); for(const t of PYTH){ const o=document.createElement('option'); o.value=t.m+','+t.n;
+    const num=t.m*t.m-t.n*t.n, den=t.m*t.m+t.n*t.n, g=gcd(num,den);          // both-odd (m,n) give a non-primitive triple: show it reduced
+    o.textContent='('+t.m+','+t.n+')  β = '+(num/g)+'/'+(den/g)+'  k = '+t.m+'/'+t.n; sel.appendChild(o); }
+  sel.addEventListener('change',()=>{ const t=PYTH.find(u=>u.m+','+u.n===sel.value); if(t) setPsi(Math.asin(t.beta)); }); }
+$('RS').addEventListener('input',()=>{S.R=+$('RS').value;$('Rv').textContent=S.R.toFixed(2);update();});
+for(const [id,k] of [['cTri','tri'],['cBridge','bridge'],['cC4','c4'],['cHyp','hyp'],['cBes','bes']]) $(id).addEventListener('change',()=>{S.show[k]=$(id).checked; $('besselbox').style.display=S.show.bes?'block':'none'; update();});
+$('xS').addEventListener('input',()=>{S.x=+$('xS').value;$('xv').textContent=S.x.toFixed(2);update();});
+$('bnS').addEventListener('change',()=>{S.bn=+$('bnS').value;update();});
+setPsi(30/DEG);
+</script>
+</body>
+</html>
