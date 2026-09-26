@@ -451,8 +451,12 @@ function domR(){
     const at30=atConfRot();
     if(at30){
       if(S.shape==='n6') return Math.max(2, Math.round(R));
+      // side s must be EVEN: the vertices are +-(s/2)(e1 + e2) and +-(s/2)(e1 - e2), which
+      // are lattice points only for even s. With odd s the mask holds s^2 points against
+      // the (s+1)^2 of a conforming rhombus (measured 26/09: s = 117 and 39 at radius 1.5
+      // and 0.5) -- the same class of condition as the triangle's "side a multiple of 3"
       if(S.shape==='rhomb' && Math.abs(S.rtheta-PI/3)<1e-6)
-        return Math.max(2, Math.round(2*R/Math.sqrt(3)))*Math.sqrt(3)/2;
+        return Math.max(2, 2*Math.round(R/Math.sqrt(3)))*Math.sqrt(3)/2;
       if(S.shape==='n3'){                       // side must be a MULTIPLE OF 3, or the
         let L=Math.round(R*Math.sqrt(3));       // centroid is not a lattice site
         L=Math.max(3, Math.round(L/3)*3);
@@ -633,6 +637,57 @@ function alCanon(rot, g){
 }
 /* ALIGN-END */
 
+/* --- 1d. alignment applied to the LIVE state ---------------------------------
+   The pure section above knows nothing about S; these hand it the current shape,
+   lattice and rotation. Two shapes need care:
+     'square' is the EXACT reference domain and IGNORES the rotation slider (its mask
+              is max(|dx|,|dy|) <= R) -- it sits at 0 deg always, so it has one entry;
+     'circle' has no edges at all, so there is nothing to align.
+   The slider covers [0, 90], and every aligned angle a shape here can have is a
+   multiple of 0.25 deg (row/diag angles are multiples of 15, edge directions of
+   360/n or theta/2 with theta on a 0.5 deg step), so the slider's 0.05 step lands on
+   each of them exactly -- alSetRot checks that rather than assuming it. */
+const alLat=()=> TRI() ? 'tri' : 'sq';
+const alRotDeg=()=> S.shape==='square' ? 0 : S.rot*180/PI;
+const alDirs=()=> S.shape==='circle' ? [] : alEdgeDirs0(S.shape, S.rtheta);
+const alAligned=e=> S.alCls==='smooth' ? e.rows+e.diags : e.rows;
+// every rotation in [0, 90] with >= 1 edge aligned under the chosen definition
+function alList(lat){
+  lat=lat||alLat();
+  const d=alDirs(); if(!d.length) return [];
+  const L = S.shape==='square' ? [Object.assign({rot:0}, alCount(d,0,lat))]
+                               : alAngles(d, lat, 0, 90);
+  return L.filter(e=>alAligned(e)>0);
+}
+/* The domain's ACTUAL edges -- the clipped polygon, so past radius 1 the grid-edge
+   pieces are included -- each with its class. An edge that lies on a flavor edge takes
+   that edge's exact direction (dirs0 + rot, no atan2 round-off); an edge that lies on
+   the array's own boundary is a lattice row by construction. */
+function alEdges(){
+  if(S.shape==='circle') return [];
+  const lat=alLat(), rot=alRotDeg(), d0=alDirs();
+  const P=shapePoly(), C=clipRegion(), Q=clipConvex(P, C), out=[];
+  const onLine=(p,a,b)=>{ const ex=b[0]-a[0], ey=b[1]-a[1], L=Math.hypot(ex,ey)||1;
+    return Math.abs(ex*(p[1]-a[1]) - ey*(p[0]-a[0]))/L < 1e-6; };
+  for(let k=0;k<Q.length;k++){
+    const a=Q[k], b=Q[(k+1)%Q.length], len=Math.hypot(b[0]-a[0], b[1]-a[1]);
+    if(len<1e-6) continue;
+    let phi=null, grid=false;
+    for(let e=0;e<P.length && phi===null;e++){ const p0=P[e], p1=P[(e+1)%P.length];
+      if(onLine(a,p0,p1) && onLine(b,p0,p1)) phi=d0[e]+rot; }
+    for(let e=0;e<C.length && phi===null;e++){ const c0=C[e], c1=C[(e+1)%C.length];
+      if(onLine(a,c0,c1) && onLine(b,c0,c1)){
+        phi=Math.atan2(c1[1]-c0[1], c1[0]-c0[0])*180/PI; grid=true; } }
+    if(phi===null) phi=Math.atan2(b[1]-a[1], b[0]-a[0])*180/PI;
+    // the lattice direction goes in (da, db): alClass also calls it (a, b), and letting
+    // it overwrite the ENDPOINTS a, b silently destroyed every non-irrational edge
+    const c=alClass(phi, lat);
+    out.push({a, b, len, phi:alMod180(phi), grid, cls:c.cls, da:c.a, db:c.b, d:c.d,
+              near: c.cls==='irr' ? alNearDir(phi, lat, len) : null});
+  }
+  return out;
+}
+
 /* --- the ideal outline, and what survives the grid ------------------------
    Radius > 1 pushes the flavor shape past the grid, so part of its boundary is
    replaced by the grid edge and the domain becomes shape AND square -- a PARTIAL
@@ -734,7 +789,14 @@ function snapInside(i,j){
        Rounding b symmetrically and then taking a = round(x - b/2) from the PHYSICAL x
        is exact: the mirror keeps x, sends b -> -b, and round(x + b/2) = round(x - b/2)
        + b identically because b is an integer. */
-    const da=i-c, db=j-c, x=da+db*0.5;
+    /* ...exact in exact arithmetic. In floating point the c + d - c round trip that
+       brought x here leaves ~1e-14 of noise, and for a source ON the mirror axis
+       (x = 0, odd row b) x - b/2 is a rounding TIE that the noise then breaks one way
+       for +b and the other for -b. Measured 26/09: tri hexagon and rhombus vertex
+       sources off by one column, mirror row 5.8e-2..7.2e-2. Quantised, x is exactly 0
+       and round(-k - 1/2) = -k, round(k + 1/2) = k + 1 put both at x = +1/2. */
+    const q=v=>Math.round(v*1e9)/1e9;
+    const da=i-c, db=q(j-c), x=q(da+(j-c)*0.5);
     const B=symRound(0, db);
     const A=Math.round(x - B*0.5);
     i=Math.max(1,Math.min(N-2,c+A));
@@ -767,14 +829,50 @@ function srcIJ(){
    (a VERTEX) -- verified for n = 3,5,6,8,12 at three rotations. Vertices sit
    exactly ON the boundary, so each one is pulled inward by `inset` cells before
    it is used as a source; otherwise the mask clamps it to zero every step. */
-function vertices(inset){
+/* Two inset rules (the "vertex source inset" control):
+     radial -- pull in by `inset` along the radius (v1). The WALL distance is then only
+               inset*cos(pi/n): 0.87x on the hexagon, 0.5x on the triangle, so a pulse of
+               width sigma at max(2, 1.5 sigma) is clipped by the mask at t = 0 (measured
+               26/09: 4% of it on the hexagon, 23-28% on the triangle), which fills the
+               field with grid-scale ripple that does not converge.
+     wall   -- put the source `inset` from BOTH adjacent walls: move along the vertex's
+               internal bisector by inset / sin(alpha/2), alpha the interior angle. For
+               every unclipped shape here the bisector IS the radius; for a vertex where
+               the flavor meets the grid edge (radius > 1) it is not, which is why the
+               bisector is taken from the two edges rather than assumed radial. */
+function vertices(inset, mode){
   const c=(N-1)/2, out=[];
   if(S.shape==='circle') return [];                   // the infinity flavor has none
   // the CLIPPED polygon: past radius 1 the domain's real corners are where the flavor
   // shape meets the grid edge, not where the unclipped shape's vertices used to be
-  for(const [x,y] of clipConvex(shapePoly(), clipRegion())){
-    const L=Math.hypot(x,y) || 1, f=Math.max(0,(L-inset))/L;
-    const [ci,cj]=xyToCell(x*f, y*f);              // physical -> cell, lattice-aware
+  const Q=clipConvex(shapePoly(), clipRegion()), m=Q.length;
+  for(let k=0;k<m;k++){
+    const [x,y]=Q[k], L=Math.hypot(x,y) || 1;
+    let px, py;
+    if(mode==='wall'){
+      const a=Q[(k+m-1)%m], b=Q[(k+1)%m];
+      let ux=a[0]-x, uy=a[1]-y, vx=b[0]-x, vy=b[1]-y;
+      const lu=Math.hypot(ux,uy)||1, lv=Math.hypot(vx,vy)||1;
+      ux/=lu; uy/=lu; vx/=lv; vy/=lv;
+      const bx=ux+vx, by=uy+vy, lb=Math.hypot(bx,by);
+      const sh=Math.sqrt(Math.max(0,(1-(ux*vx+uy*vy))/2));      // sin(alpha/2)
+      // never past the centre's distance: a domain too small for the inset collapses
+      // its sources inward (and they dedupe) instead of crossing to the far side
+      const d=(lb>1e-12 && sh>1e-9) ? Math.min(inset/sh, L) : Math.min(inset, L);
+      const dx=lb>1e-12 ? bx/lb : -x/L, dy=lb>1e-12 ? by/lb : -y/L;
+      px=x+dx*d; py=y+dy*d;
+    } else {
+      const f=Math.max(0,(L-inset))/L; px=x*f; py=y*f;
+    }
+    /* Quantise before snapping. Mirror-image vertices are NOT exact mirror images in
+       floating point -- cos(90) = +4.8e-15 but cos(270) = -1.4e-14 -- and a source that
+       lands on a rounding TIE (x = 0 between two columns of an odd triangular row, or a
+       half-integer offset on the square lattice) is then rounded to opposite sides by
+       that noise. Measured 26/09: the tri hexagon at radius 0.5 broke the mirror row at
+       7.16e-2 with the RADIAL inset, and the wall inset lands on ties more often. At 1e-9
+       the noise vanishes and symRound sees exact negatives. */
+    px=Math.round(px*1e9)/1e9; py=Math.round(py*1e9)/1e9;
+    const [ci,cj]=xyToCell(px, py);                // physical -> cell, lattice-aware
     out.push(snapInside(ci, cj));
   }
   // dedupe: at small R, or after clipping, two vertices can snap to the same cell
@@ -805,7 +903,8 @@ let N=0, ENERGY=[], PROBE=[], PROBE_B=[], REF=null;
 let VTX=[], SRC={i:0,j:0,moved:false}, CLEAR=0;
 function recacheSource(){
   SRC=srcIJ();
-  VTX=vertices(Math.max(2,Math.ceil(1.5*S.sigma)));
+  VTX = S.vtxInset==='wall' ? vertices(3*S.sigma, 'wall')
+                            : vertices(Math.max(2,Math.ceil(1.5*S.sigma)), 'radial');
   CLEAR = (S.src==='vtx' && VTX.length)
     ? Math.min(...VTX.map(v=>clearanceFrom(v.i,v.j)))   // the first front to hit a wall
     : clearanceFrom(SRC.i,SRC.j);
@@ -864,6 +963,7 @@ function shapeArea(R){
   return polyArea(clipConvex(P, clipRegion()));
 }
 function buildDomain(){
+  AL_MEAS=null;                          // the mask is about to change: re-measure the edges
   const n=N, c=(n-1)/2, R=domR(), ir=innerR();
   // the slow region tracks the DOMAIN, not the grid: pinned to the grid it simply
   // left the shape entirely at small radii and the medium control did nothing
@@ -950,7 +1050,20 @@ function seed(){
     for(let j=0;j<n;j++) for(let i=0;i<n;i++)
       U1[idx(i,j)]=U0[idx(i,j)]=Math.sin(PI*(i-m.z)/m.L)*Math.sin(PI*(j-m.z)/m.L);
   }
+  /* How much of the seeded pulse does the MASK cut off at t = 0? Measured 26/09: a
+     vertex pulse at the radial inset lost 4% (hexagon) to 23-28% (triangle), and the
+     cut fills the field with grid-scale ripple that does not converge -- on straight
+     walls too. Reported (sum of u^2 removed) so the inset choice can be judged. */
+  let pre=0; for(let k=0;k<N*N;k++) pre+=U1[k]*U1[k];
   applyMask();
+  let post=0; for(let k=0;k<N*N;k++) post+=U1[k]*U1[k];
+  S.cut = pre>0 ? 1-post/pre : 0;
+  /* S.amax is otherwise set only by record(), on a STEP. Before 26/09 it was undefined
+     at start-up, and !isFinite(undefined) is true, so the overlay announced
+     "diverged (max|u| = --)" over a freshly seeded field before a single step ran
+     (and after a reset it carried the previous run's peak). */
+  let a=0; for(let k=0;k<N*N;k++) if(MASK[k]){ const v=Math.abs(U1[k]); if(v>a) a=v; }
+  S.amax=a;
 }
 // the (1,1) mode's clamped box: z = the zero line, L = its span
 function modeBox(){
@@ -1202,7 +1315,32 @@ function outline(){                                 // clipped, so the walls sta
   const f=cellToMesh();
   return clipPoly(shapePoly(), gridHalf()).map(p=>[p[0]*f, p[1]*f]);
 }
+/* --- edge colours: the domain's ideal outline, each edge coloured by its alignment
+   class -- row (a straight lattice line) / diag (the shortest zigzag, acts smooth) /
+   rational (a periodic staircase) / irrational (no period at all). Drawn at the
+   clamped rim (z = 0, or both caps of the prism) and on top of the surface, because
+   an outline that the membrane can hide is no use for reading a class. It shares the
+   outline with the prism rims, so buildWalls rebuilds it. */
+const AL_COL={row:[0,0.620,0.525], diag:[0.282,0.373,0.780], rat:[0.784,0.659,0],
+              irr:[0.886,0.133,0.067]};
+let edgeLines=null;
+function buildEdgeCol(){
+  if(edgeLines){ scene.remove(edgeLines); edgeLines.geometry.dispose();
+                 edgeLines.material.dispose(); edgeLines=null; }
+  if(!S.edgeCol) return;
+  const E=alEdges(); if(!E.length) return;
+  const f=cellToMesh(), zs=S.prism ? [-prismH()/2, prismH()/2] : [0], pos=[], col=[];
+  for(const e of E){ const c=AL_COL[e.cls];
+    for(const z of zs){ pos.push(e.a[0]*f,e.a[1]*f,z, e.b[0]*f,e.b[1]*f,z); col.push(...c,...c); } }
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(pos),3));
+  g.setAttribute('color',new THREE.BufferAttribute(new Float32Array(col),3));
+  edgeLines=new THREE.LineSegments(g,new THREE.LineBasicMaterial({vertexColors:true,
+    depthTest:false, transparent:true}));
+  edgeLines.renderOrder=10; edgeLines.frustumCulled=false; scene.add(edgeLines);
+}
 function buildWalls(){
+  buildEdgeCol();
   if(walls){ scene.remove(walls); walls.geometry.dispose(); walls.material.dispose(); walls=null; }
   if(wallLines){ scene.remove(wallLines); wallLines.geometry.dispose();
                  wallLines.material.dispose(); wallLines=null; }
@@ -1449,6 +1587,91 @@ function frontRadii(){
   return (bav>1e-9&&bdv>1e-9&&ba>0)?{ax:ba, dg:bd, ratio:bd/ba}:null;
 }
 const srcCentred=()=> Math.abs(S.sx)<1e-9 && Math.abs(S.sy)<1e-9;
+
+/* --- grid <-> edge alignment, MEASURED from the mask --------------------------
+   What "aligned" claims is geometric: along an edge, the mask's boundary cells repeat
+   with the period of that edge's lattice direction -- 1 for a row (a straight line of
+   nodes), sqrt2 / sqrt3 for the shortest diagonal, d = |a e1 + b e2| for a rational
+   direction, and never exactly for an irrational one. This measures the period
+   directly and independently of the classifier: it takes the boundary cells assigned
+   to each edge and finds the SHORTEST lattice translation that maps them onto boundary
+   cells. The shifts are integer index shifts, so the test is exact -- no tolerance.
+   Cells near a vertex are excluded (the neighbouring edge shapes the boundary there);
+   the margin grows as the vertex sharpens, 2.5/tan(alpha/2), at least 3 cells. */
+let AL_MEAS=null;                           // cleared by buildDomain: the mask changed
+const AL_VEC={};
+function alVectors(lat){                    // primitive lattice vectors, shortest first
+  if(AL_VEC[lat]) return AL_VEC[lat];
+  const out=[];
+  for(let b=0;b<=24;b++) for(let a=-24;a<=24;a++){
+    if(b===0 && a<=0) continue;             // one of each +-pair
+    if(alGcdI(a,b)!==1) continue;
+    const x = lat==='tri' ? a+b/2 : a, y = lat==='tri' ? b*S3H : b;
+    out.push({a, b, x, y, len:Math.hypot(x,y)});
+  }
+  out.sort((p,q)=>p.len-q.len);
+  return (AL_VEC[lat]=out);
+}
+function alMeasure(){
+  if(AL_MEAS) return AL_MEAS;
+  const E=alEdges(), n=N, lat=alLat();
+  if(!E.length) return (AL_MEAS={edges:[]});
+  const nb = lat==='tri' ? NB_TRI : [[1,0],[-1,0],[0,1],[0,-1]];
+  // boundary = inside the mask with a lattice neighbour outside it (or off the array)
+  const isB=new Uint8Array(n*n), bc=[];
+  for(let j=0;j<n;j++) for(let i=0;i<n;i++){
+    const k=j*n+i; if(!MASK[k]) continue;
+    for(const [di,dj] of nb){ const ii=i+di, jj=j+dj;
+      if(ii<0||jj<0||ii>=n||jj>=n||!MASK[jj*n+ii]){ isB[k]=1; bc.push(k); break; } }
+  }
+  // edge frames: unit direction u, inward normal (-uy, ux) since the polygon is CCW
+  const m=E.length;
+  const F=E.map((e,q)=>{
+    const ux=(e.b[0]-e.a[0])/e.len, uy=(e.b[1]-e.a[1])/e.len;
+    // interior angle at o between the direction (dx,dy) and the ray o -> p
+    const ang=(p,o,dx,dy)=>{ const vx=p[0]-o[0], vy=p[1]-o[1], L=Math.hypot(vx,vy)||1;
+      return Math.acos(Math.max(-1,Math.min(1,(vx*dx+vy*dy)/L))); };
+    const aA=ang(E[(q+m-1)%m].a, e.a,  ux,  uy);  // at a: previous edge vs this one
+    const aB=ang(E[(q+1)%m].b,   e.b, -ux, -uy);  // at b: next edge vs this one
+    const mg=al=> Math.max(3, 2.5/Math.tan(Math.max(al,1e-3)/2));
+    return {ux, uy, lo:mg(aA), hi:e.len-mg(aB), cells:[]};
+  });
+  // assign each boundary cell to its nearest edge
+  for(const k of bc){
+    const i=k%n, j=(k-i)/n, [px,py]=cellXY(i,j);
+    let best=-1, bd=Infinity, bs=0;
+    for(let q=0;q<m;q++){
+      const e=E[q], f=F[q], rx=px-e.a[0], ry=py-e.a[1];
+      const s=rx*f.ux+ry*f.uy, t=-rx*f.uy+ry*f.ux;
+      const d = s<0 ? Math.hypot(rx,ry) : s>e.len ? Math.hypot(px-e.b[0],py-e.b[1]) : Math.abs(t);
+      if(d<bd){ bd=d; best=q; bs=s; }
+    }
+    if(best>=0 && bd<2) F[best].cells.push([i,j,bs]);
+  }
+  const vecs=alVectors(lat), out=[];
+  for(let q=0;q<m;q++){
+    const e=E[q], f=F[q], win=f.hi-f.lo;
+    const C=f.cells.filter(c=>c[2]>=f.lo && c[2]<=f.hi);
+    let meas=null;
+    if(win>0) for(const v of vecs){
+      if(v.len>win/2) break;                 // needs two periods inside the window
+      const pr=v.x*f.ux+v.y*f.uy, sg=pr<0?-1:1, da=sg*v.a, db=sg*v.b, ps=Math.abs(pr);
+      let tested=0, ok=true;
+      for(const [i,j,s] of C){
+        if(s+ps>f.hi) continue;              // the image would leave the window
+        const ii=i+da, jj=j+db;
+        if(ii<0||jj<0||ii>=n||jj>=n||!isB[jj*n+ii]){ ok=false; break; }
+        tested++;
+      }
+      if(ok && tested>=4){ meas={a:v.a, b:v.b, d:v.len, tested}; break; }
+    }
+    const pred = e.cls==='row' ? 1 : e.cls==='diag' ? AL_DPER[lat] : e.cls==='rat' ? e.d
+               : (e.near ? e.near.d : null);
+    out.push(Object.assign({}, e, {meas, pred, win, nCells:C.length}));
+  }
+  return (AL_MEAS={edges:out});
+}
+
 function energyStats(){
   // The energy of a standing mode oscillates at 2*omega. Over a window of only a few
   // periods a straight-line fit reads that oscillation as a TREND, which is what made
@@ -1494,8 +1717,13 @@ function buildLedger(){
     // is not, so the row must say n/a rather than fail on a correct solver
     // the octant orbit is a SQUARE-lattice construction: on a triangular lattice a
     // 90 deg rotation is not a lattice map at all, so the row cannot apply there
-    const sym8 = !TRI() && (S.shape==='circle'
-              || ((S.shape==='square'||S.shape==='n8'||S.shape==='n12') && Math.abs(S.rot)<1e-9));
+    // 'square' ignores the rotation slider, so it is 8-fold at any slider value. An n-gon
+    // with 4 | n has the 90 deg turn at any rotation and the x-mirror exactly when rot is
+    // a multiple of 180/n, and those two generate the whole octant group -- so the
+    // rotatable square (n4), octagon and dodecagon qualify at every such angle, not at 0 only
+    const nn = /^n\d+$/.test(S.shape) ? +S.shape.slice(1) : 0;
+    const sym8 = !TRI() && (S.shape==='circle' || S.shape==='square'
+              || (nn%4===0 && nn>0 && (()=>{ const t=S.rot/(PI/nn); return Math.abs(t-Math.round(t))<1e-9; })()));
     // A SOURCE that has been moved off centre breaks the orbit by construction -- the
     // field is genuinely no longer 8-fold symmetric and the solver is fine. Grading it
     // would be the domain-limit-as-physics-failure bug again, so it gates to n/a.
@@ -1542,7 +1770,10 @@ function buildLedger(){
 
     // conformance: the mask IS the lattice points of the shape, at the right rotation
     // conformance also needs the shape to FIT: a clipped tiler is not a tiler
-    const rotDeg=S.rot*180/PI, at30=Math.abs(rotDeg-30)<0.26 && fitsInside(shapePoly());
+    // 30 AND 90: the same configuration through the lattice's own 60 deg turn. domR()
+    // already snaps at both (atConfRot); this row used to accept 30 only, so a hexagon
+    // snapped at 90 was conforming but reported as not
+    const rotDeg=S.rot*180/PI, at30=atConfRot() && fitsInside(shapePoly());
     let cells=0; for(let k=0;k<N*N;k++) if(MASK[k]) cells++;
     let exactN=null, form='';
     const R=domR();
@@ -1562,6 +1793,7 @@ function buildLedger(){
         : (S.shape==='n6'||S.shape==='n3'||(S.shape==='rhomb'&&Math.abs(S.rtheta-PI/3)<1e-6))
           ? `{3,4,6} tilers conform at <b>rotation 30&deg;</b> (currently ${fmt(rotDeg,1)}&deg;)`+
             (S.shape==='n3'?' with side L a multiple of 3 &mdash; otherwise the centroid is not a lattice site':'')+
+            (S.shape==='rhomb'?' with an EVEN side &mdash; its vertices are &plusmn;(s/2)(e&#8321;&plusmn;e&#8322;)':'')+
             ` and an integer side; press "snap conforming"`
           : `only the triangle, hexagon and rhombus(60&deg;) tile the triangular lattice &mdash; `+
             `the crystallographic restriction allows n = 3,4,6 only, so {5,8,12,&infin;} never conform`,
@@ -1706,7 +1938,9 @@ function buildLedger(){
     // "grid-aligned" is a SQUARE-lattice property. On a triangular lattice the rows
     // run at 60 deg, so a square's edges do not follow them and the R-snap in domR()
     // does not apply either -- it falls into the generic staircase branch instead.
-    const sq = S.shape==='square' && Math.abs(S.rot)<1e-9 && !TRI();
+    // (no rotation test: the 'square' domain ignores the rotation slider entirely, so
+    // gating on rot = 0 mislabelled an exact square as "staircase" whenever it moved)
+    const sq = S.shape==='square' && !TRI();
     // A grid-aligned square has NO staircase -- its edges run along the grid -- and
     // domR snaps its half-width to a whole cell so that stays true at every radius.
     // This row MEASURES that rather than assuming it: if the snap ever breaks, the
@@ -1737,6 +1971,49 @@ function buildLedger(){
             : ` &middot; falls as ~1/N; the conforming lattice for a tiler `+
               `{3,4,6} would be exact, a non-tiler {5,&infin;} has none &middot; shrinking the `+
               `radius at fixed N makes this WORSE: R = ${fmt(R,1)} cells`), 'tier A']);
+  }
+
+  // ---- 7c. grid <-> edge alignment, MEASURED from the mask ------------------
+  {
+    const M=alMeasure(), E=M.edges;
+    if(!E.length){
+      rows.push(['edge alignment: each edge&rsquo;s staircase repeats with its lattice period', NA,
+        'the &infin; flavor has no edges &mdash; every boundary point faces a different direction, '+
+        'so there is nothing to align', 'align']);
+    } else {
+      // group parallel edges; grade only exact lattice directions (row / diag / rational)
+      const G=new Map(); let checked=0, bad=0, short=0;
+      for(const e of E){
+        const key=(e.grid?'g':'f')+Math.round(e.phi*1e6);
+        if(!G.has(key)) G.set(key, {e, count:0, meas:[]});
+        const g=G.get(key); g.count++; g.meas.push(e.meas);
+        if(e.cls==='irr') continue;
+        if(!e.meas){ short++; continue; }
+        checked++; if(Math.abs(e.meas.d-e.pred)>1e-9) bad++;
+      }
+      const clsName=e=> e.cls==='row' ? 'row' : e.cls==='diag' ? 'diag'
+                      : e.cls==='rat' ? `(${e.da},${e.db})` : 'irr';
+      const parts=[...G.values()].map(({e,count,meas})=>{
+        const ms=meas.filter(Boolean), md=ms.length ? ms[0].d : null;
+        const same=ms.every(x=>Math.abs(x.d-md)<1e-9);
+        const mtxt = md===null ? 'too short to measure'
+                   : `period ${fmt(md,3)}${same?'':' (varies)'}`;
+        const verdict = e.cls==='irr'
+          ? (md===null ? '' : ` &mdash; follows (${ms[0].a},${ms[0].b}) over this length`+
+                              (e.near?`; drift estimate (${e.near.a},${e.near.b}) ${fmt(e.near.d,3)}`:''))
+          : (md===null ? '' : Math.abs(md-e.pred)<1e-9 ? ' &check;' : ` &cross; (predicted ${fmt(e.pred,3)})`);
+        return `${fmt(e.phi,2)}&deg; ${e.grid?'<i>grid edge</i> ':''}${clsName(e)} &times;${count}: ${mtxt}${verdict}`;
+      });
+      rows.push(['edge alignment: each edge&rsquo;s staircase repeats with its lattice period (measured from the mask)',
+        checked ? (bad ? `<span class="bad">FAIL</span>` : `<span class="ok">PASS</span>`) : NA,
+        parts.join(' &middot; ')+
+        (checked ? ` &mdash; ${checked} exact-direction edge(s) checked, shortest integer lattice shift `+
+                   `that maps each edge&rsquo;s boundary cells onto boundary cells`
+                 : ` &mdash; no edge long enough to hold two periods clear of its vertices`)+
+        (short ? ` &middot; ${short} edge(s) too short to measure` : '')+
+        ` &middot; row = a straight line of nodes (period 1); diag = the shortest zigzag, `+
+        `acts smooth for &lambda; &gt; 2d; irrational = no exact period`, 'align']);
+    }
   }
 
   // ---- 8. drum spectra (stated targets, measured later) ----------------
@@ -1770,7 +2047,7 @@ function buildLedger(){
     const sqDir = !TRI() && S.shape==='square' && (sqFull() ? S.bc==='dirichlet' : true);
     // a masked square is Dirichlet on the mask edge whatever the BC control says,
     // so the row applies there too -- against the mode of THAT box, not the grid's
-    if(S.src==='mode' && sqDir && Math.abs(S.rot)<1e-9 && S.medium==='uniform' && live){
+    if(S.src==='mode' && sqDir && S.medium==='uniform' && live){   // 'square' ignores rot
       // an eigenmode keeps its SHAPE: correlation with the initial profile stays 1
       const n2=N, m=modeBox(); let num=0, da=0, db=0;
       for(let j=1;j<n2-1;j++) for(let i=1;i<n2-1;i++){
@@ -2102,13 +2379,24 @@ function srcNote(){
   const vtx = S.src==='vtx';
   let s = vtx
     ? (VTX.length ? `<span style="color:var(--accent)">${VTX.length}</span> vertex sources &middot; `+
-                    `clearance <span style="color:var(--accent)">${CLEAR.toFixed(1)}</span> cells`
+                    `clearance <span style="color:var(--accent)">${CLEAR.toFixed(1)}</span> cells `+
+                    `= <span style="color:${CLEAR>=2.9*S.sigma?'var(--hi)':'var(--link)'}">`+
+                    `${(CLEAR/S.sigma).toFixed(2)}&sigma;</span> to the nearest wall<br>`+
+                    (S.vtxInset==='wall'
+                      ? `<span style="color:#6a6a6a">inset 3&sigma; from BOTH walls (along the bisector)</span>`
+                      : `<span style="color:#6a6a6a">radial inset ${Math.max(2,Math.ceil(1.5*S.sigma))} cells `+
+                        `&mdash; the wall distance is only &times;cos(&pi;/n) of it, so the pulse is `+
+                        `clipped at t = 0 on sharp vertices</span>`)
                   : `<span style="color:var(--link)">the &infin; flavor has no vertices</span> &mdash; `+
                     `pick a polygon or the rhombus`)
     : `source cell (<span style="color:var(--accent)">${SRC.i}</span>, `+
       `<span style="color:var(--accent)">${SRC.j}</span>) &middot; ${off.toFixed(1)} cells off centre `+
       `&middot; clearance <span style="color:var(--accent)">${CLEAR.toFixed(1)}</span> cells`;
   if(SRC.moved && !vtx) s += `<br><span style="color:var(--link)">pushed back inside the domain</span>`;
+  if((S.src==='pulse'||vtx) && isFinite(S.cut))
+    s += `<br>the mask cut <span style="color:${S.cut>1e-3?'var(--link)':'var(--hi)'}">`+
+         `${(100*S.cut).toFixed(S.cut<1e-3?4:1)}%</span> of the seeded pulse (&Sigma;u&sup2;) at t = 0`+
+         (S.cut>1e-3?` &mdash; that clipped edge is grid-scale ripple from the first step`:'');
   if(S.src==='mode') s += `<br><span style="color:#6a6a6a">the (1,1) mode is not a point source &mdash; `+
                           `x/y do not apply to it</span>`;
   if(S.drops) s += `<br><span style="color:#6a6a6a">${S.drops} manual pulse(s) dropped</span>`;
@@ -2160,6 +2448,139 @@ function harmNote(){
       ? `<br><span style="color:var(--link)">the grid cannot carry a second harmonic here &mdash; `+
         `this is a sine in all but name; lower f</span>` : '');
 }
+/* ---- grid <-> edge alignment: the panel ------------------------------------
+   The list is the EXACT enumeration from the pure section (no scan): every rotation in
+   the slider's range where at least one edge lies along a lattice row (or, under the
+   "smooth" definition, a row or the shortest diagonal). Rotations that differ by a
+   lattice symmetry composed with a shape symmetry give congruent masks, so later
+   members of a class are tagged with the first one -- e.g. every pentagon alignment on
+   the triangular lattice is the same configuration (gcd(72, 60) = 12, and 6 = 12 - 6). */
+const AL_NAME={sq:'square', tri:'triangular'};
+const AL_HEX={row:'#009E86', diag:'#485FC7', rat:'#c8a800', irr:'#E22211'};
+function alBestOf(lat){ const L=alList(lat); return L.length ? alBest(L, S.alCls) : null; }
+// the lattice that aligns the most edges; on a tie the CURRENT lattice stays
+function alFlavorPick(){
+  const key=e=> e ? (S.alCls==='smooth' ? [e.rows+e.diags, e.rows] : [e.rows, e.diags]) : [-1,-1];
+  const cur=alLat(), oth=cur==='sq'?'tri':'sq', bc=alBestOf(cur), bo=alBestOf(oth);
+  const kc=key(bc), ko=key(bo);
+  const otherWins = ko[0]>kc[0] || (ko[0]===kc[0] && ko[1]>kc[1]);
+  return otherWins ? {lat:oth, best:bo, tie:false, other:bc}
+                   : {lat:cur, best:bc, tie:ko[0]===kc[0] && ko[1]===kc[1], other:bo};
+}
+function alNoteRender(L){
+  const lat=alLat(), d=alDirs(), n=d.length;
+  if(S.shape==='circle'){
+    $('alNote').innerHTML='<span style="color:var(--link)">the &infin; flavor has no edges</span> &mdash; '+
+      'every boundary point faces a different direction, so no rotation and no lattice aligns it';
+    return;
+  }
+  const rot=alRotDeg(), c=alCount(d, rot, lat), k=alAligned(c), all=k===n;
+  const E=alEdges();
+  // one entry per distinct FLAVOR-edge direction (parallel edges share a class)
+  const seen=new Map();
+  for(const e of E){ if(e.grid) continue; const key=Math.round(e.phi*1e6);
+    if(!seen.has(key)) seen.set(key,{e, count:0}); seen.get(key).count++; }
+  const dirs=[...seen.values()].map(({e,count})=>{
+    const col=AL_HEX[e.cls];
+    const what = e.cls==='row' ? 'row'
+               : e.cls==='diag' ? `diag, d = ${fmt(e.d,3)} &rarr; silent for &lambda; &gt; ${fmt(2*e.d,2)}`
+               : e.cls==='rat' ? `rational (${e.da},${e.db}), d = ${fmt(e.d,3)} &rarr; silent only for &lambda; &gt; ${fmt(2*e.d,2)}`
+               : `irrational`+(e.near?` &mdash; over its length it follows (${e.near.a},${e.near.b}), `+
+                  `d = ${fmt(e.near.d,2)}; leaks weakly at every &lambda;`:'');
+    return `<span style="color:${col}">${fmt(e.phi,2)}&deg;</span> ${what}${count>1?` &times;${count}`:''}`;
+  });
+  const g=alSymPeriod(S.shape, lat), whole=fitsInside(shapePoly());
+  const best=L.length ? alBest(L, S.alCls) : null, pick=alFlavorPick();
+  const lam=S.Co/Math.max(S.freq,1e-9);
+  let h='';
+  if(S.shape==='square')
+    h+=`<span style="color:#6a6a6a">the exact square IGNORES rotation (fixed at 0&deg;) &mdash; `+
+       `"square, rotatable" is the n = 4 polygon that turns</span><br>`;
+  h+=`rot <span style="color:var(--accent)">${fmt(rot,2)}&deg;</span> on the ${AL_NAME[lat]} lattice: `+
+     `<span style="color:${all?'var(--hi)':k?'var(--accent)':'var(--link)'}">${k}/${n}</span> edges aligned `+
+     `(${c.rows} row, ${c.diags} diag)`+(all?` &mdash; <span style="color:var(--hi)">ALL</span>`:'')+'<br>';
+  h+=dirs.join('<br>')+'<br>';
+  h+=L.length
+    ? `${L.length} aligned angle${L.length>1?'s':''} in 0&ndash;90&deg;: ${L.map(e=>fmt(e.rot,2)).join(', ')}<br>`
+    : `no rotation aligns an edge under this definition<br>`;
+  if(g && whole && L.length>1)
+    h+=`<span style="color:#6a6a6a">rotations ${fmt(g,2)}&deg; apart, or mirrored, give the SAME mask `+
+       `(lattice turn &times; shape turn)</span><br>`;
+  if(best) h+=`optimal angle: <span style="color:var(--hi)">${fmt(best.rot,2)}&deg;</span> &mdash; `+
+              `${alAligned(best)}/${n}${S.alCls==='smooth'?` (${best.rows} row + ${best.diags} diag)`:''}<br>`;
+  if(pick.best)
+    h+=`optimal grid flavor: <span style="color:var(--hi)">${AL_NAME[pick.lat]} @ ${fmt(pick.best.rot,2)}&deg;</span> `+
+       `(${alAligned(pick.best)}/${n})`+(pick.tie?` &mdash; tie: the other lattice also reaches `+
+       `${alAligned(pick.best)}/${n}, so the current one stays`:
+       pick.other?` vs ${alAligned(pick.other)}/${n} on the ${AL_NAME[pick.lat==='sq'?'tri':'sq']}`:'')+'<br>';
+  if(/^n\d+$/.test(S.shape))
+    h+=`<span style="color:#6a6a6a">rule: edge k lies along lattice direction &alpha; iff `+
+       `rot &equiv; &alpha; &minus; 90&deg; &minus; 360&deg;k/${n} (mod 180&deg;) &middot; rows &alpha; = `+
+       `${AL_ROWS[lat].join(', ')}&deg;, diags ${AL_DIAG[lat].join(', ')}&deg;</span><br>`;
+  h+=`<span style="color:#6a6a6a">drive &lambda; = Co/f = ${fmt(lam,1)} cells</span>`;
+  if(S.edgeCol)
+    h+=`<br><span style="color:${AL_HEX.row}">row</span> &middot; <span style="color:${AL_HEX.diag}">diag</span> `+
+       `&middot; <span style="color:${AL_HEX.rat}">rational</span> &middot; <span style="color:${AL_HEX.irr}">irrational</span>`;
+  $('alNote').innerHTML=h;
+}
+function alRefresh(){
+  const sel=$('alSnap'); if(!sel) return;
+  const L=alList(), cur=alRotDeg(), lat=alLat();
+  const g=alSymPeriod(S.shape, lat), whole=fitsInside(shapePoly()), first=new Map();
+  let hit=false;
+  const opts=L.map(e=>{
+    const cl=alCanon(e.rot, g); if(!first.has(cl)) first.set(cl, e.rot);
+    const f0=first.get(cl), on=Math.abs(e.rot-cur)<1e-6; if(on) hit=true;
+    const k=alAligned(e);
+    return `<option value="${e.rot}"${on?' selected':''}>${fmt(e.rot,2)}&deg; &mdash; ${e.rows} row`+
+      `${e.diags?` + ${e.diags} diag`:''} / ${e.n}${k===e.n?' &middot; ALL':''}`+
+      `${(g && whole && Math.abs(f0-e.rot)>1e-6)?` (&cong; ${fmt(f0,2)}&deg;)`:''}</option>`;
+  });
+  sel.innerHTML=`<option value=""${hit?'':' selected'}>`+
+    (S.shape==='circle' ? '&mdash; the circle has no edges &mdash;'
+     : L.length ? `&mdash; ${L.length} aligned angle${L.length>1?'s':''} (0&ndash;90&deg;) &mdash;`
+     : '&mdash; no aligned angle &mdash;')+'</option>'+opts.join('');
+  alNoteRender(L);
+}
+// set the rotation through the slider (one code path), and report if it could not land
+function alSetRot(deg){
+  if(S.shape==='square'){ flashOvl('the exact square is fixed at 0° — use "square, rotatable"'); return false; }
+  const el=$('roS'); el.value=String(deg); el.dispatchEvent(new Event('input',{bubbles:true}));
+  const ok=Math.abs(+el.value-deg)<1e-9;
+  if(!ok) flashOvl(`slider could not land on ${deg}° exactly (step 0.05)`);
+  return ok;
+}
+function alStep(dir){
+  const L=alList();
+  if(!L.length){ flashOvl(S.shape==='circle'?'the circle has no edges to align':'no aligned angle'); return; }
+  const cur=alRotDeg(); let e=null;
+  if(dir>0) e=L.find(x=>x.rot>cur+1e-6)||L[0];
+  else { for(let i=L.length-1;i>=0;i--) if(L[i].rot<cur-1e-6){ e=L[i]; break; } e=e||L[L.length-1]; }
+  if(alSetRot(e.rot)) flashOvl(`aligned: ${fmt(e.rot,2)}° — ${alAligned(e)}/${e.n} edges`);
+}
+function alOptimal(){
+  const L=alList();
+  if(!L.length){ flashOvl(S.shape==='circle'?'the circle has no edges to align':'no aligned angle'); return; }
+  const b=alBest(L, S.alCls);
+  if(alSetRot(b.rot)) flashOvl(`optimal angle ${fmt(b.rot,2)}° — ${alAligned(b)}/${b.n} edges`);
+}
+function alFlavor(){
+  if(!alDirs().length){ flashOvl('the circle has no edges — nothing to align'); return; }
+  const p=alFlavorPick();
+  if(p.lat!==alLat()){ $('lat').value=p.lat; $('lat').dispatchEvent(new Event('change',{bubbles:true})); }
+  if(p.best && S.shape!=='square') alSetRot(p.best.rot);
+  flashOvl(`optimal grid flavor: ${AL_NAME[p.lat]} @ ${fmt(p.best?p.best.rot:0,2)}° — `+
+           `${p.best?alAligned(p.best):0}/${alDirs().length} edges${p.tie?' (tie: kept)':''}`);
+}
+$('alCls').addEventListener('change',()=>{ S.alCls=$('alCls').value; alRefresh(); });
+$('alSnap').addEventListener('change',()=>{ const v=$('alSnap').value; if(v!=='') alSetRot(+v); });
+$('alPrev').onclick=()=>alStep(-1);
+$('alNext').onclick=()=>alStep(1);
+$('alOpt').onclick=alOptimal;
+$('alFlav').onclick=alFlavor;
+$('cEdgeCol').addEventListener('change',()=>{ S.edgeCol=$('cEdgeCol').checked; buildEdgeCol(); alRefresh(); });
+$('vtxIn').addEventListener('change',()=>{ S.vtxInset=$('vtxIn').value; reseed(); });
+
 $('lat').addEventListener('change',()=>{ S.lattice=$('lat').value; coNote(); latNote();
   if(S.Co>coLimit()){ S.Co=Math.round(coLimit()*0.95*200)/200; $('coS').value=S.Co;
     $('coS').dispatchEvent(new Event('input',{bubbles:true})); }
@@ -2187,7 +2608,7 @@ function irNote(){
     `Huygens fails in 2D and there is no stiffness term</span>`;
 }
 function reseed(){ buildDomain(); recacheSource(); seed(); buildMesh(); updateMesh();
-  renderReadout(); buildLedger(); coNote(); radNote(); srcNote(); phNote(); irNote(); }
+  renderReadout(); buildLedger(); coNote(); radNote(); srcNote(); phNote(); irNote(); alRefresh(); }
 function resize(){
   const w=canvas.clientWidth,h=canvas.clientHeight;
   if(canvas.width!==Math.floor(w*renderer.getPixelRatio())||canvas.height!==Math.floor(h*renderer.getPixelRatio())){
@@ -2235,7 +2656,7 @@ $('snapConf').onclick=()=>{
     const R=domR(), base=baseHalf()-1.5;
     let want=R;
     if(S.shape==='n6') want=Math.max(3,Math.round(R));
-    else if(S.shape==='rhomb') want=Math.max(3,Math.round(2*R/Math.sqrt(3)))*Math.sqrt(3)/2;
+    else if(S.shape==='rhomb') want=Math.max(2,2*Math.round(R/Math.sqrt(3)))*Math.sqrt(3)/2;   // even side
     else if(S.shape==='n3'){ let L=Math.round(R*Math.sqrt(3)); L=Math.max(3,Math.round(L/3)*3);
       want=L/Math.sqrt(3); }
     set('rdS', Math.min(2, Math.max(0.15, Math.round(want/base*200)/200)));
@@ -2493,6 +2914,8 @@ addEventListener('keydown',e=>{
   else if(k==='w'){ e.preventDefault(); $('cWire').click(); flashOvl('wireframe '+($('cWire').checked?'on':'off')); }
   else if(k==='d'){ e.preventDefault(); const v=cycleSelect('shape', e.shiftKey); if(v) flashOvl('domain: '+v); }
   else if(k==='b'){ e.preventDefault(); const v=cycleSelect('bc', e.shiftKey); if(v) flashOvl('boundary: '+v); }
+  else if(k==='a'){ e.preventDefault(); alStep(e.shiftKey?-1:1); }
+  else if(k==='g'){ e.preventDefault(); alFlavor(); }
   else if(e.key==='Escape' && document.body.classList.contains('photo')) setPhoto(false);
 });
 

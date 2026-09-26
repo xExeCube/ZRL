@@ -14,7 +14,191 @@ is the 2D ancestor). Specs live here; the parent build spec's §0 / §4 / §8 ap
 | `ZRL_wave_idecomp_spec_MIRROR.md` | the build contract for that app (§2 verified formulas, §3 do-not-implement, §9 roadmap) |
 | `ZRL_wave_findings_MIRROR.md` | the verified canon additions behind it (ς Fork 1, i^n j, ℤ₂⊂ℤ₄⊂U(1), conj = reciprocal, the Co ≤ 1/√D proof, the Huygens deep dive, the polarisation ellipse, paraxial ≡ Schrödinger) |
 | `ZRL_laser_project_sketch_MIRROR.md` | sketch (not a spec) for the laser/lens project |
-| `wave_membrane_MIRROR.html` | **built 2026-09-17, extended 2026-09-19** — 2D real membrane, leapfrog FDTD, Three.js surface. **The app where the CFL row is LIVE.** Boundaries (Dirichlet / Mur-absorbing / Neumann / periodic), 8 flavor domain shapes, uniform/slab/lens media, 5- and 9-point stencils, **domain radius slider**, full screen / photo mode, typed number boxes, **editable diverging gradient**. |
+| `wave_membrane_MIRROR.html` | **built 2026-09-17, extended 2026-09-19 … 2026-09-26b** — 2D real membrane, leapfrog FDTD, Three.js surface. **The app where the CFL row is LIVE.** Boundaries (Dirichlet / Mur-absorbing / Neumann / periodic), 9 flavor domain shapes (incl. rotatable square), uniform/slab/lens media, 5- and 9-point stencils, square + triangular lattices, **domain radius slider**, **grid ↔ edge alignment block** (every aligned angle, optimal angle, optimal grid flavor, edge colouring, measured ledger row), vertex sources with a 3σ wall inset, full screen / photo mode, typed number boxes, **editable diverging gradient**. |
+
+## 2026-09-26b — grid ↔ edge alignment (wired and measured), six fixes, and how far N goes
+
+**Provenance.** The local session hit its usage limit halfway through this build; it was
+finished in a cloud session from the uploaded snapshot. At that point the panel controls and
+the pure `ALIGN-BEGIN…END` section existed, nothing was wired and nothing had been run. The
+slab/lens bug recorded as "not fixed" in the 26/09 entry below **had** been fixed in code by
+the local session; re-verified here (see fixes).
+
+**The block (Domain → grid ↔ edge alignment).**
+- *aligned =* a straight lattice row, or a row **or** the shortest diagonal ("acts smooth":
+  period √2 / √3, silent for λ > 2d at every incidence — measured on the triangular lattice
+  26/09; the square lattice's 45° case follows from the same grating rule, unmeasured).
+- *dropdown:* every rotation in 0–90° with ≥ 1 aligned edge — the exact enumeration, not a
+  scan — with row/diag counts, an ALL marker, and `≅ x°` on rotations that give the same mask
+  (lattice turn × shape turn, and mirror; e.g. every pentagon alignment on the triangular
+  lattice is ONE configuration, since gcd(72, 60) = 12 and 6 = 12 − 6).
+- ‹ prev / next › and **A** (shift = back); **optimal angle**; **optimal grid flavor** and
+  **G** — the lattice + angle aligning the most edges, the current lattice kept on a tie.
+- per-edge note: class, period d, silence threshold λ > 2d against the drive λ, the rule
+  `edge k lies along lattice direction α iff rot ≡ α − 90° − 360°k/n (mod 180°)`.
+- *colour the domain edges:* row green, diag blue, rational yellow, irrational red, drawn on
+  top of the surface at the clamped rim (both caps in prism mode).
+- *vertex source inset → 3σ from BOTH walls*, along each vertex's bisector (distance
+  3σ / sin(α/2)), plus a readout of how much of the seeded pulse the mask cut at t = 0.
+
+**The answer: which shapes can be fully grid-aligned.** Exact, from a Fraction scan of all
+1801 slider positions, confirmed on two independent masks:
+
+| lattice | every edge a straight row | every edge a row or shortest zigzag ("acts smooth") | never fully (best) |
+|---|---|---|---|
+| square | square @ 0°, 90° · rhombus(90°) @ 45° (= the square) | + octagon @ 0°, 45°, 90° (4 rows + 4 × 45°) · square @ 45° and rhombus(90°) @ 0°, 90° (the diamond, all diag) · rhombus(45°) @ 22.5°, 67.5° (2 + 2) | triangle 1/3 · pentagon 1/5 · hexagon 2/6 · dodecagon 4/12 |
+| triangular | triangle, hexagon @ 30°, 90° · rhombus(60°) @ 30°, 90° | + triangle, hexagon, rhombus(60°) @ 0°, 60° (all zigzag) · square @ 0°, 30°, 60°, 90° (2 + 2) · **dodecagon @ 0°, 30°, 60°, 90° (6 + 6)** · rhombus(30°), rhombus(90°) @ 15°, 45°, 75° | pentagon 1/5 (@ 6° + 12°k, all congruent) · octagon 2/8 rows, 4/8 smooth |
+
+The circle has no edges. "Straight row" means the direction; **exact conformance** (the mask
+IS the shape's lattice points) additionally needs the radius snap: hexagon integer side,
+triangle side a multiple of 3, rhombus(60°) an **even** side (fix 5 below), square
+half-integer R. The pentagon is the one polygon here that no lattice, no rotation and no
+definition rescues: its edge directions differ by multiples of 36°, which never equal a
+difference between two lattice row/diagonal directions (45°, 90°, 135° square; 30°…150° in
+steps of 30° triangular).
+
+**Verification.**
+- *Ledger row 7c* measures each edge's period from the mask — the shortest integer lattice
+  shift that maps its boundary cells onto boundary cells (exact, no tolerance) — against
+  the class prediction. Regression **780 configurations** (2 lattices × 9 shapes incl.
+  rhombus 30/45/60/90 × every listed angle + an off-angle × radius 1 / 1.5 / 0.5 × pulse and
+  wall-inset vertex sources × 60 steps): **686 PASS, 94 n/a, 0 FAIL; 0 FAIL on any row; no
+  JS errors.** Mirror 237 PASS, conformance 26, 8-fold 45, 6-fold 32.
+- *Independent Python reference* (`align_reference.py`, shares no code with the app):
+  Part A — all **1476** entries of the JS enumeration over 294 configurations (incl.
+  rhombus θ = 20…90° in 0.5° steps) against an exact Fraction scan: **0 mismatches**. Part B —
+  a half-plane mask (not the app's polar fold) at all **37** fully-aligned configurations:
+  every edge's measured period is 1 or √2 / √3 as predicted, **0 mismatches**.
+- *3σ wall inset*, σ = 3: the mask's cut of the pulse at t = 0 falls from 25.8–28.4 %
+  (triangle), 14.7–15.8 % (rhombus 60°), 5.6–5.7 % (pentagon), 2.3–7.0 % (hexagon) with
+  the radial inset to **≤ 0.004 %** for every shape, clearance 2.85–3.18σ. The radial
+  figures reproduce experiment B's 23–28 % / ~4 %.
+
+**Fixes, each measured before and after.**
+1. *(introduced and caught in this build)* `alClass` returns the lattice direction as
+   `{a, b}`, which overwrote the edge ENDPOINTS `a, b` — every non-irrational edge lost its
+   geometry (NaN outline, every period "too short"). Renamed `(da, db)`.
+2. Start-up overlay read "diverged (max|u| = —)": `S.amax` was undefined until the first step
+   (and stale after a reset). `seed()` now sets it.
+3. `'square'` ignores the rotation slider, but the 8-fold, staircase and (1,1)-mode rows
+   tested rot = 0, so an exact square with the slider moved was labelled "staircase". Now
+   rotation-independent. The 8-fold orbit also now covers n = 4, 8, 12 at every multiple of
+   180°/n (the local session's rotatable square was reported "not 8-fold" at 0°).
+4. The conformance row accepted 30° only, while `domR()` snaps at 30° and 90°. Now
+   `atConfRot()` in both.
+5. Rhombus(60°) conformance needs an **even** side — its vertices ±(s/2)(e₁ ± e₂) are lattice
+   points only then — but the snap allowed odd s: mask s² against the formula (s+1)² at
+   radius 0.5 and 1.5 (s = 39, 117). Snap now even; conformance 26 PASS, 0 FAIL.
+6. Mirror row with vertex sources (pre-existing: the radial inset already failed on the tri
+   hexagon at radius 0.5, 7.16e-2). A source ON the mirror axis lands on a rounding tie
+   (x = 0 in an odd triangular row, or a half-integer offset), and float noise —
+   cos 90° = +4.8e-15 but cos 270° = −1.4e-14, plus the `c + d − c` round trip in
+   `snapInside` — broke the tie one way for +y and the other for −y. Quantising to 1e-9 in
+   `vertices()` and `snapInside()` fixed every case.
+- Slab/lens (the 26/09 bug, fixed locally before the snapshot): **verified** — the slab now
+  covers 42.2 / 41.8 / 42.6 % of the square and 41.1 / 40.7 / 40.1 % of the hexagon at radius
+  1 / 0.5 / 0.3 (expected ≈ 42 %), and the lens lies inside the domain at every radius.
+- The `≅` congruence tags: 122 tagged pairs checked by comparing the multiset of squared
+  distances to the centre node (invariant under rotation and mirror): 0 not congruent.
+
+### Porting, and how far N goes (measured; scripts in `bench/`)
+
+**The kernel** is the app's own update — mask, per-cell Co² (`CC`), damping — for the 5-point,
+9-point and triangular stencils, in JS (V8, Chrome's engine), numpy, numba and C (gcc -O3,
+OpenMP). All six implementations give the same field to 13 significant digits after 200 steps
+(float32: 4e-7 relative). Cell-updates per second, 5-point, this container (Xeon 2.1 GHz,
+4 vCPU; note its 260 MB L3 flatters the large-N rows compared with a desktop):
+
+| | N = 161 | 321 | 1281 | 4097 |
+|---|---|---|---|---|
+| **the app's JS kernel** | 208 M | 202 M | 193 M | 192 M |
+| numpy (vectorised) | 59 M | 69 M | 66 M | 34 M |
+| numba, 1 thread | 1246 M | 798 M | 470 M | 388 M |
+| C float64, 1 thread | 698 M | 667 M | 467 M | 371 M |
+| numba, 4 threads | 2036 M | 3317 M | 1639 M | 1293 M |
+| C float64, 4 threads | 1815 M | 1805 M | 1721 M | 1174 M |
+| C float32, 4 threads | 3515 M | 4950 M | 4792 M | 2965 M |
+
+The triangular and 9-point stencils mostly run at 80–90 % and 60–80 % of the 5-point rate
+(outliers both ways; full table: `bench/sweep_MIRROR.csv`). JS float32 is *not* faster —
+V8 computes in doubles.
+
+**Verdict.** Plain numpy is a *regression*: 3–6× slower than the app's JS (the 3D figures of
+2026-09-21 said the same: 26.2 M vs 34.2 M). A compiled port — numba or C — buys ~2× on one
+core at large N (the kernel is memory-bound there), 6–9× on four cores, and 15–38× in
+float32 on four cores.
+**But the app is not running at the kernel's speed:** its own `stepOnce` measures **50–68 M**
+cell-updates/s (N = 161 … 2049), 3–4× below the bare kernel. Profiled at N = 641 / 1281:
+`record()` (energy, gradients and peak over the whole grid, every step) is **40 % / 47 %** of
+the step, the second full-grid mask pass 3 % / 7 %, and the update loop itself still runs
+below the bare kernel's rate (not profiled further). `updateMesh` costs about one more step
+per frame (0.47 / 1.65 / 6.9 / 26.8 / 73.8 ms at N = 161 / 321 / 641 / 1281 / 2049, with one
+`colorOf` array allocation per vertex). Frame budget at 2 steps/frame: N = 641 ≈ 23 ms
+(~43 fps), N = 1281 ≈ 92 ms (~11 fps) — so **~550 (60 fps) to ~770 (30 fps) is the
+interactive ceiling as written** (headless CPU time here; the slider stops at 320). Moving
+`record()` off the per-step path would recover about half of the step before any port.
+Beyond that the win is the GPU (field kept in textures, no per-frame upload of N² vertices);
+not measurable here (this container has no GPU) — the order of magnitude is memory bandwidth
+over ~20 bytes per float32 update, i.e. ~10 G updates/s at 200 GB/s, **an estimate, unmeasured**.
+
+**Memory.** Fields (U0, U1, U2, CC float64 + mask): 52 MiB at N = 1281, 528 MiB at 4097. The
+app's mesh adds ~48 B per vertex (768 MiB at 4097), so the render mesh, not the solver, is
+the first memory wall in the browser.
+
+### The ZRL reading: Frame Rate, Δt, ρ — why N is the expensive knob
+
+With the canon's definitions (context transfer v3/v4, `Zero-Recursive Lattice.md`):
+**F = 1/Δt**, **C_max** (v4: Δf merged into it), and **ρ_g = 1/h** (v3: grid resolution,
+"purely visual for now… revisit-flagged"). In these apps Δt = Co·h/c, so
+
+    F = 1/Δt = c·ρ_g / Co        and stability (Co ≤ C_max) gives   F ≥ F_min = c·ρ_g / C_max
+
+**The frame rate is not a free parameter: the resolution sets its floor.** C_max belongs to
+the lattice + stencil, not only to D: 1/√2 (square 5-point), √3/2 (9-point), √(2/3)
+(triangular); 1/√3 (SC, BCC), 1/√2 (FCC) in 3D. Simulating a time T on a domain of size L
+costs cells × frames = (L ρ_g)^D · T c ρ_g / Co ∝ **ρ_g^(D+1)** — N³ in 2D, N⁴ in 3D:
+doubling N costs 8× (16× in 3D). Measured wall time for ONE domain crossing (N/Co steps,
+Co = 0.5) at N = 4097: 714 s JS kernel, 117 s C 4-thread, 46 s C float32 4-thread.
+**Accuracy is set by points per wavelength (PPW = λ·ρ_g), not by Co** (2026-09-17: sweeping
+Co 0.1→0.7 moves anisotropy by 5e-5; coarsening moves it by 1e-1) — so the N you need is
+≈ PPW × (domain width in wavelengths), and ρ_g is no longer visual: it sets dispersion, the
+staircase, and the frame-rate floor at once. That is the canon's revisit, answered.
+
+**Grid flavor, at EQUAL point density** (`bench/dispersion_MIRROR.py`; triangular spacing
+√(2/√3) = 1.0746 so both lattices hold one point per unit area; Co at half of each limit):
+
+| PPW = 8 | mean phase error | anisotropy | Δt_max (h/c) | steps / unit time |
+|---|---|---|---|---|
+| square 5-point | 1.61e-2 | 1.31e-2 | 0.7071 | 1.414 |
+| square 9-point | 2.09e-2 | 2.70e-4 | 0.8660 | 1.155 |
+| triangular | 1.74e-2 | **9.07e-5** | **0.8774** | **1.140** |
+
+The triangular lattice takes 19 % fewer steps per unit time and is 145× more isotropic than
+the square 5-point grid at the same point count (its leading error term is isotropic:
+−L/k² spread 3e-9 at k = 0.05, against 1e-4 for 5-point); with the measured per-update cost
+(JS: 170 M vs 193 M) it is ~9 % cheaper per simulated second. So for a domain with no edges to
+align (the circle), the optimal grid flavor is the triangular lattice on cost AND isotropy.
+
+**Canon flags (not resolved — the author's call).**
+1. *Symbol clash:* v4 renames the tick-rate to **h**, but h is the grid spacing in every wave
+   app here and in the CFL literature (Co = c·Δt/h). Suggest keeping h = spacing in code.
+2. *ρ has two meanings:* v3's ρ_g (grid resolution, used above) and v4's ρ (the
+   Schwarzschild-style radial coordinate, g = diag(−v₀²f, 1/f, ρ², ρ² sin²θ)). If the latter
+   was meant, the connection is the angular-CFL singularity (Δt ∝ ρ·Δθ → 0 at the centre).
+3. *"C_max = c = 1" (the ℝ⁴ list in `Zero-Recursive Lattice.md`)* is the 1D / advection
+   statement. On a D-lattice the lattice's own causal speed is u₀ = h·F (one cell per tick) and
+   the wave's speed is c = Co·u₀ ≤ C_max·u₀ — so the CFL-saturating ("null") wave runs at
+   u₀/√D, and u₀ = c ⇔ D = 1. Consistent with v4's "C_max is scheme-dependent".
+4. *Local frame rate:* a slow region (the slab's c/2) only needs half the global frame rate.
+   Giving each refinement level its own Δt is standard (Berger & Oliger 1984, adaptive mesh
+   refinement with time subcycling) and is the discrete analogue of the canon's lapse
+   t₁ = t₀√f. It is the principled way past the ρ_g^(D+1) wall: refine only where PPW demands.
+
+**Open / next.** The lattice segment → a separate app copied from this one (the author's
+decision): edge-sharing domain cells whose shared edges act as thin partial mirrors — the
+`sheet1d.py` mass-loaded sheet (t = 1/(1 − iμΩ²/(2 sin k)), one knob; thickness for a second).
+Cheap speed-ups before any port: run `record()` every k steps (it is 40–47 % of a step), drop
+the second mask pass, write colours straight into the buffer. GPU solver: not started.
 
 ## 2026-09-26 — jagged edges, blended grids, edge-sheets (measured; NO app code changed)
 
