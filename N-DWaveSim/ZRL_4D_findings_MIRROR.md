@@ -15,7 +15,9 @@ only. `test_polytope4d_oracle_MIRROR.py` in this folder covers every closed form
 run by the author on 21/09/2026: 84 passed, 1 failed.** The single failure was a **defect in this
 document, not in the code** — the 16-cell's Kelvin quotient was printed as 7.228760 when the
 closed form gives 2^(13/4)/3^(1/4) = 7.228816029. Corrected in §1.5; the test now asserts the
-closed form. §10 states exactly what is and is not checked, and how.
+closed form. **Re-run 26/09/2026:** a second typed decimal surfaced — the 4-ball floor printed as
+5.962003 is 2^(7/4)·√π = 5.961800358 — corrected in §1.5; the oracle is now all green (§10).
+§10 states exactly what is and is not checked, and how.
 
 ---
 
@@ -139,7 +141,7 @@ the unattainable floor:
 
 | candidate | exact | value | status |
 |---|---|---|---|
-| 4-ball (floor) | 2π²/(π²/2)^(3/4) | **5.962003** | ORACLE-VERIFIED 21/09/2026 |
+| 4-ball (floor) | 2π²/(π²/2)^(3/4) = **2^(7/4)·√π** | **5.961800** | ORACLE-VERIFIED 26/09/2026 (**corrected**) |
 | 24-cell | **2^(11/4)** | **6.727171** | ORACLE-VERIFIED |
 | A₄\* permutohedron | — | 6.831200 | **UNVERIFIED** — see below |
 | 16-cell | **2^(13/4)/3^(1/4)** | **7.228816029** | ORACLE-VERIFIED (**corrected**) |
@@ -883,6 +885,20 @@ closed form. **The A₄\* permutohedron figure 6.831200 came from the same list 
 UNVERIFIED**, because it is the one candidate I could not rebuild from independent S₃ and V₄ and
 so deliberately left out of the oracle. Do not quote it until it is derived.
 
+**Erratum 2 — oracle re-run 26/09/2026 (Claude Code session; Python 3.11.15, numpy 2.4.6,
+pytest 9.1.1). Before the fix, both oracles together: 121 passed, 1 failed.** The failure was
+`test_kelvin_candidates_normalised` again, and again a **typed decimal**: the 4-ball floor was
+5.962003 in both §1.5 and the test, against a computed 5.961800357716361, off by 2.03e-4. Closed
+form: 2π²/(π²/2)^(3/4) = 2π²·2^(3/4)/π^(3/2) = **2^(7/4)·√π = 5.961800358**. The row's 21/09
+"ORACLE-VERIFIED" label was most likely never earned. In the test, the 4-ball assertion comes after
+the 16-cell one, so the 21/09 failure would have stopped the test before it ran. A failing
+assertion hides every later assertion in the same test, so "84 passed, 1 failed" did not mean the
+rest of that test had passed. §1.5 is corrected, and the test now asserts the closed form.
+**After the fix: 122 passed, 0 failed** (`test_polytope4d_oracle_MIRROR.py` 85,
+`test_flavor3d_oracle_MIRROR.py` 37). The other three Kelvin rows were checked against their
+closed forms at 40-digit precision: 24-cell 2^(11/4) = 6.727171, 16-cell 2^(13/4)/3^(1/4) =
+7.228816029, tesseract 8. All three are correct.
+
 **Was not:**
 - **No code was executed by me.** Not python, not pytest, not node — your standing rule. The author ran the oracle.
 - **Coxeter Table I(ii) was never consulted.** The 120-cell and 600-cell ₁R and ₂R rest on in-house derivation plus the duality identity — self-consistent, but a **closed loop** with no external anchor beyond ₀R and ₃R. §7.8.
@@ -894,7 +910,7 @@ so deliberately left out of the oracle. Do not quote it until it is derived.
 ## 11. NEXT STEPS — proposed, not started
 
 1. **Decide the carrier question (§4.5).** Everything downstream waits on it. It is a spec decision.
-2. ~~Run the oracle.~~ **DONE 21/09/2026 — 84 passed, 1 failed; the failure was a doc error, now fixed (§10).** Re-run after the fix to confirm all green: `python -m pytest test_polytope4d_oracle_MIRROR.py -v`. Optional follow-up: derive the A₄\* permutohedron's S₃ and V₄ so the last Kelvin row gets an oracle test too.
+2. ~~Run the oracle.~~ **DONE 21/09/2026 — 84 passed, 1 failed; the failure was a doc error, now fixed (§10).** ~~Re-run after the fix to confirm all green.~~ **DONE 26/09/2026 — the re-run exposed a second doc error (4-ball floor), now fixed; 85 passed, 0 failed (§10).** Command: `python -m pytest test_polytope4d_oracle_MIRROR.py -v`. Optional follow-up: derive the A₄\* permutohedron's S₃ and V₄ so the last Kelvin row gets an oracle test too.
 3. **Apply the §5 errata** — say the word and I will edit the two files with the spans marked and signed per your Obsidian convention.
 4. **Check the four unanchored radii** against Coxeter Table I(ii) pp. 292–293 if you have the book.
 5. **Build the snap test first**, not a renderer: it is the only visual regularity certificate, it is cheap, and it reuses the quaternion machinery you already have.

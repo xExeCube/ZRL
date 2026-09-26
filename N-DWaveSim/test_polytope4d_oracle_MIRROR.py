@@ -596,7 +596,13 @@ def test_kelvin_candidates_normalised():
     assert q16 == pytest.approx(7.228816029, abs=1e-8)
     v_ball = math.pi ** 2 / 2.0
     s_ball = 2.0 * math.pi ** 2
-    assert q(s_ball, v_ball) == pytest.approx(5.962003, abs=1e-5)
+    # 4-ball. SECOND DOC ERROR, caught on the re-run, 26/09/2026: this line and the findings
+    # doc both carried a typed 5.962003 (off by 2.03e-4). The closed form is
+    #     q = 2 pi^2 / (pi^2/2)^(3/4) = 2 pi^2 * 2^(3/4) / pi^(3/2) = 2^(7/4) sqrt(pi)
+    # so q = 5.961800358. Same rule as the 16-cell: assert the CLOSED FORM.
+    q_ball = 2.0 ** 1.75 * math.sqrt(math.pi)
+    assert q(s_ball, v_ball) == pytest.approx(q_ball, rel=1e-12)
+    assert q_ball == pytest.approx(5.961800358, abs=1e-8)
     # the ordering the doc quotes: 4-ball floor < 24-cell < 16-cell < tesseract
     assert q(s_ball, v_ball) < q(SURFACE_3VOLUME["24-cell"], 2.0) \
         < q(SURFACE_3VOLUME["16-cell"], 1.0 / 6.0) < q(SURFACE_3VOLUME["tesseract"], 1.0)
