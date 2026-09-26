@@ -74,6 +74,7 @@
   /* --- diverging gradient editor --- */
   #gradWrap{display:none;margin-top:6px}
   #gradcv{width:100%;height:24px;display:block;border:1px solid var(--border);margin:4px 0 2px}
+  #ppwcv{width:100%;height:32px;display:block;border:1px solid var(--shadow);margin:3px 0 2px;background:#070707}
   #gradAxis{display:flex;justify-content:space-between;font-family:'Courier New',monospace;
     font-size:.66rem;color:#6a6a6a;margin-bottom:5px}
   #gradInfo{font-family:'Courier New',monospace;font-size:.67rem;color:#8a8a8a;line-height:1.55}
@@ -101,7 +102,9 @@
   <input type="range" id="coS" min="0.05" max="1.00" step="0.005" value="0.5">
   <div style="font-size:.71rem;font-family:'Courier New',monospace;margin-bottom:4px" id="coNote"></div>
   <label class="row">grid N <b id="nv">160</b></label>
-  <input type="range" id="nS" min="48" max="320" step="16" value="160">
+  <input type="range" id="nS" min="48" max="2048" step="16" value="160">
+  <div style="font-size:.71rem;font-family:'Courier New',monospace;color:#8a8a8a;margin-bottom:4px"
+       id="nNote"></div>
   <label class="row">damping <b id="dav">0.0000</b></label>
   <input type="range" id="daS" min="0" max="0.02" step="0.0001" value="0">
   <label class="row">steps / frame <b id="spv">2</b></label>
@@ -120,6 +123,11 @@
   </select>
   <div style="font-size:.71rem;color:#8a8a8a">Berglund runs Co &asymp; 0.08&ndash;0.12 (max ever 0.25):
     dispersion, not stability, is his binding constraint.</div>
+
+  <div class="sect">Space-time grid (ZRL)</div>
+  <div id="stNote" style="font-size:.68rem;font-family:'Courier New',monospace;color:#8a8a8a;
+       line-height:1.5;margin-bottom:4px"></div>
+  <label class="chk"><input type="checkbox" id="cCone">draw the lattice light cone (impulse source)</label>
 
   <div class="sect">Domain</div>
   <label class="row">shape (flavor domain)</label>
@@ -178,7 +186,7 @@
     <button id="sPulse" class="on">gaussian pulse</button>
     <button id="sCont">continuous</button>
     <button id="sSlit">two slits</button>
-    <button id="sMode">drum mode (1,1)</button>
+    <button id="sMode">drum mode (m,n)</button>
     <button id="sVtx">vertices</button>
   </div>
   <label class="row">source x <b id="sxv">0.00</b></label>
@@ -210,6 +218,16 @@
   </select>
   <div style="font-size:.71rem;font-family:'Courier New',monospace;color:#8a8a8a;margin:3px 0 4px"
        id="harmNote"></div>
+  <div id="modeWrap" style="display:none">
+    <label class="row">mode m <b id="mmv">1</b></label>
+    <input type="range" id="mmS" min="1" max="64" step="1" value="1">
+    <label class="row">mode n <b id="mnv">1</b></label>
+    <input type="range" id="mnS" min="1" max="64" step="1" value="1">
+  </div>
+  <label class="row" style="color:var(--hi)">accuracy &mdash; points per wavelength</label>
+  <canvas id="ppwcv" width="560" height="64"></canvas>
+  <div id="ppwNote" style="font-size:.68rem;font-family:'Courier New',monospace;color:#8a8a8a;
+       line-height:1.5;margin:2px 0 4px"></div>
 
   <div class="sect">Run</div>
   <div class="btns">
@@ -381,6 +399,60 @@ function cellXY(i,j){
 }
 const coLimit=()=> TRI() ? CO_LIMIT_T : (S.stencil===9 ? CO_LIMIT_9 : CO_LIMIT_5);
 
+/* ── 0b. THE SPACE-TIME GRID: light cone, CFL, and what accuracy costs ──────
+   One tick moves information one BOND (h). After m ticks a one-cell impulse is confined
+   to the REACH POLYTOPE of radius m -- the convex hull of the neighbour offsets: a
+   diamond (5-point), a square (9-point), a hexagon (triangular). That is the lattice's
+   own light cone, speed u0 = h*F = one bond per tick (F = 1/dt, the frame rate). A wave
+   of speed c fills a disk of radius c*t, and the disk must fit inside the polytope:
+         c <= u0 * inradius(polytope)     i.e.  Co <= inradius       (NECESSARY)
+   The sharp limit is von Neumann's (coLimit). They coincide for the 5-point stencil
+   (diamond, 1/sqrt2 -- the canon's r/R "signature" of the cross-polytope) but NOT for the
+   9-point (square: 1 vs 0.866) or the triangular lattice (hexagon: 0.866 vs 0.8165), whose
+   worst modes cannot put every neighbour in antiphase at once. Verified 26/09 with
+   bench/spacetime_limits_MIRROR.py (also 1D, 3D SC/BCC/FCC, 4D: all coincide there). */
+const reachInradius=()=> TRI() ? S3H : (S.stencil===9 ? 1 : Math.SQRT1_2);
+const reachName=()=> TRI() ? 'hexagon' : (S.stencil===9 ? 'square' : 'diamond');
+// the lattice norm whose unit ball IS the reach polytope (lattice-index offsets)
+function coneNorm(da, db){
+  if(TRI()) return Math.max(Math.abs(da), Math.abs(db), Math.abs(da+db));
+  if(S.stencil===9) return Math.max(Math.abs(da), Math.abs(db));
+  return Math.abs(da)+Math.abs(db);
+}
+/* The discrete dispersion relation. Leapfrog on a stencil with symbol L(k) ~ -|k|^2:
+       cos(w dt) = 1 + (Co^2/2) L(k)        (h = 1, c = 1, dt = Co)
+   numerical phase speed v = w/k, group speed dw/dk; PPW = 2 pi / k. Its errors fall as
+   1/PPW^2, and -- because the leapfrog's TIME error has the opposite sign to the space
+   error -- they also fall as Co approaches its limit: at PPW 8 the mean phase error of
+   the 5-point stencil is 1.6% at Co = 0.5 limit and 0.79% at 0.95 limit, and the
+   triangular lattice's drops 1.5% -> 0.39%. The largest stable step is both the cheapest
+   and the most accurate. (bench/spacetime_limits_MIRROR.py, PART 2.) */
+function stencilSymbol(kx, ky){
+  if(TRI()){ let s=0;
+    for(const a of [0, PI/3, 2*PI/3]){ const p=kx*Math.cos(a)+ky*Math.sin(a); s+=Math.sin(p/2)**2; }
+    return -(8/3)*s; }
+  if(S.stencil===9) return (2/3)*(2*Math.cos(kx)+2*Math.cos(ky)-4)+(1/6)*(4*Math.cos(kx)*Math.cos(ky)-4);
+  return -4*(Math.sin(kx/2)**2+Math.sin(ky/2)**2);
+}
+function omegaNum(k, th, co){                  // numerical angular frequency (NaN if unstable)
+  const x=(co/2)*Math.sqrt(Math.max(0,-stencilSymbol(k*Math.cos(th), k*Math.sin(th))));
+  return x>1 ? NaN : 2*Math.asin(x)/co;
+}
+// errors of the phase speed (and of the group speed a pulse front feels) at a given PPW,
+// averaged over directions -- or along one direction th when given
+function dispersionAt(ppw, co, th){
+  const k=TAU/ppw, dk=k*1e-4, nd = th===undefined ? 180 : 1;
+  let sum=0, worst=0, vmin=Infinity, vmax=-Infinity, gsum=0, gworst=0;
+  for(let q=0;q<nd;q++){
+    const t = th===undefined ? PI*q/nd : th;
+    const v=omegaNum(k,t,co)/k, vg=(omegaNum(k+dk,t,co)-omegaNum(k-dk,t,co))/(2*dk);
+    if(!isFinite(v)||!isFinite(vg)) return null;
+    sum+=Math.abs(v-1); worst=Math.max(worst,Math.abs(v-1)); vmin=Math.min(vmin,v); vmax=Math.max(vmax,v);
+    gsum+=Math.abs(vg-1); gworst=Math.max(gworst,Math.abs(vg-1));
+  }
+  return {mean:sum/nd, worst, aniso:vmax/vmin-1, v:vmin, gmean:gsum/nd, gworst};
+}
+
 /* --- band-limited drive waveforms -----------------------------------------
    An ideal square/saw/triangle has infinitely many harmonics. A grid cannot
    carry them: harmonic k has wavelength lambda/k cells, and below ~8 cells per
@@ -417,7 +489,8 @@ const S={
   sx:0, sy:0, vtxDrive:false, prism:false, prismU:true, prismH:2,
   lattice:'sq', wave:'sine', roomM:10, tailS:0.6, wet:1,
   wireStep:1, solid:true,
-  alCls:'row', edgeCol:false, vtxInset:'radial'
+  alCls:'row', edgeCol:false, vtxInset:'radial',
+  mm:1, mn:1, cone:false
 };
 
 /* --- domain size ----------------------------------------------------------
@@ -999,7 +1072,7 @@ const idx=(i,j)=>j*N+i;
 
 function clearField(){
   U0.fill(0); U1.fill(0); U2.fill(0);
-  ENERGY=[]; PROBE=[]; PROBE_B=[]; S.t=0; S.step=0; REF=null;
+  ENERGY=[]; PROBE=[]; PROBE_B=[]; MODEP=[]; S.t=0; S.step=0; REF=null;
 }
 /* Add a gaussian bump at (bi,bj) to the LIVE field. The same value goes into both
    U0 and U1, so the new bump starts at rest while the velocity (U1-U0) of whatever
@@ -1041,14 +1114,17 @@ function seed(){
     // every vertex fires in phase: n interfering fronts with the domain's own symmetry
     for(const v of VTX) addBump(v.i,v.j,1);
   } else if(S.src==='mode'){
-    // the exact (1,1) Dirichlet eigenmode of the square: sin(pi x/L) sin(pi y/L).
+    // the exact (m,n) Dirichlet eigenmode of the square: sin(m pi x/L) sin(n pi y/L).
     // The zeros sit one cell OUTSIDE the interior, so the mode must be built from
     // where the field is actually clamped -- the outer grid edge for the full square,
     // the first masked cell for a shrunk one. Hard-coding (n-1) gave the shrunk
     // square a profile that is not an eigenmode of the domain it is sitting in.
-    const m=modeBox();
+    // It is an exact eigenvector of the 5- AND the 9-point operator (both act on a
+    // product of sines by multiplying it), so its frequency is exactly the dispersion
+    // relation's -- which is what the dispersion row measures.
+    const m=modeBox(), [mm,mn]=modeMN();
     for(let j=0;j<n;j++) for(let i=0;i<n;i++)
-      U1[idx(i,j)]=U0[idx(i,j)]=Math.sin(PI*(i-m.z)/m.L)*Math.sin(PI*(j-m.z)/m.L);
+      U1[idx(i,j)]=U0[idx(i,j)]=Math.sin(mm*PI*(i-m.z)/m.L)*Math.sin(mn*PI*(j-m.z)/m.L);
   }
   /* How much of the seeded pulse does the MASK cut off at t = 0? Measured 26/09: a
      vertex pulse at the radial inset lost 4% (hexagon) to 23-28% (triangle), and the
@@ -1058,6 +1134,8 @@ function seed(){
   applyMask();
   let post=0; for(let k=0;k<N*N;k++) post+=U1[k]*U1[k];
   S.cut = pre>0 ? 1-post/pre : 0;
+  if(S.src==='mode'){ const [ai,aj]=modeAntinode(); MODEP.push(U1[idx(ai,aj)]); }   // step 0
+  CONE_WALL=coneWall();
   /* S.amax is otherwise set only by record(), on a STEP. Before 26/09 it was undefined
      at start-up, and !isFinite(undefined) is true, so the overlay announced
      "diverged (max|u| = --)" over a freshly seeded field before a single step ran
@@ -1065,12 +1143,21 @@ function seed(){
   let a=0; for(let k=0;k<N*N;k++) if(MASK[k]){ const v=Math.abs(U1[k]); if(v>a) a=v; }
   S.amax=a;
 }
-// the (1,1) mode's clamped box: z = the zero line, L = its span
+// the (m,n) mode's clamped box: z = the zero line, L = its span
 function modeBox(){
   if(sqFull()) return {z:0, L:N-1};
   const c=(N-1)/2, hw=Math.floor(domR());
   return {z:c-hw-1, L:2*hw+2};
 }
+// the mode indices actually used: m < L (a sine with m >= L half-periods across L cells
+// aliases onto a lower mode -- the grid cannot carry it)
+function modeMN(){ const L=modeBox().L; return [Math.min(S.mm, L-1), Math.min(S.mn, L-1)]; }
+// an ANTINODE of the (m,n) mode, where the dispersion row samples the field's history
+function modeAntinode(){
+  const m=modeBox(), [mm,mn]=modeMN();
+  return [Math.round(m.z + m.L/(2*mm)), Math.round(m.z + m.L/(2*mn))];
+}
+let MODEP=[];                         // the field at that antinode, one entry per step
 function applyMask(){ for(let k=0;k<N*N;k++) if(!MASK[k]){ U0[k]=0; U1[k]=0; U2[k]=0; } }
 
 function stepOnce(){
@@ -1201,6 +1288,8 @@ function record(){
   PROBE.push(U1[idx(c+pA(), c)]);
   PROBE_B.push(U1[idx(c, c+pB())]);
   if(PROBE.length>4000){ PROBE.shift(); PROBE_B.shift(); }
+  if(S.src==='mode'){ const [ai,aj]=modeAntinode(); MODEP.push(U1[idx(ai,aj)]);
+    if(MODEP.length>600) MODEP.shift(); }
   S.amax=amax;
 }
 
@@ -1339,6 +1428,31 @@ function buildEdgeCol(){
     depthTest:false, transparent:true}));
   edgeLines.renderOrder=10; edgeLines.frustumCulled=false; scene.add(edgeLines);
 }
+/* --- the lattice light cone, drawn: the reach polytope of radius m (the grid's own
+   causal cone, one bond per tick) around the source, and the disk of radius Co*m where
+   the wave actually is. At Co = limit on the 5-point grid the disk touches the diamond's
+   edges; on the triangular lattice it never touches the hexagon -- the gap between the
+   necessary and the sharp CFL limit, visible. Rebuilt every frame while shown. */
+let coneLines=null;
+function buildCone(){
+  if(coneLines){ scene.remove(coneLines); coneLines.geometry.dispose(); coneLines.material.dispose(); coneLines=null; }
+  if(!S.cone || S.src!=='impulse' || !S.step) return;
+  const f=cellToMesh(), m=S.step, [sx,sy]=cellXY(SRC.i,SRC.j), z=S.prism ? prismH()/2 : 0;
+  const poly = TRI() ? [0,1,2,3,4,5].map(q=>[m*Math.cos(q*PI/3), m*Math.sin(q*PI/3)])
+             : S.stencil===9 ? [[m,m],[-m,m],[-m,-m],[m,-m]] : [[m,0],[0,m],[-m,0],[0,-m]];
+  const pos=[], col=[], cA=[0.72,0.62,1.0], cB=[0,0.62,0.525];
+  for(let q=0;q<poly.length;q++){ const a=poly[q], b=poly[(q+1)%poly.length];
+    pos.push((sx+a[0])*f,(sy+a[1])*f,z, (sx+b[0])*f,(sy+b[1])*f,z); col.push(...cA,...cA); }
+  const r=S.Co*m, K=96;
+  for(let q=0;q<K;q++){ const t0=TAU*q/K, t1=TAU*(q+1)/K;
+    pos.push((sx+r*Math.cos(t0))*f,(sy+r*Math.sin(t0))*f,z, (sx+r*Math.cos(t1))*f,(sy+r*Math.sin(t1))*f,z);
+    col.push(...cB,...cB); }
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(pos),3));
+  g.setAttribute('color',new THREE.BufferAttribute(new Float32Array(col),3));
+  coneLines=new THREE.LineSegments(g,new THREE.LineBasicMaterial({vertexColors:true, depthTest:false, transparent:true}));
+  coneLines.renderOrder=11; coneLines.frustumCulled=false; scene.add(coneLines);
+}
 function buildWalls(){
   buildEdgeCol();
   if(walls){ scene.remove(walls); walls.geometry.dispose(); walls.material.dispose(); walls=null; }
@@ -1406,19 +1520,24 @@ function buildMesh(){
     const [x,y]=cellXY(i,j);                    // physical, so a tri lattice renders sheared
     pos[k]=x*f; pos[k+1]=y*f; pos[k+2]=0;
   }
-  const tri=[];
+  // a TYPED index, counted first: at N = 2049 a plain array of 25M indices costs
+  // hundreds of MB and seconds of GC before three.js copies it into a typed one anyway
+  let nq=0;
+  for(let j=0;j<n-1;j++) for(let i=0;i<n-1;i++){
+    const a=j*n+i; if(MASK[a]&&MASK[a+1]&&MASK[a+n]&&MASK[a+n+1]) nq++; }
+  const tri=new Uint32Array(nq*6); let tp=0;
   for(let j=0;j<n-1;j++) for(let i=0;i<n-1;i++){
     const a=j*n+i,b=a+1,c2=a+n,d=c2+1;
     if(MASK[a]&&MASK[b]&&MASK[c2]&&MASK[d]){
       // split along the SHORT diagonal. On the triangular lattice the parallelogram
       // (i,j),(i+1,j),(i,j+1),(i+1,j+1) has diagonals of length sqrt3 and 1; cutting
       // the short one (b--c2) gives two equilateral triangles, the lattice's own cells.
-      tri.push(a,c2,b, b,c2,d);
+      tri[tp++]=a; tri[tp++]=c2; tri[tp++]=b; tri[tp++]=b; tri[tp++]=c2; tri[tp++]=d;
     }
   }
   geo.setAttribute('position',new THREE.BufferAttribute(pos,3));
   geo.setAttribute('color',new THREE.BufferAttribute(col,3));
-  geo.setIndex(tri);
+  geo.setIndex(new THREE.BufferAttribute(tri,1));
   const mat=new THREE.MeshBasicMaterial({vertexColors:true, side:THREE.DoubleSide});
   mesh=new THREE.Mesh(geo,mat); mesh.frustumCulled=false; scene.add(mesh);
   buildWire();
@@ -1428,7 +1547,7 @@ function buildMesh(){
     geo2=new THREE.BufferGeometry();
     geo2.setAttribute('position',new THREE.BufferAttribute(pos.slice(),3));
     geo2.setAttribute('color',geo.attributes.color);
-    geo2.setIndex(tri);
+    geo2.setIndex(geo.index);                      // same typed index, shared
     mesh2=new THREE.Mesh(geo2,new THREE.MeshBasicMaterial({vertexColors:true,
       side:THREE.DoubleSide}));
     mesh2.frustumCulled=false; scene.add(mesh2);
@@ -1670,6 +1789,45 @@ function alMeasure(){
     out.push(Object.assign({}, e, {meas, pred, win, nCells:C.length}));
   }
   return (AL_MEAS={edges:out});
+}
+
+/* --- the lattice light cone, MEASURED -------------------------------------------
+   Causality on the lattice is exact, not approximate: after m ticks a one-cell impulse
+   has touched precisely the cells within cone-norm m of the source (diamond / square /
+   hexagon) and NOTHING outside -- bitwise zero, because no chain of m neighbour hops
+   reaches further. So the support radius must equal the tick count, exactly, while the
+   cone is still clear of the walls; reflections cannot break containment (the domain of
+   dependence is the cone intersected with the domain). Two honest limits: (1) a wall ends
+   the "fills to m" part -- CONE_WALL is the cone-norm distance to the first clamped cell;
+   (2) the cone's tip values are ~Co^(2m) and can underflow float64 (1e-308) long before
+   anything physical happens -- then the row says so instead of failing. */
+let CONE_WALL=Infinity;
+function coneWall(){
+  const n=N, si=SRC.i, sj=SRC.j;
+  if(!TRI() && S.bc==='periodic' && sqFull()) return Math.floor((n-1)/2);  // meets itself
+  let best=Infinity;
+  for(let j=0;j<n;j++) for(let i=0;i<n;i++){
+    const edge = i===0||j===0||i===n-1||j===n-1;       // the clamped / BC-driven ring
+    if(!MASK[j*n+i] || edge){ const d=coneNorm(i-si, j-sj); if(d<best) best=d; }
+  }
+  return best;
+}
+function coneMeasure(){
+  const n=N, si=SRC.i, sj=SRC.j, m=S.step, wrap=!TRI() && S.bc==='periodic' && sqFull();
+  const mi=d=> wrap ? ((d%n)+n+Math.floor(n/2))%n-Math.floor(n/2) : d;   // minimal image
+  let rOut=0, outside=0, eIn=0, eAll=0, ringMax=0;
+  const [sx,sy]=cellXY(si,sj), rDisk=S.Co*m+1.5;
+  for(let j=0;j<n;j++) for(let i=0;i<n;i++){
+    const v=U1[j*n+i]; if(v===0) continue;
+    const r=coneNorm(mi(i-si), mi(j-sj));
+    if(r>rOut) rOut=r;
+    if(r>m) outside++;
+    const [x,y]=cellXY(i,j), e=v*v; eAll+=e;
+    if(Math.hypot(x-sx,y-sy)<=rDisk) eIn+=e;
+  }
+  for(let j=0;j<n;j++) for(let i=0;i<n;i++)               // largest value on the outer ring
+    if(coneNorm(mi(i-si), mi(j-sj))===rOut) ringMax=Math.max(ringMax, Math.abs(U1[j*n+i]));
+  return {m, rOut, outside, frac: eAll>0 ? eIn/eAll : NaN, ringMax};
 }
 
 function energyStats(){
@@ -2016,6 +2174,33 @@ function buildLedger(){
     }
   }
 
+  // ---- 7d. the lattice light cone, MEASURED (exact) -------------------------
+  {
+    const imp = S.src==='impulse';
+    const lim=coLimit(), ri=reachInradius();
+    const geomTxt = `the wave&rsquo;s disk (radius Co&middot;m) fits the ${reachName()} iff Co &le; its inradius `+
+      `${fmt(ri,4)} (necessary); the sharp limit is ${fmt(lim,4)}`+
+      (Math.abs(ri-lim)<1e-9 ? ' &mdash; they COINCIDE here' : ` &mdash; a gap of ${fmt(ri-lim,4)}: this lattice&rsquo;s `+
+       `worst mode cannot put every neighbour in antiphase, so its cone overstates the speed`);
+    if(!imp || S.step<1){
+      rows.push([`lattice light cone: after m ticks the field is EXACTLY zero outside the ${reachName()} of radius m`,
+        NA, (!imp ? 'needs the IMPULSE source &mdash; a one-cell start; a gaussian already covers the grid'
+                  : 'step the solver') + ' &middot; ' + geomTxt, 'causal']);
+    } else {
+      const C=coneMeasure(), m=C.m, clear=m<CONE_WALL;
+      const under = C.rOut<m && clear && C.ringMax<1e-290;
+      const ok = C.outside===0 && (!clear || C.rOut===m || under);
+      rows.push([`lattice light cone: after m ticks the field is EXACTLY zero outside the ${reachName()} of radius m`,
+        ok ? `<span class="ok">PASS</span>` : `<span class="bad">FAIL</span>`,
+        `m = ${m} ticks: support radius ${C.rOut} (cone norm), ${C.outside} nonzero cells outside it`+
+        (clear ? (C.rOut===m ? ' &mdash; the cone grows exactly one bond per tick: u&#8320; = h&middot;F'
+                              : under ? ' &mdash; the tip values underflowed float64 (&lt; 1e-290), not physics' : '')
+               : ` &mdash; the cone reached the wall at m = ${CONE_WALL}; containment still holds`)+
+        ` &middot; the wave runs at c = Co&middot;u&#8320;: ${fmt(100*C.frac,2)}% of &Sigma;u&sup2; lies inside the `+
+        `disk of radius Co&middot;m + 1.5 = ${fmt(S.Co*m+1.5,1)} &middot; ${geomTxt}`, 'causal']);
+    }
+  }
+
   // ---- 8. drum spectra (stated targets, measured later) ----------------
   if(S.shape==='circle'){
     rows.push([DSG('stated &mdash; circular drum overtones are IRRATIONAL (not harmonic)'),
@@ -2047,25 +2232,60 @@ function buildLedger(){
     const sqDir = !TRI() && S.shape==='square' && (sqFull() ? S.bc==='dirichlet' : true);
     // a masked square is Dirichlet on the mask edge whatever the BC control says,
     // so the row applies there too -- against the mode of THAT box, not the grid's
+    const [mm,mn]=modeMN(), mtag=`(${mm},${mn})`;
     if(S.src==='mode' && sqDir && S.medium==='uniform' && live){   // 'square' ignores rot
       // an eigenmode keeps its SHAPE: correlation with the initial profile stays 1
       const n2=N, m=modeBox(); let num=0, da=0, db=0;
       for(let j=1;j<n2-1;j++) for(let i=1;i<n2-1;i++){
         if(!MASK[idx(i,j)]) continue;
-        const a=Math.sin(PI*(i-m.z)/m.L)*Math.sin(PI*(j-m.z)/m.L), b=U1[idx(i,j)];
+        const a=Math.sin(mm*PI*(i-m.z)/m.L)*Math.sin(mn*PI*(j-m.z)/m.L), b=U1[idx(i,j)];
         num+=a*b; da+=a*a; db+=b*b;
       }
       const corr=(da>0&&db>0)?Math.abs(num/Math.sqrt(da*db)):NaN;
-      rows.push(['the (1,1) eigenmode keeps its SHAPE (only its amplitude oscillates)',
+      rows.push([`the ${mtag} eigenmode keeps its SHAPE (only its amplitude oscillates)`,
         isFinite(corr)?st(Math.abs(corr-1),2e-3):NA,
         isFinite(corr)?`|correlation with sin&middot;sin| = ${fmt(corr,9)} after ${S.step} steps `+
           `&middot; box L = ${m.L} cells${sqFull()?'':' (masked square)'}`:'', 'Dirichlet']);
-    } else rows.push(['the (1,1) eigenmode keeps its shape', NA,
+    } else rows.push([`the ${mtag} eigenmode keeps its shape`, NA,
         TRI() ? 'sin&middot;sin is the eigenmode of a square on a SQUARE lattice; the '+
           'triangular Laplacian has different eigenfunctions, so this is not a test here'
-        : S.shape!=='square' ? 'the (1,1) sin&middot;sin mode is the SQUARE’s eigenmode &mdash; it is '+
+        : S.shape!=='square' ? 'the sin&middot;sin mode is the SQUARE’s eigenmode &mdash; it is '+
           'not one for this domain, so seeding it here is not a test of anything'
-        : 'select the "drum mode (1,1)" source on a square with a fixed edge', 'Dirichlet']);
+        : 'select the "drum mode (m,n)" source on a square with a fixed edge', 'Dirichlet']);
+
+    /* ---- 9c. DISPERSION, measured: what points-per-wavelength costs ----------
+       An exact eigenmode obeys u(t+1) + u(t-1) = 2 cos(w dt) u(t) at EVERY cell, so the
+       running field's own history at an antinode gives cos(w dt) with no fitting at all.
+       That w is compared with the dispersion relation the accuracy indicator uses (they
+       must agree to rounding: the mode is an exact eigenvector) and with the continuum
+       w = c|k| -- their ratio IS the phase-speed error at this PPW, measured. */
+    const P=MODEP;
+    if(S.src==='mode' && sqDir && S.medium==='uniform' && S.damp<1e-12 && P.length>=5){
+      const m=modeBox(), kx=mm*PI/m.L, ky=mn*PI/m.L, kk=Math.hypot(kx,ky), co=S.Co;
+      let pk=0; for(const v of P) pk=Math.max(pk,Math.abs(v));
+      const cs=[];
+      for(let t=1;t+1<P.length;t++) if(Math.abs(P[t])>0.5*pk) cs.push((P[t+1]+P[t-1])/(2*P[t]));
+      cs.sort((a,b)=>a-b);
+      const cMeas = cs.length ? cs[cs.length>>1] : NaN;
+      const cPred = 1 + 0.5*co*co*stencilSymbol(kx, ky);
+      const wMeas=Math.acos(Math.max(-1,Math.min(1,cMeas)))/co, wPred=Math.acos(Math.max(-1,Math.min(1,cPred)))/co;
+      const ppw=TAU/kk, errMeas=wMeas/kk-1, errPred=wPred/kk-1;
+      rows.push([`dispersion, MEASURED: the ${mtag} mode&rsquo;s frequency at ${fmt(ppw,1)} points per wavelength`,
+        isFinite(cMeas) ? st(Math.abs(cMeas-cPred), 1e-9) : NA,
+        isFinite(cMeas)
+          ? `cos(&omega;&Delta;t) from the field&rsquo;s own recurrence = ${fmt(cMeas,12)} vs the dispersion relation `+
+            `${fmt(cPred,12)} (&Delta; ${fe(Math.abs(cMeas-cPred))}) &middot; phase speed error `+
+            `<b>${(100*errMeas).toFixed(4)}%</b> measured, ${(100*errPred).toFixed(4)}% predicted &middot; `+
+            `direction ${fmt(Math.atan2(ky,kx)*180/PI,1)}&deg;, Co/limit ${fmt(co/coLimit(),3)} &mdash; raise m,n to lower `+
+            `the PPW and watch the error grow as 1/PPW&sup2;; raise Co toward the limit and watch it SHRINK`
+          : 'run a few steps (the recurrence needs three consecutive samples at an antinode)', 'dispersion']);
+    } else rows.push(['dispersion, MEASURED: an exact mode&rsquo;s frequency vs the dispersion relation', NA,
+        S.src!=='mode' ? 'select the drum mode (m,n) source: an exact eigenmode lets the field&rsquo;s own history '+
+                         'measure &omega; with no fitting &mdash; raise m,n to lower the points per wavelength'
+        : !sqDir ? (TRI() ? 'sin&middot;sin is not an eigenmode of the triangular Laplacian'
+                          : 'needs the square domain with a fixed edge')
+        : S.damp>=1e-12 ? 'damping changes the recurrence &mdash; set damping to 0'
+        : S.medium!=='uniform' ? 'needs a uniform medium' : 'run a few steps', 'dispersion']);
   }
 
   // ---- 9b. band-limited drive: a LINEAR scheme cannot invent harmonics -----
@@ -2180,6 +2400,8 @@ function renderReadout(){
     (S.prism ? `prism &middot; both caps are the SAME field, mirrored &middot; H = ${fmt(prismH(),2)}<br>`
              : `height = u(x,y) &middot; colour = signed amplitude<br>`)+
     `Co = <b>${fmt(S.Co,4)}</b> &middot; ${S.stencil}-point limit = <b>${fmt(coLimit(),6)}</b>`+
+    (PPW_STATE && PPW_STATE.D ? `<br><span style="color:${ppwBand(PPW_STATE.D.mean)}">PPW ${fmt(PPW_STATE.P.ppw,1)}`+
+      ` &middot; phase error ${(100*PPW_STATE.D.mean).toFixed(2)}%</span>` : '')+
     (S.src==='vtx' && VTX.length ? `<br>${VTX.length} vertex sources${S.vtxDrive?', driven':''}` : '')+
     (S.drops ? `<br>${S.drops} pulse(s) dropped` : '')+
     (S.prism && S.clipped ? `<br><span class="warn">height scale clipped at H/2 &mdash; the caps `+
@@ -2201,6 +2423,13 @@ different integrator, being first order in time &mdash; and that is deferred for
 &nbsp; <b>The wake is real.</b> With an absorbing edge, watch the field behind the front: in 2D it
 never returns to zero. That is Huygens failing in even dimensions, not a numerical artefact &mdash;
 it survives grid refinement, while the 3D residual collapses.
+&nbsp; <b>The space-time grid.</b> One tick moves information one bond: after m ticks an impulse
+fills exactly the lattice's reach polytope of radius m (a diamond here) and nothing outside it
+&mdash; the grid's own light cone, u&#8320; = h&middot;F. The wave runs slower, c = Co&middot;u&#8320;, and
+must fit inside that cone; so the resolution &rho; = 1/h fixes a minimum frame rate
+F &ge; c&rho;/C<sub>max</sub>, and the cost of simulated time grows as &rho;&sup3;. Accuracy is set by points
+per wavelength, and it improves as Co approaches its limit: the largest stable step is also the
+most accurate one (measured live by the dispersion row).
 &nbsp; <b>The radius slider is a resolution control.</b> The grid stays N&times;N, so shrinking the
 domain does not make the simulation cheaper &mdash; it makes it coarser. R drops in cells,
 the staircase error grows, and the drive wavelength &lambda; = Co/f spans fewer cells. Both
@@ -2581,12 +2810,123 @@ $('alFlav').onclick=alFlavor;
 $('cEdgeCol').addEventListener('change',()=>{ S.edgeCol=$('cEdgeCol').checked; buildEdgeCol(); alRefresh(); });
 $('vtxIn').addEventListener('change',()=>{ S.vtxInset=$('vtxIn').value; reseed(); });
 
+/* ---- accuracy: points per wavelength -----------------------------------------
+   Which wavelength matters depends on the source:
+     driven (continuous / two-slit / driven vertices) -- lambda = Co/f cells, the drive's
+         own; its harmonics are shorter by k
+     gaussian pulse (and undriven vertices) -- the spectrum exp(-k^2 sigma^2/2) falls to 1%
+         of its peak at k sigma = sqrt(2 ln 100) = 3.035, so the shortest wavelength that
+         carries real amplitude is 2 pi sigma / 3.035 = 2.07 sigma
+     impulse -- one cell holds EVERY wavelength down to the grid limit (~2 cells)
+     drum mode (m,n) -- exactly one wavevector, (m,n) pi / L, so PPW = 2L / sqrt(m^2+n^2)
+   The errors shown are the dispersion relation's (exact for this lattice, stencil and Co)
+   and the dispersion ledger row MEASURES them on the drum mode. The drawing shows what
+   they do: the grey wave is the continuum, the coloured one the grid's, sampled at the
+   PPW points, after travelling one domain crossing -- small per-wavelength errors
+   accumulate into a visible lag. */
+function sourcePPW(){
+  const lam=S.Co/Math.max(S.freq,1e-9);
+  const driven = S.src==='cont' || S.src==='slit' || (S.src==='vtx' && S.vtxDrive);
+  if(driven){ const K=Math.max(...HARM.map(h=>h[0])); return {ppw:lam, what:'drive &lambda; = Co/f',
+    shortest: K>1 ? lam/K : null}; }
+  if(S.src==='impulse') return {ppw:2, what:'impulse: every &lambda; down to the grid limit', floor:true};
+  if(S.src==='mode'){ const m=modeBox(), [mm,mn]=modeMN();
+    return {ppw:2*m.L/Math.hypot(mm,mn), th:Math.atan2(mn,mm), what:`mode (${mm},${mn}): &lambda; = 2L/&radic;(m&sup2;+n&sup2;)`}; }
+  return {ppw:2.07*S.sigma, what:'pulse: shortest &lambda; with &ge; 1% amplitude = 2.07&sigma;'};
+}
+const ppwBand=e=> e===null ? 'var(--link)' : e<=0.005 ? 'var(--hi)' : e<=0.02 ? 'var(--accent)' : e<=0.05 ? '#c8a800' : 'var(--link)';
+const PPW_HEX=e=> e===null ? '#E22211' : e<=0.005 ? '#009E86' : e<=0.02 ? '#485FC7' : e<=0.05 ? '#c8a800' : '#E22211';
+let PPW_STATE=null;
+function ppwRender(){
+  const P=sourcePPW(), co=S.Co, over=co>coLimit();
+  const D = over ? null : dispersionAt(Math.max(P.ppw,2.0001), co, P.th);
+  const cross=2*innerR();                                  // one domain crossing, in cells
+  const lagWl = D ? (cross/P.ppw)*(1-(P.th===undefined ? 1-D.mean : D.v)) : null;   // in wavelengths
+  PPW_STATE={P, D, lagWl, over};
+  const cv=$('ppwcv'); if(cv){
+    const g=cv.getContext('2d'), W=cv.width, H=cv.height, mid=H/2, A=H*0.36;
+    g.clearRect(0,0,W,H);
+    const nw=2, px=W/nw;                                   // two wavelengths across
+    g.strokeStyle='#5a5a5a'; g.lineWidth=1.5; g.beginPath();
+    for(let x=0;x<=W;x++){ const y=mid-A*Math.sin(TAU*x/px); x?g.lineTo(x,y):g.moveTo(x,y); } g.stroke();
+    const col=PPW_HEX(D ? D.mean : null), lag = lagWl===null ? 0 : lagWl-Math.floor(lagWl);
+    const ppwD=Math.max(P.ppw,2), step=px/ppwD, pts=[];
+    for(let s=0; s*step<=W+1e-6; s++){ const x=s*step; pts.push([x, mid-A*Math.sin(TAU*(x/px - lag))]); }
+    g.strokeStyle=col; g.lineWidth=1.5; g.beginPath(); pts.forEach(([x,y],i)=> i?g.lineTo(x,y):g.moveTo(x,y)); g.stroke();
+    g.fillStyle=col; for(const [x,y] of pts){ g.beginPath(); g.arc(x,y,3.2,0,TAU); g.fill(); }
+  }
+  const pc=(x,d=2)=> (100*x).toFixed(d)+'%';
+  let h=`${P.what}: <span style="color:${ppwBand(D?D.mean:null)}">PPW ${fmt(P.ppw,1)}</span>`+
+        (P.shortest ? ` &middot; shortest harmonic ${fmt(P.shortest,1)}` : '')+'<br>';
+  if(over) h+=`<span style="color:var(--link)">Co is above the ${fmt(coLimit(),4)} limit &mdash; no accuracy, the scheme diverges</span>`;
+  else if(D){
+    h+= P.th===undefined
+      ? `phase speed error ${pc(D.mean)} mean, ${pc(D.worst)} worst &middot; anisotropy ${pc(D.aniso,3)}<br>`+
+        `group speed (a pulse front) ${pc(D.gmean)} mean`
+      : `phase speed error ${pc(D.mean,4)} along ${fmt(P.th*180/PI,1)}&deg; (measured by the dispersion row)`;
+    h+=`<br>after one crossing (${fmt(cross,0)} cells) the grid&rsquo;s wave trails by `+
+       `<span style="color:${ppwBand(D.mean)}">${fmt(lagWl,2)} &lambda;</span>`+
+       (P.floor ? `<br><span style="color:var(--link)">an impulse is grid-scale by construction &mdash; use it for the `+
+                  `light cone, not for accuracy</span>` : '')+
+       `<br><span style="color:#6a6a6a">error ~ 1/PPW&sup2;, and it SHRINKS as Co &rarr; limit (Co/limit now `+
+       `${fmt(co/coLimit(),2)}); best here: triangular lattice near its limit</span>`;
+  }
+  $('ppwNote').innerHTML=h;
+}
+$('mmS').addEventListener('input',()=>{ S.mm=+$('mmS').value; $('mmv').textContent=S.mm; if(S.src==='mode') reseed(); else ppwRender(); });
+$('mnS').addEventListener('input',()=>{ S.mn=+$('mnS').value; $('mnv').textContent=S.mn; if(S.src==='mode') reseed(); else ppwRender(); });
+
+/* ---- the space-time grid readout (ZRL: rho, delta-time, F) --------------------
+   Physical scale from the Listener section: the domain spans L metres (room size) over
+   2R cells, sound at 343 m/s. rho = 2R/L cells per metre (grid resolution), h = 1/rho,
+   dt = Co h / c (delta-time), F = 1/dt (frame rate). CFL puts a FLOOR under F:
+   F >= c rho / C_max -- the resolution fixes the minimum frame rate. u0 = h F is the
+   lattice's own light speed (one bond per tick); the wave runs at c = Co u0. Cost per
+   simulated second = cells x F, which grows as rho^(D+1): x8 per doubling of N in 2D. */
+const PERF={step:null, mesh:null, fps:null, n:0, last:0};
+const ema=(a,b,w)=> a===null ? b : a+(b-a)*w;
+function stRender(){
+  const R=domR(), L=S.roomM, rho=2*R/L, h=1/rho, c=C_AIR, co=S.Co, lim=coLimit();
+  const dt=co*h/c, F=1/dt, Fmin=c*rho/lim, u0=h*F, cells=domainCells(), ri=reachInradius();
+  const fmtHz=x=> x>=1e6 ? (x/1e6).toFixed(2)+' MHz' : x>=1e3 ? (x/1e3).toFixed(2)+' kHz' : x.toFixed(1)+' Hz';
+  const fmtN=x=> x>=1e9 ? (x/1e9).toFixed(2)+'G' : x>=1e6 ? (x/1e6).toFixed(2)+'M' : x>=1e3 ? (x/1e3).toFixed(1)+'k' : x.toFixed(0);
+  let s=`&rho; = 2R/L = <span style="color:var(--accent)">${fmt(rho,2)}</span> cells/m (grid resolution) `+
+        `&middot; h = ${fmt(1000*h,1)} mm<br>`+
+        `&Delta;t = Co&middot;h/c = <span style="color:var(--accent)">${fmt(1e6*dt,2)}</span> &micro;s &rarr; `+
+        `F = 1/&Delta;t = <span style="color:var(--accent)">${fmtHz(F)}</span><br>`+
+        `F &ge; F<sub>min</sub> = c&rho;/C<sub>max</sub> = <span style="color:var(--hi)">${fmtHz(Fmin)}</span> `+
+        `&middot; Co/C<sub>max</sub> = <span style="color:${co>lim?'var(--link)':'var(--hi)'}">${fmt(co/lim,3)}</span><br>`+
+        `u&#8320; = h&middot;F = ${fmt(u0,1)} m/s (1 bond per tick) &middot; wave c = Co&middot;u&#8320; = ${c} m/s<br>`+
+        `light cone: ${reachName()}, inradius ${fmt(ri,4)} (necessary) vs sharp ${fmt(lim,4)}`+
+        (Math.abs(ri-lim)<1e-9?' &mdash; coincide':' &mdash; gap '+fmt(ri-lim,4))+'<br>'+
+        `cost: ${fmtN(cells)} cells &times; F = <span style="color:var(--accent)">${fmtN(cells*F)}</span> `+
+        `cell-updates per simulated second (&prop; &rho;&sup3;: &times;8 per doubling of N)`;
+  if(PERF.step!==null && PERF.n===N){
+    const frameMs=S.sub*PERF.step+PERF.mesh, sps=S.sub*1000/Math.max(frameMs,16.7);
+    s+=`<br>measured here: <span style="color:var(--accent)">${fmt(PERF.step,2)}</span> ms/step + `+
+       `${fmt(PERF.mesh,2)} ms/draw &rarr; ~${fmt(Math.min(60,1000/frameMs),0)} fps at ${S.sub} steps/frame &rarr; `+
+       `${fmt(1000*sps*dt,3)} ms of simulated time per second`;
+  } else s+=`<br><span style="color:#6a6a6a">press play to measure the cost on this machine</span>`;
+  $('stNote').innerHTML=s;
+  nNote();
+}
+function nNote(){
+  let s=`${N} &times; ${N} = ${(N*N).toLocaleString()} cells`;
+  if(PERF.step!==null && PERF.n===N){
+    const frameMs=S.sub*PERF.step+PERF.mesh;
+    const nFor=ms=> Math.round(N*Math.sqrt(ms/Math.max(frameMs,1e-3)));
+    s+=` &middot; ${fmt(frameMs,1)} ms/frame measured<br>this machine: ~${nFor(16.7)} for 60 fps, ~${nFor(33.3)} `+
+       `for 30 fps (cost &prop; N&sup2; per step, N&sup3; per simulated time)`;
+  } else s+=`<br><span style="color:#6a6a6a">press play to measure; above ~600 the CPU solver drops below 60 fps</span>`;
+  $('nNote').innerHTML=s;
+}
+
 $('lat').addEventListener('change',()=>{ S.lattice=$('lat').value; coNote(); latNote();
   if(S.Co>coLimit()){ S.Co=Math.round(coLimit()*0.95*200)/200; $('coS').value=S.Co;
     $('coS').dispatchEvent(new Event('input',{bubbles:true})); }
   reseed(); });
 $('wave').addEventListener('change',()=>{ S.wave=$('wave').value; HARM=harmonics(); harmNote();
-  buildLedger(); });
+  buildLedger(); ppwRender(); });
 $('sten').addEventListener('change',()=>{ S.stencil=+$('sten').value; coNote(); reseed(); });
 function irNote(){
   const fs=irSampleRate(), steps=irSteps(), h=S.roomM/(2*domR());
@@ -2608,7 +2948,8 @@ function irNote(){
     `Huygens fails in 2D and there is no stiffness term</span>`;
 }
 function reseed(){ buildDomain(); recacheSource(); seed(); buildMesh(); updateMesh();
-  renderReadout(); buildLedger(); coNote(); radNote(); srcNote(); phNote(); irNote(); alRefresh(); }
+  renderReadout(); buildLedger(); coNote(); radNote(); srcNote(); phNote(); irNote(); alRefresh();
+  ppwRender(); stRender(); buildCone(); }
 function resize(){
   const w=canvas.clientWidth,h=canvas.clientHeight;
   if(canvas.width!==Math.floor(w*renderer.getPixelRatio())||canvas.height!==Math.floor(h*renderer.getPixelRatio())){
@@ -2617,14 +2958,15 @@ function resize(){
 }
 $('coS').addEventListener('input',()=>{ S.Co=+$('coS').value; $('cov').textContent=S.Co.toFixed(3);
   HARM=harmonics();                       // k_max = Co/(8f) depends on Co too
-  buildDomain(); coNote(); radNote(); harmNote(); irNote(); renderReadout(); buildLedger(); });
+  buildDomain(); coNote(); radNote(); harmNote(); irNote(); renderReadout(); buildLedger();
+  ppwRender(); stRender(); });
 $('nS').addEventListener('input',()=>{ let v=+$('nS').value; if(v%2===0) v+=1;  // odd -> true centre cell
   $('nv').textContent=v; alloc(v); reseed(); });
 $('daS').addEventListener('input',()=>{ S.damp=+$('daS').value; $('dav').textContent=S.damp.toFixed(4); });
 $('spS').addEventListener('input',()=>{ S.sub=+$('spS').value; $('spv').textContent=S.sub; });
 $('sgS').addEventListener('input',()=>{ S.sigma=+$('sgS').value; $('sgv').textContent=S.sigma.toFixed(1); reseed(); });
 $('frS').addEventListener('input',()=>{ S.freq=+$('frS').value; $('frv').textContent=S.freq.toFixed(3);
-  HARM=harmonics(); radNote(); harmNote(); buildLedger(); });
+  HARM=harmonics(); radNote(); harmNote(); buildLedger(); ppwRender(); });
 // renderReadout too: the prism's clip warning is computed inside updateMesh, and while
 // the run is PAUSED nothing else refreshes the overlay, so the warning never appeared
 $('hsS').addEventListener('input',()=>{ S.hs=+$('hsS').value; $('hsv').textContent=S.hs.toFixed(2);
@@ -2670,7 +3012,7 @@ $('srcCentre').onclick=()=>{
 $('drop').onclick=dropPulse;
 /* ---- listener / reverb ---- */
 $('rmS').addEventListener('input',()=>{ S.roomM=+$('rmS').value; $('rmv').textContent=S.roomM.toFixed(1);
-  irNote(); });
+  irNote(); stRender(); });
 $('tlS').addEventListener('input',()=>{ S.tailS=+$('tlS').value; $('tlv').textContent=S.tailS.toFixed(2);
   irNote(); });
 $('wdS').addEventListener('input',()=>{ S.wet=+$('wdS').value; $('wdv').textContent=S.wet.toFixed(2); });
@@ -2734,10 +3076,12 @@ const SRCBTN=[['sImp','impulse'],['sPulse','pulse'],['sCont','cont'],['sSlit','s
 for(const [id,v] of SRCBTN)
   $(id).onclick=()=>{ S.src=v;
     for(const [q] of SRCBTN) $(q).classList.toggle('on', q===id);
+    $('modeWrap').style.display = v==='mode' ? 'block' : 'none';
     reseed(); };
+$('cCone').addEventListener('change',()=>{ S.cone=$('cCone').checked; buildCone(); });
 $('play').onclick=()=>{ S.playing=!S.playing; $('play').classList.toggle('on',S.playing);
   $('play').innerHTML=S.playing?'&#10073;&#10073; pause':'&#9654; play'; };
-$('step1').onclick=()=>{ stepOnce(); updateMesh(); renderReadout(); buildLedger(); };
+$('step1').onclick=()=>{ stepOnce(); updateMesh(); renderReadout(); buildLedger(); buildCone(); };
 $('reset').onclick=()=>reseed();
 function snap(dir,up){
   const d=14;
@@ -2923,9 +3267,17 @@ let last=performance.now(), acc=0;
 function frame(now){
   const dt=Math.min((now-last)/1000,0.05); last=now;
   if(S.playing){
+    // the cost of the space-time grid ON THIS MACHINE: solver and draw timed separately
+    // (EMA), so the space-time readout and the N note can say what N this browser holds
+    const t0=performance.now();
     for(let s=0;s<S.sub;s++) stepOnce();
+    const t1=performance.now();
     updateMesh(); renderReadout();
-    acc+=dt; if(acc>0.25){ acc=0; buildLedger(); }
+    const t2=performance.now();
+    if(PERF.n!==N){ PERF.step=PERF.mesh=null; PERF.n=N; }
+    PERF.step=ema(PERF.step,(t1-t0)/S.sub,0.1); PERF.mesh=ema(PERF.mesh,t2-t1,0.1);
+    if(S.cone) buildCone();
+    acc+=dt; if(acc>0.25){ acc=0; buildLedger(); stRender(); }
   }
   resize(); controls.update(); renderer.render(scene,camera);
   requestAnimationFrame(frame);

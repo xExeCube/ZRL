@@ -1,4 +1,6 @@
-/* The membrane app's interior update, verbatim math: masked, per-cell Co^2 (CC), damping.
+/* (real)-cast constants: a bare 2.0/3 is a DOUBLE literal, which silently promoted the float
+   build of the 9-point and triangular stencils to double arithmetic (fixed 26/09).
+   The membrane app's interior update, verbatim math: masked, per-cell Co^2 (CC), damping.
    stencil 5 = square 5-point, 9 = square 9-point isotropic, 6 = triangular 6-neighbour.
    Usage: ./kernel N stencil seconds   (threads via OMP_NUM_THREADS) -> cell-updates/s */
 #include <stdio.h>
@@ -23,8 +25,8 @@ int main(int argc, char**argv){
         real lap;
         if(st==5) lap=U1[k-1]+U1[k+1]+U1[k-n]+U1[k+n]-4*U1[k];
         else if(st==9){ real e=U1[k-1]+U1[k+1]+U1[k-n]+U1[k+n], g=U1[k-n-1]+U1[k-n+1]+U1[k+n-1]+U1[k+n+1];
-          lap=(2.0/3)*e+(1.0/6)*g-(10.0/3)*U1[k]; }
-        else { real s=U1[k-1]+U1[k+1]+U1[k-n]+U1[k+n]+U1[k+1-n]+U1[k-1+n]; lap=(2.0/3)*(s-6*U1[k]); }
+          lap=(real)(2.0/3)*e+(real)(1.0/6)*g-(real)(10.0/3)*U1[k]; }
+        else { real s=U1[k-1]+U1[k+1]+U1[k-n]+U1[k+n]+U1[k+1-n]+U1[k-1+n]; lap=(real)(2.0/3)*(s-6*U1[k]); }
         U2[k]=(2*U1[k]-U0[k]+CC[k]*lap)-d*(U1[k]-U0[k]);
       } }
     real*tmp=U0; U0=U1; U1=U2; U2=tmp; steps++; t=now()-t0;

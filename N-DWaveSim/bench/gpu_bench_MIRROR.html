@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GPU Wave Benchmark</title>
+<style>
+  :root{ --bg:#000; --panel:#131313; --shadow:#2F0542; --border:#502FA5; --accent:#485FC7;
+         --text:#FFF; --hi:#009E86; --link:#E22211; }
+  *{box-sizing:border-box}
+  body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;margin:0;padding:14px}
+  h1{margin:0;font-size:1.2rem;letter-spacing:3px;color:var(--hi);text-transform:uppercase}
+  .sub{color:#9a9a9a;font-size:.78rem;margin:4px 0 12px;font-family:'Courier New',monospace}
+  .wrap{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap}
+  .panel{width:300px;flex:0 0 300px;background:var(--panel);border:1px solid var(--border);padding:12px}
+  .right{flex:1 1 520px;min-width:0}
+  .sect{color:var(--hi);font-size:.68rem;letter-spacing:2.2px;text-transform:uppercase;margin:12px 0 7px;
+        border-bottom:1px solid var(--shadow);padding-bottom:4px}
+  .sect:first-child{margin-top:0}
+  button{background:#0a0a0a;color:var(--text);border:1px solid var(--border);padding:6px 10px;
+         font-family:'Courier New',monospace;font-size:.75rem;cursor:pointer;margin:3px 3px 3px 0}
+  button:hover{border-color:var(--accent);color:var(--accent)} button:disabled{opacity:.4;cursor:default}
+  label{display:block;font-size:.76rem;margin:5px 0;color:#c8c8c8}
+  .mono{font-family:'Courier New',monospace;font-size:.72rem;color:#8a8a8a;line-height:1.55;word-break:break-word}
+  .mono b{color:var(--accent);font-weight:normal}
+  table{width:100%;border-collapse:collapse;font-family:'Courier New',monospace;font-size:.74rem;
+        background:var(--panel);border:1px solid var(--border)}
+  th{text-align:left;color:var(--hi);font-size:.64rem;letter-spacing:1.4px;text-transform:uppercase;
+     padding:6px 8px;border-bottom:1px solid var(--shadow);font-weight:normal}
+  td{padding:4px 8px;border-bottom:1px solid #1e1e1e}
+  td.n{text-align:right} .ok{color:var(--hi)} .bad{color:var(--link)} .dim{color:#6a6a6a}
+  .note{background:var(--panel);border:1px solid var(--shadow);padding:10px;font-size:.76rem;color:#b4b4b4;
+        line-height:1.55;margin-top:12px}
+  .note b{color:var(--hi)}
+</style></head>
+<body>
+<h1>GPU wave benchmark</h1>
+<div class="sub">the membrane app's update, on the GPU (WebGL2, float32) and in this browser's JS &middot; ZRL</div>
+<div class="wrap">
+<div class="panel">
+  <div class="sect">This machine</div>
+  <div class="mono" id="env">&hellip;</div>
+  <div class="sect">Run</div>
+  <button id="bCheck">1 &middot; check correctness</button>
+  <button id="bRun">2 &middot; benchmark</button>
+  <label><input type="checkbox" id="c5" checked> 5-point</label>
+  <label><input type="checkbox" id="c6" checked> triangular (6)</label>
+  <label><input type="checkbox" id="c9"> 9-point</label>
+  <label><input type="checkbox" id="cJS" checked> also time the JS kernel (the app's CPU path)</label>
+  <label><input type="checkbox" id="cBig"> include N = 8193 (needs ~1.3 GB of GPU memory)</label>
+  <label>seconds per measurement <input type="number" id="secs" value="1" min="0.2" max="5" step="0.1"
+         style="width:60px;background:#0a0a0a;color:var(--accent);border:1px solid var(--border)"></label>
+  <div class="mono" id="status">ready</div>
+</div>
+<div class="right">
+  <table><thead><tr><th>kernel</th><th>stencil</th><th>N</th><th>cell-updates / s</th><th>steps / s</th>
+    <th>60 fps @ 2 steps?</th><th>one crossing</th><th>vs JS</th></tr></thead><tbody id="res"></tbody></table>
+  <div class="note" id="note"></div>
+</div>
+</div>
+<script>
+'use strict';
+/* The kernel is the membrane app's interior update, verbatim math:
+     u2 = mask ? 2 u1 - u0 + CC * lap(u1) : 0     (edges clamped to 0)
+   on a disk mask of radius 0.45 N, CC = 0.25 (Co = 0.5), started from exp(-r^2/18).
+   The same setup as bench/kernel_MIRROR.{c,mjs,py}, so the correctness check can compare
+   against their float64 reference fields: sum of u^2 after 200 steps at N = 101.
+   GPU: three R32F textures ping-ponged through framebuffers, one full-screen triangle per
+   step, texelFetch for the neighbours -- the field never leaves the GPU. Timing is closed by
+   a 1-pixel readPixels, which cannot return until every queued step has run. */
+const $=id=>document.getElementById(id);
+const REF={5:1.540773101133e+01, 9:1.532643659774e+01, 6:1.856106542595e+01};   // float64, 200 steps, N = 101
+const NAME={5:'5-point', 9:'9-point', 6:'triangular'};
+
+function initField(n){
+  const nn=n*n, U=new Float64Array(nn), CC=new Float64Array(nn).fill(0.25), M=new Uint8Array(nn);
+  const c=(n-1)/2, R=0.45*n;
+  for(let j=0;j<n;j++) for(let i=0;i<n;i++){ const k=j*n+i, x=i-c, y=j-c;
+    M[k]= x*x+y*y<=R*R ? 1 : 0; U[k]= M[k] ? Math.exp(-(x*x+y*y)/18) : 0; }
+  return {U, CC, M};
+}
+
+/* ---------------- JS (the app's CPU path) ---------------- */
+function jsSolver(n, st){
+  const f=initField(n); let U0=Float64Array.from(f.U), U1=Float64Array.from(f.U), U2=new Float64Array(n*n);
+  const CC=f.CC, M=f.M;
+  function step(){
+    for(let j=1;j<n-1;j++){ const row=j*n;
+      for(let i=1;i<n-1;i++){ const k=row+i;
+        if(!M[k]){ U2[k]=0; continue; }
+        let lap;
+        if(st===5) lap=U1[k-1]+U1[k+1]+U1[k-n]+U1[k+n]-4*U1[k];
+        else if(st===9){ const e=U1[k-1]+U1[k+1]+U1[k-n]+U1[k+n], g=U1[k-n-1]+U1[k-n+1]+U1[k+n-1]+U1[k+n+1];
+          lap=(2/3)*e+(1/6)*g-(10/3)*U1[k]; }
+        else { const s=U1[k-1]+U1[k+1]+U1[k-n]+U1[k+n]+U1[k+1-n]+U1[k-1+n]; lap=(2/3)*(s-6*U1[k]); }
+        U2[k]=2*U1[k]-U0[k]+CC[k]*lap;
+      } }
+    const t=U0; U0=U1; U1=U2; U2=t;
+  }
+  return {step, sum2:()=>{ let q=0; for(const v of U1) q+=v*v; return q; }};
+}
+
+/* ---------------- GPU (WebGL2) ---------------- */
+const VS=`#version 300 es
+void main(){ vec2 p=vec2((gl_VertexID<<1)&2, gl_VertexID&2); gl_Position=vec4(p*2.0-1.0,0.0,1.0); }`;
+const FS=st=>`#version 300 es
+#define ST ${st}
+precision highp float; precision highp int; precision highp sampler2D;
+uniform sampler2D U1t, U0t, CCt, Mt; uniform int N;
+layout(location=0) out float o;
+float f(ivec2 p){ return texelFetch(U1t,p,0).r; }
+void main(){
+  ivec2 p=ivec2(gl_FragCoord.xy);
+  if(p.x==0||p.y==0||p.x==N-1||p.y==N-1||texelFetch(Mt,p,0).r<0.5){ o=0.0; return; }
+  float c=f(p), e=f(p+ivec2(-1,0))+f(p+ivec2(1,0))+f(p+ivec2(0,-1))+f(p+ivec2(0,1));
+#if ST==5
+  float lap=e-4.0*c;
+#elif ST==9
+  float g=f(p+ivec2(-1,-1))+f(p+ivec2(1,-1))+f(p+ivec2(-1,1))+f(p+ivec2(1,1));
+  float lap=(2.0/3.0)*e+(1.0/6.0)*g-(10.0/3.0)*c;
+#else
+  float s=e+f(p+ivec2(1,-1))+f(p+ivec2(-1,1));
+  float lap=(2.0/3.0)*(s-6.0*c);
+#endif
+  o=2.0*c-texelFetch(U0t,p,0).r+texelFetch(CCt,p,0).r*lap;
+}`;
+let gl=null, progs={};
+function glInit(){
+  if(gl) return gl;
+  const cv=document.createElement('canvas'); cv.width=cv.height=1;
+  gl=cv.getContext('webgl2',{antialias:false, depth:false, stencil:false, powerPreference:'high-performance'});
+  if(!gl) throw new Error('WebGL2 is not available in this browser');
+  if(!gl.getExtension('EXT_color_buffer_float')) throw new Error('EXT_color_buffer_float missing: cannot render to float textures');
+  return gl;
+}
+function program(st){
+  if(progs[st]) return progs[st];
+  const mk=(type,src)=>{ const s=gl.createShader(type); gl.shaderSource(s,src); gl.compileShader(s);
+    if(!gl.getShaderParameter(s,gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
+  const p=gl.createProgram(); gl.attachShader(p,mk(gl.VERTEX_SHADER,VS)); gl.attachShader(p,mk(gl.FRAGMENT_SHADER,FS(st)));
+  gl.linkProgram(p); if(!gl.getProgramParameter(p,gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+  const u={}; for(const nm of ['U1t','U0t','CCt','Mt','N']) u[nm]=gl.getUniformLocation(p,nm);
+  return (progs[st]={p,u});
+}
+function tex(n, data){
+  const t=gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D,t);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+  gl.texImage2D(gl.TEXTURE_2D,0,gl.R32F,n,n,0,gl.RED,gl.FLOAT,data);
+  return t;
+}
+function gpuSolver(n, st){
+  glInit(); const P=program(st), f=initField(n);
+  const U32=Float32Array.from(f.U), CC32=Float32Array.from(f.CC), M32=Float32Array.from(f.M);
+  const T=[tex(n,U32), tex(n,U32), tex(n,null)], CC=tex(n,CC32), M=tex(n,M32);
+  const FB=T.map(t=>{ const fb=gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER,fb);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,t,0);
+    if(gl.checkFramebufferStatus(gl.FRAMEBUFFER)!==gl.FRAMEBUFFER_COMPLETE) throw new Error('float framebuffer incomplete');
+    return fb; });
+  let i0=0, i1=1, i2=2;                                   // roles: u0, u1, u2
+  gl.useProgram(P.p); gl.viewport(0,0,n,n); gl.uniform1i(P.u.N,n);
+  gl.uniform1i(P.u.U1t,0); gl.uniform1i(P.u.U0t,1); gl.uniform1i(P.u.CCt,2); gl.uniform1i(P.u.Mt,3);
+  gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D,CC);
+  gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D,M);
+  function step(){
+    gl.bindFramebuffer(gl.FRAMEBUFFER,FB[i2]);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D,T[i1]);
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D,T[i0]);
+    gl.drawArrays(gl.TRIANGLES,0,3);
+    const t=i0; i0=i1; i1=i2; i2=t;
+  }
+  const px=new Float32Array(4);
+  function sync(){ gl.bindFramebuffer(gl.FRAMEBUFFER,FB[i1]); gl.readPixels(0,0,1,1,gl.RGBA,gl.FLOAT,px); }
+  function sum2(){ gl.bindFramebuffer(gl.FRAMEBUFFER,FB[i1]); const b=new Float32Array(4*n*n);
+    gl.readPixels(0,0,n,n,gl.RGBA,gl.FLOAT,b); let q=0; for(let k=0;k<n*n;k++){ const v=b[4*k]; q+=v*v; } return q; }
+  function free(){ for(const t of [...T,CC,M]) gl.deleteTexture(t); for(const fb of FB) gl.deleteFramebuffer(fb); }
+  return {step, sync, sum2, free};
+}
+
+/* ---------------- measurement ---------------- */
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+async function timeIt(S, secs, isGPU){
+  for(let w=0;w<3;w++) S.step(); if(isGPU) S.sync();                  // warm-up
+  let k=4, t=0;
+  for(;;){                                                              // grow the batch until it is long enough
+    const t0=performance.now(); for(let s=0;s<k;s++) S.step(); if(isGPU) S.sync(); t=(performance.now()-t0)/1000;
+    if(t>=secs || k>=1<<20) break;
+    k=Math.min(k*Math.max(2,Math.ceil(secs/Math.max(t,1e-3))), 1<<20); await sleep(0);
+  }
+  return k/t;                                                           // steps per second
+}
+async function checkCorrectness(){
+  const out=[];
+  for(const st of [5,9,6]){
+    const js=jsSolver(101,st); for(let s=0;s<200;s++) js.step();
+    const g=gpuSolver(101,st); for(let s=0;s<200;s++) g.step();
+    const qj=js.sum2(), qg=g.sum2(); g.free();
+    out.push({st, js:qj, gpu:qg, dRefJS:Math.abs(qj-REF[st])/REF[st], dGpu:Math.abs(qg-REF[st])/REF[st]});
+  }
+  return out;
+}
+async function bench(opts){
+  const sts=opts.stencils, Ns=[257,513,1025,2049,4097].concat(opts.big?[8193]:[]), rows=[];
+  const maxT=glInit().getParameter(gl.MAX_TEXTURE_SIZE);
+  for(const st of sts) for(const n of Ns){
+    if(n>maxT) continue;
+    const cells=(n-2)*(n-2);
+    let g; try{ g=gpuSolver(n,st); }catch(e){ rows.push({kind:'GPU',st,n,err:e.message}); continue; }
+    const sps=await timeIt(g,opts.secs,true); g.free();
+    const row={kind:'GPU',st,n,sps,cups:sps*cells}; rows.push(row); opts.onRow&&opts.onRow(row);
+    if(opts.js && n<=4097){
+      const j=jsSolver(n,st), jsps=await timeIt(j,opts.secs,false);
+      const jr={kind:'JS',st,n,sps:jsps,cups:jsps*cells}; rows.push(jr); row.vsJS=sps/jsps; opts.onRow&&opts.onRow(jr,row);
+    }
+    await sleep(0);
+  }
+  return rows;
+}
+
+/* ---------------- UI ---------------- */
+const fmtE=x=> x>=1e9 ? (x/1e9).toFixed(2)+' G' : x>=1e6 ? (x/1e6).toFixed(1)+' M' : (x/1e3).toFixed(1)+' k';
+function envInfo(){
+  try{ glInit();
+    const d=gl.getExtension('WEBGL_debug_renderer_info');
+    $('env').innerHTML=`renderer <b>${d?gl.getParameter(d.UNMASKED_RENDERER_WEBGL):gl.getParameter(gl.RENDERER)}</b><br>`+
+      `max texture ${gl.getParameter(gl.MAX_TEXTURE_SIZE)} &middot; float render targets <span class="ok">yes</span><br>`+
+      `CPU threads ${navigator.hardwareConcurrency||'?'}`+
+      (/swiftshader|llvmpipe|software/i.test(d?gl.getParameter(d.UNMASKED_RENDERER_WEBGL):'')?
+        `<br><span class="bad">software renderer &mdash; GPU timings here are CPU emulation, correctness only</span>`:'');
+  }catch(e){ $('env').innerHTML=`<span class="bad">${e.message}</span>`; }
+}
+function addRow(r, gpuRow){
+  const tr=document.createElement('tr');
+  if(r.err){ tr.innerHTML=`<td>${r.kind}</td><td>${NAME[r.st]}</td><td class="n">${r.n}</td><td colspan="5" class="bad">${r.err}</td>`; $('res').appendChild(tr); return; }
+  const rt=r.sps>=120, cross=(r.n/0.5)/r.sps;
+  tr.innerHTML=`<td class="${r.kind==='GPU'?'ok':''}">${r.kind}</td><td>${NAME[r.st]}</td><td class="n">${r.n}</td>`+
+    `<td class="n">${fmtE(r.cups)}</td><td class="n">${r.sps.toFixed(r.sps<10?2:0)}</td>`+
+    `<td class="${rt?'ok':'dim'}">${rt?'yes':'no'}</td><td class="n">${cross<1?(1000*cross).toFixed(0)+' ms':cross.toFixed(1)+' s'}</td>`+
+    `<td class="n">${r.kind==='GPU'&&r.vsJS?r.vsJS.toFixed(1)+'&times;':(r.kind==='JS'&&gpuRow&&gpuRow.vsJS?'':'')}</td>`;
+  $('res').appendChild(tr);
+  if(r.kind==='JS' && gpuRow && gpuRow.vsJS){ const g=$('res').children[$('res').children.length-2]; g.lastChild.innerHTML=gpuRow.vsJS.toFixed(1)+'&times;'; }
+}
+$('bCheck').onclick=async()=>{
+  $('status').textContent='checking…'; await sleep(10);
+  try{ const r=await checkCorrectness();
+    $('status').innerHTML=r.map(x=>`${NAME[x.st]}: JS ${x.dRefJS<1e-12?'<span class="ok">= reference</span>':'<span class="bad">off '+x.dRefJS.toExponential(1)+'</span>'}`+
+      ` &middot; GPU rel. dev ${x.dGpu.toExponential(1)} ${x.dGpu<1e-4?'<span class="ok">ok (float32)</span>':'<span class="bad">WRONG</span>'}`).join('<br>');
+  }catch(e){ $('status').innerHTML=`<span class="bad">${e.message}</span>`; }
+};
+$('bRun').onclick=async()=>{
+  $('bRun').disabled=true; $('res').innerHTML=''; $('status').textContent='running… (the page may stutter)';
+  const sts=[5,6,9].filter(s=>$('c'+s).checked);
+  try{ await bench({stencils:sts, secs:+$('secs').value, js:$('cJS').checked, big:$('cBig').checked, onRow:addRow});
+       $('status').textContent='done'; }
+  catch(e){ $('status').innerHTML=`<span class="bad">${e.message}</span>`; }
+  $('bRun').disabled=false;
+};
+$('note').innerHTML=`<b>What this measures.</b> The same update the membrane app runs every tick, on the GPU with the field kept `+
+ `in textures (no per-frame upload), next to the app's JS path on this machine's CPU. <b>Run the correctness check first:</b> `+
+ `the GPU works in float32, so it should agree with the float64 reference to ~1e-6 relative after 200 steps. `+
+ `<b>"60 fps @ 2 steps"</b> means at least 120 steps per second of solver alone &mdash; the app also draws. `+
+ `<b>"one crossing"</b> is N/Co steps at Co = 0.5: the wall time for a wave to cross the grid once, the N&sup3; wall `+
+ `of the space-time grid in 2D. Close other GPU-heavy tabs; a laptop on battery may throttle.`;
+window.GB={checkCorrectness, bench, jsSolver, gpuSolver, envInfo};
+envInfo();
+</script>
+</body></html>

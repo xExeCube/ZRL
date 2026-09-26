@@ -16,6 +16,116 @@ is the 2D ancestor). Specs live here; the parent build spec's §0 / §4 / §8 ap
 | `ZRL_laser_project_sketch_MIRROR.md` | sketch (not a spec) for the laser/lens project |
 | `wave_membrane_MIRROR.html` | **built 2026-09-17, extended 2026-09-19 … 2026-09-26b** — 2D real membrane, leapfrog FDTD, Three.js surface. **The app where the CFL row is LIVE.** Boundaries (Dirichlet / Mur-absorbing / Neumann / periodic), 9 flavor domain shapes (incl. rotatable square), uniform/slab/lens media, 5- and 9-point stencils, square + triangular lattices, **domain radius slider**, **grid ↔ edge alignment block** (every aligned angle, optimal angle, optimal grid flavor, edge colouring, measured ledger row), vertex sources with a 3σ wall inset, full screen / photo mode, typed number boxes, **editable diverging gradient**. |
 
+## 2026-09-26c — the space-time grid: light cone, dispersion, points per wavelength, N to 2048
+
+**Author decisions (26/09), binding for code:** the tick-rate symbol is **TR** (v4's `h` is
+retired for it; **h stays the grid spacing** in code, and long descriptive names are
+preferred to single letters). **ρ = grid resolution** in these apps (not v4's radial ρ).
+"C_max = c = 1" in the ℝ⁴ list was a 1D statement — its N-D generalisation is below.
+
+### The N-D generalisation of "C_max = c = 1" (measured; `bench/spacetime_limits_MIRROR.py`)
+
+One tick moves information one **bond**. After m ticks an impulse fills exactly the stencil's
+**reach polytope** of radius m (convex hull of the neighbour offsets) — the lattice's own
+light cone, speed **u₀ = h·F** (one bond per tick; F = 1/Δt). A wave of speed c fills a ball of
+radius c·t, which must fit inside: **c ≤ u₀ · inradius(reach polytope)** — necessary (CFL 1928).
+The sharp limit is von Neumann's. So the canon's "C_max = c = 1" becomes **c = Co·u₀ with
+Co ≤ C_max ≤ inradius**, and D = 1 (segment, inradius 1) is the one case where u₀ = c_max:
+
+| stencil | reach polytope | inradius (necessary) | sharp (von Neumann) | |
+|---|---|---|---|---|
+| 1D 3-point | segment | 1 | 1 | coincide |
+| 2D square 5-point | diamond | 0.707107 | 0.707107 | coincide — the canon's r/R "signature" |
+| 2D square 9-point | square | 1 | 0.866025 | **gap 0.134** |
+| 2D triangular | hexagon | 0.866025 | 0.816497 | **gap 0.050** |
+| 3D SC 7 / BCC 8 / FCC 12 | octahedron / cube / cuboctahedron | 0.5774 / 0.5774 / 0.7071 | 0.5774 / 0.5774 / 0.7071 | coincide |
+| 4D tesseractic 9-point | 16-cell | 0.5 | 0.5 | coincide |
+
+(Von Neumann limits from a Brillouin-zone scan polished by a local minimiser — the raw scan
+misses the irrational extremal k of BCC and of the triangular K point.) Where they coincide a
+mode exists that puts every neighbour in antiphase at once; the triangular lattice's best
+is the three-colouring (cos k·d = −1/2), and the 9-point's diagonals carry only 1/6 weight, so
+their cones overstate the speed. **It matters here directly:** it is the Co limit, and the
+app now measures the cone (below) and draws it.
+
+### New in `wave_membrane_MIRROR.html`
+- **Space-time grid (ZRL) readout.** With the Listener's room scale (L metres over 2R cells,
+  c = 343 m/s): ρ = 2R/L cells/m, h, Δt = Co·h/c, F = 1/Δt, the floor **F_min = cρ/C_max**,
+  Co/C_max, u₀ = h·F and c = Co·u₀, reach polytope inradius vs sharp limit, cost = cells × F
+  (∝ ρ³), and the MEASURED cost on this machine (ms/step, ms/draw, fps, simulated time per
+  second). The N note turns the measurement into "~N for 60 fps / 30 fps here".
+- **Ledger 7d — the lattice light cone, measured (exact).** Impulse source: after m ticks the
+  field is bitwise zero outside the reach polytope of radius m and the support radius equals
+  m while the cone is clear of the walls (tip underflow below 1e-290 is reported, not failed);
+  also the share of Σu² inside the wave's disk Co·m + 1.5 (99.8 % at m = 40). Optional overlay
+  draws the polytope and the disk around the source.
+- **Accuracy — points per wavelength.** PPW of the active source (drive Co/f; pulse 2.07σ =
+  the shortest λ with ≥ 1 % spectral amplitude; impulse → grid limit; mode 2L/√(m²+n²)), the
+  dispersion relation's mean / worst phase error, anisotropy and group error for the live
+  lattice + stencil + Co, the lag after one domain crossing, a drawing (continuum wave vs the
+  grid's, sampled at the PPW points), and an overlay line.
+- **Drum mode (m, n)** (was (1,1) only) and **ledger 9c — dispersion, measured:** an exact
+  eigenmode obeys u(t+1) + u(t−1) = 2 cos(ωΔt) u(t), so the field's own history at an
+  antinode gives ω with no fit; compared with the dispersion relation (must agree to rounding)
+  and with the continuum (their ratio IS the phase-speed error at that PPW).
+- **N slider 48 … 2048** (was 320 — a UI choice from the first build, no technical limit),
+  typed mesh index (a plain array of 25 M indices at N = 2049 was the reseed bottleneck).
+
+### Points per wavelength: how far, and which configuration (dispersion relation, measured live)
+
+PPW = λ·ρ is not a property of the grid alone: at fixed N, PPW × (wavelengths across the
+domain) ≈ N per axis, so "more PPW" costs N³ in 2D like everything else. What the
+configuration controls is the accuracy per PPW. Phase-speed error falls as 1/PPW², and — the
+leapfrog's time error having the opposite sign to the space error — it also **falls as Co
+approaches its limit**. At PPW 8:
+
+| stencil, Co/limit | phase error mean / worst | anisotropy | group error mean | PPW for 1 % / 0.1 % (worst dir.) |
+|---|---|---|---|---|
+| square 5-point, 0.5 (app default) | 1.61 % / 2.25 % | 1.3e-2 | 4.8 % | 12.0 / 37.9 |
+| square 5-point, 0.95 | 0.79 % / 1.44 % | 1.3e-2 | 2.4 % | 9.6 / 30.1 |
+| square 9-point, 0.95 | 0.85 % / 0.86 % | 2.8e-4 | 2.6 % | 7.5 / 23.1 |
+| **triangular, 0.95** | **0.39 % / 0.40 %** | **6.9e-5** | **1.2 %** | **5.2 / 15.7** |
+| 4th-order square (2,4), 0.25 — *not in the app* | 0.07 % / 0.14 % | 1.5e-3 | 0.4 % | 5.1 / 8.6 |
+
+Measured live (ledger 9c, drum mode (40,40), PPW ≈ 5.6): −1.32 % at Co = 0.5, **−0.13 %** at
+0.976 of the limit — the prediction to 2e-16. Cost of equal accuracy (∝ PPW³ · work / Co at
+equal point density): the triangular lattice near its limit is ~13× cheaper than the square
+5-point at Co = 0.5 for a 1 % target. **Best in the app: triangular lattice, Co ≈ 0.95 of its
+limit** (0.776). Beyond it: a 4th-order stencil for sub-0.1 % work (its error *grows* with Co —
+the time error no longer cancels). Mode sweep: 84 configurations (2 stencils × 2 radii ×
+Co 0.2/0.5/0.69 × modes up to (64,64) ≈ PPW 2): all PASS, max |Δcos(ωΔt)| = 2.2e-16.
+
+### Languages, and the GPU (`bench/`)
+
+Same kernel, all implementations checked to 13 digits (float64). 5-point, M cell-updates/s:
+
+| N | JS (app) | C++ 1T | C# safe | C# unsafe | C# 4 threads | C 4T | C float32 4T |
+|---|---|---|---|---|---|---|---|
+| 1281 | 193 | 449 | 277 | 360 | 899 | 1721 | 4792 |
+| 4097 | 192 | 403 | 241 | 331 | 1016 | 1174 | 2965 |
+
+C++ = C (same compiler). C# (.NET 8) is 1.3–1.9× the JS single-threaded and 3–6× with
+`Parallel.For` (`sweep_lang_MIRROR.csv`). Unity's Burst compiler (LLVM, SIMD) should land near C — not measurable here.
+**Correction:** the earlier C float32 rows for the 9-point and triangular stencils were
+double arithmetic in disguise (`2.0/3` is a double literal); fixed with `(real)` casts and
+re-timed (1T 500–820 M, 4T 1.3–1.8 G; `sweep_MIRROR.csv` updated).
+
+**GPU:** `bench/gpu_bench_MIRROR.html` — the app's update in WebGL2 fragment shaders (R32F
+textures, ping-pong, the field never leaves the GPU) next to the app's JS path, on the
+viewer's machine. Validated here on a software GPU (SwiftShader) for **correctness only**: the
+sum of u² after 200 steps at N = 101 is 15.40773704 / 18.56107341 / 15.32615048 for 5-point /
+triangular / 9-point — identical to strict float32 arithmetic on the CPU
+(`f32check_MIRROR.mjs`), i.e. 3.9e-7 / 4.3e-7 / **1.9e-5** from float64. The 9-point stencil
+loses ~40× more in float32 (its weights 2/3, 1/6, −10/3 cancel), so a GPU build favours the
+triangular lattice on precision as well. The exact-symmetry rows would need float32-scaled
+tolerances on a GPU; the light cone stays exact (zero is zero in any precision).
+
+### Verification of this round
+Regression **1170 configurations** (the 780 above + the impulse source): 0 FAIL on any row,
+no JS errors; the light-cone row PASSes in all 390 impulse configurations (support radius = m
+exactly, 0 cells outside). Mode sweep 84/84. GPU page: correctness as above, benchmark path
+exercised end to end.
+
 ## 2026-09-26b — grid ↔ edge alignment (wired and measured), six fixes, and how far N goes
 
 **Provenance.** The local session hit its usage limit halfway through this build; it was
