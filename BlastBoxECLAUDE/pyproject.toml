@@ -1,0 +1,27 @@
+# BlastBox - project metadata and pytest configuration.
+#
+# `package = false` tells uv this is a "virtual" project: it has dependencies and
+# a venv, but it is not built or installed as a library. Without `requires-python`
+# uv warns and defaults to >=3.12 on its own; pinning it here makes the intent
+# explicit and stops the guess from drifting if another interpreter appears.
+[project]
+name = "blastbox"
+version = "0.2.0"
+description = "2D blast-wave and sound-wave simulation in a particle field"
+requires-python = ">=3.12"
+dependencies = [
+    "numpy>=2.0",
+    "scipy>=1.13",
+    "pygame-ce>=2.5",
+    "pytest>=8",
+    "sympy>=1.12",
+    "matplotlib>=3.8",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["testsCLAUDE"]
+pythonpath = ["."]
+addopts = "-q"
