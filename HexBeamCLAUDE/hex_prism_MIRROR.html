@@ -1,0 +1,1026 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ZRL — LatMosaic: Hex Prism v1</title>
+<style>
+  :root{
+    --bg:#161616; --panel:#1d1d1d; --bshadow:#2F0542; --bline:#502FA5;
+    --accent:#485FC7; --text:#FFF; --hi:#009E86; --bad:#E22211;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font-family:'Segoe UI',system-ui,sans-serif;font-size:14px}
+  code,.mono{font-family:'Courier New',monospace}
+  header{padding:16px 22px 0 22px}
+  h1{margin:0;font-size:1.25rem;letter-spacing:3px;color:var(--hi);text-transform:uppercase}
+  .sub{color:#888;font-size:.75rem;letter-spacing:1px;font-family:'Courier New',monospace}
+  main{padding:0 22px 30px 22px}
+  .layout{display:flex;gap:14px;margin-top:14px;align-items:flex-start;flex-wrap:wrap}
+  .panel{background:var(--panel);border:1px solid var(--bshadow);
+    box-shadow:0 0 14px var(--bshadow);padding:14px}
+  .controls{width:300px;flex-shrink:0}
+  .canvaswrap{flex:1;min-width:320px;padding:6px}
+  svg#board{display:block;width:100%;height:76vh;border:1px solid var(--bshadow);cursor:crosshair;touch-action:none}
+  svg#board polygon:hover{filter:brightness(1.25)}
+  .sect{margin:14px 0 6px 0;color:var(--accent);font-size:.7rem;letter-spacing:2px;
+    text-transform:uppercase;border-bottom:1px solid var(--bshadow);padding-bottom:3px;
+    font-family:'Courier New',monospace}
+  .sect:first-child{margin-top:0}
+  .presets{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
+  .pbtn{flex:1;min-width:52px;background:#0f0f0f;color:#aaa;border:1px solid var(--bshadow);
+    padding:7px 4px;cursor:pointer;font-family:'Courier New',monospace;font-size:.75rem;
+    transition:.15s;white-space:nowrap}
+  .pbtn:hover{color:var(--text);border-color:var(--bline)}
+  .pbtn.active{color:var(--text);border-color:var(--bline);background:#242424}
+  .pbtn.go{color:var(--hi);border-color:var(--hi)}
+  label.ctl{display:block;font-size:.75rem;color:#bbb;margin:10px 0 2px 0;
+    font-family:'Courier New',monospace}
+  label.ctl .v{float:right;color:var(--accent)}
+  input[type=range]{width:100%;accent-color:var(--accent);height:4px}
+  input[type=number]{width:80px;background:#0f0f0f;color:var(--text);border:1px solid var(--bshadow);
+    padding:4px 6px;font-family:'Courier New',monospace;font-size:.8rem}
+  input[type=color]{width:34px;height:24px;padding:0;border:1px solid var(--bshadow);
+    background:#0f0f0f;vertical-align:middle;cursor:pointer}
+  .row{display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap;
+    font-family:'Courier New',monospace;font-size:.75rem;color:#bbb}
+  .row label{display:flex;gap:4px;align-items:center;cursor:pointer}
+  .readout{font-family:'Courier New',monospace;font-size:.75rem;line-height:1.7;
+    margin-top:8px;border-top:1px solid var(--bshadow);padding-top:8px}
+  .readout .ok{color:var(--hi)} .readout .bad{color:var(--bad)}
+  .readout .k{color:#888} .readout .a{color:var(--accent)}
+  .note{margin-top:12px;color:#888;font-size:.75rem;line-height:1.5;max-width:960px}
+  .note b,.hi{color:var(--hi);font-weight:bold}
+</style>
+</head>
+<body>
+<header>
+  <h1>LatMosaic &mdash; Hex Prism</h1>
+  <div class="sub">extruded hex/rhombus/triangle mosaic &middot; oblique lattice projection (prismatic honeycomb) &middot; ledger checked live</div>
+</header>
+<main>
+<div class="layout">
+  <div class="panel controls">
+
+    <div class="sect">Generate (floor plan)</div>
+    <div class="row">
+      seed <input type="number" id="seed" value="1618" step="1">
+      <button class="pbtn" id="bDice" style="flex:0;min-width:34px" title="random seed">&#127922;</button>
+    </div>
+    <label class="ctl">tiles <span class="v" id="vTiles">250</span></label>
+    <input type="range" id="tiles" min="10" max="2000" step="10" value="250">
+    <label class="ctl">weight: hexagon <span class="v" id="vWh">30</span></label>
+    <input type="range" id="wh" min="0" max="100" value="30">
+    <label class="ctl">weight: rhombus <span class="v" id="vWr">45</span></label>
+    <input type="range" id="wr" min="0" max="100" value="45">
+    <label class="ctl">weight: triangle <span class="v" id="vWt">25</span></label>
+    <input type="range" id="wt" min="0" max="100" value="25">
+    <label class="ctl">growth shape</label>
+    <div class="presets" id="stratBtns">
+      <button class="pbtn" data-strat="random">random</button>
+      <button class="pbtn active" data-strat="compact">compact</button>
+      <button class="pbtn" data-strat="sprawl">sprawl</button>
+    </div>
+    <label class="ctl">gap chance <span class="v" id="vGap">8%</span></label>
+    <input type="range" id="gap" min="0" max="40" value="8">
+    <label class="ctl">gap size (atoms) <span class="v" id="vGsz">3</span></label>
+    <input type="range" id="gsz" min="1" max="12" value="3">
+    <div class="presets">
+      <button class="pbtn go" id="bGen">generate</button>
+      <button class="pbtn" id="bGrow">grow +25%</button>
+      <button class="pbtn" id="bClear">clear</button>
+    </div>
+
+    <div class="sect">Heights &amp; extrusion</div>
+    <label class="ctl">height mode</label>
+    <div class="presets" id="hmodeBtns">
+      <button class="pbtn" data-hmode="flat">flat</button>
+      <button class="pbtn active" data-hmode="random">random</button>
+      <button class="pbtn" data-hmode="dome">dome</button>
+      <button class="pbtn" data-hmode="ramp">ramp</button>
+    </div>
+    <label class="ctl">height min <span class="v" id="vHmin">1</span></label>
+    <input type="range" id="hmin" min="0" max="20" value="1">
+    <label class="ctl">height max <span class="v" id="vHmax">6</span></label>
+    <input type="range" id="hmax" min="0" max="20" value="6">
+    <div class="row">
+      height seed <input type="number" id="hseed" value="7" step="1">
+      <button class="pbtn" id="bHDice" style="flex:0;min-width:34px" title="random height seed">&#127922;</button>
+      <button class="pbtn go" id="bHApply" style="flex:0">apply heights</button>
+    </div>
+    <label class="ctl">extrusion direction</label>
+    <div class="presets" id="dirBtns">
+      <button class="pbtn" data-dir="4">&#8598;</button>
+      <button class="pbtn active" data-dir="5">&#8599;</button>
+      <button class="pbtn" data-dir="3">&#8592;</button>
+      <button class="pbtn" data-dir="0">&#8594;</button>
+      <button class="pbtn" data-dir="2">&#8601;</button>
+      <button class="pbtn" data-dir="1">&#8600;</button>
+    </div>
+
+    <div class="sect">Paint (click a column)</div>
+    <div class="presets" id="paintBtns">
+      <button class="pbtn active" data-paint="base">base</button>
+      <button class="pbtn" data-paint="window">window</button>
+      <button class="pbtn" data-paint="transparent">pit</button>
+      <button class="pbtn" data-paint="custom">custom</button>
+      <button class="pbtn" data-paint="delete">delete</button>
+    </div>
+    <div class="presets" id="paintBtns2">
+      <button class="pbtn" data-paint="raise">raise +1</button>
+      <button class="pbtn" data-paint="lower">lower &minus;1</button>
+      <button class="pbtn" data-paint="seth">set h</button>
+    </div>
+    <div class="row">custom color <input type="color" id="customCol" value="#FF00FF">
+      set-h value <input type="number" id="setH" value="8" min="0" max="30" step="1"></div>
+
+    <div class="sect">Window presets</div>
+    <label class="ctl">window fraction <span class="v" id="vWfrac">25%</span></label>
+    <input type="range" id="wfrac" min="0" max="100" value="25">
+    <div class="presets" id="wmodeBtns">
+      <button class="pbtn active" data-wmode="random">random</button>
+      <button class="pbtn" data-wmode="clusters">clusters</button>
+    </div>
+    <label class="ctl">cluster size (cells) <span class="v" id="vCsz">4</span></label>
+    <input type="range" id="csz" min="1" max="20" value="4">
+    <div class="row">
+      pattern seed <input type="number" id="wseed" value="42" step="1">
+      <button class="pbtn" id="bWDice" style="flex:0;min-width:34px" title="random pattern seed">&#127922;</button>
+    </div>
+    <div class="presets">
+      <button class="pbtn go" id="bWApply">apply pattern</button>
+      <button class="pbtn" id="bWClear">clear windows</button>
+    </div>
+
+    <div class="sect">Style</div>
+    <div class="row">
+      <label>base <input type="color" id="baseCol" value="#4a2a86"></label>
+      <label>window <input type="color" id="winCol" value="#00FF00"></label>
+      <label>bg <input type="color" id="bgCol" value="#161616"></label>
+    </div>
+    <label class="ctl">wall shade L <span class="v" id="vSl">62%</span></label>
+    <input type="range" id="sl" min="10" max="100" value="62">
+    <label class="ctl">wall shade R <span class="v" id="vSr">42%</span></label>
+    <input type="range" id="sr" min="10" max="100" value="42">
+    <label class="ctl">border width (tops) <span class="v" id="vBw">0% of edge</span></label>
+    <input type="range" id="bw" min="0" max="25" step="0.5" value="0">
+    <div class="row">
+      <label>border <input type="color" id="borderCol" value="#502FA5"></label>
+      <label><input type="checkbox" id="flatWin" checked> flat windows (no shading)</label>
+    </div>
+    <div class="row">
+      <label><input type="checkbox" id="tbg"> transparent background</label>
+    </div>
+
+    <div class="sect">Export</div>
+    <div class="row">
+      px per edge <input type="number" id="ppe" value="60" min="4" max="512" step="1">
+      <span id="vDims" class="k"></span>
+    </div>
+    <div class="presets">
+      <button class="pbtn" id="bPNG">png</button>
+      <button class="pbtn" id="bJPG">jpeg</button>
+      <button class="pbtn" id="bSVG">svg</button>
+    </div>
+    <label class="ctl">jpeg quality <span class="v" id="vJq">92</span></label>
+    <input type="range" id="jq" min="50" max="100" value="92">
+    <div class="row">
+      <label><input type="checkbox" id="mInv"> invert mask</label>
+      <label><input type="checkbox" id="mBorders"> borders in mask</label>
+    </div>
+    <div class="presets">
+      <button class="pbtn go" id="bMask">mask png</button>
+      <button class="pbtn" id="bFit">fit view</button>
+    </div>
+
+    <div class="sect">Ledger (identity checks)</div>
+    <div class="readout" id="ledger" style="border-top:none;margin-top:2px;padding-top:0"></div>
+  </div>
+
+  <div class="panel canvaswrap">
+    <svg id="board" xmlns="http://www.w3.org/2000/svg">
+      <rect id="bgRect" x="-10000" y="-10000" width="20000" height="20000" fill="#161616"></rect>
+      <g id="gFaces"></g>
+    </svg>
+  </div>
+</div>
+
+<p class="note"><b>What this is.</b> The HexMosaic floor plan (hexagon / 60&deg;-rhombus / triangle
+mosaic on the triangular lattice) extruded into a <b>prismatic honeycomb</b>: every tile becomes a
+column of integer height, drawn under an <b>oblique lattice projection</b> &mdash; one height level
+shifts a vertex by exactly one lattice step along the chosen extrusion direction, so top faces stay
+the exact 2D tiles and every visible wall is an exact 60&deg;/120&deg; unit rhombus stack (verified
+live in the ledger). Rendering is a per-atom <b>painter sweep</b>: atom columns are sorted along the
+extrusion direction and overdrawn back-to-front &mdash; occlusion can only happen inside one lattice
+band along that direction, where the centroid order is total, so the painter order is exact, not a
+heuristic. Gaps and <span class="hi">pit</span>-painted cells draw nothing, so you see the far walls
+of the columns behind them, like real excavations. <b>Windows</b> work as in HexMosaic: paint or
+preset chroma columns (flat-shaded for clean GIMP selection), export <b>mask png</b> (white =
+every visible face of window columns), PNG/JPEG/SVG. Click paints with the selected tool, including
+<b>raise / lower / set h</b>; pan by dragging, zoom with the wheel. Same seeds &rarr; same scene.
+Sibling app (next): <i>hex_beam</i> &mdash; &#8484;&sup3; beam walks under the (1,1,1) projection
+with per-crossing impossible-occlusion decisions (Reutersv&auml;rd mode).</p>
+</main>
+
+<script>
+'use strict';
+/* ---------- geometry core (identical to HexMosaic; see its README for the scheme) ---------- */
+const H = Math.sqrt(3)/2;
+const VX = (a,b)=> a + b*0.5, VY = (a,b)=> b*H;
+const AK = (s,a,b)=> s+','+a+','+b;
+const AP = k => k.split(',').map(Number);
+function neighbors(s,a,b){
+  return s===0 ? [[1,a,b],[1,a-1,b],[1,a,b-1]]
+               : [[0,a,b],[0,a+1,b],[0,a,b+1]];
+}
+function atomVerts(s,a,b){ // CCW in lattice coords
+  return s===0 ? [[a,b],[a+1,b],[a,b+1]]
+               : [[a+1,b],[a+1,b+1],[a,b+1]];
+}
+function hexAtoms(a,b){
+  return [[0,a,b],[0,a-1,b],[0,a,b-1],[1,a-1,b],[1,a,b-1],[1,a-1,b-1]];
+}
+function candidatesFor(s,a,b){
+  const c = [{type:'tri', atoms:[[s,a,b]]}];
+  for (const n of neighbors(s,a,b)) c.push({type:'rh', atoms:[[s,a,b],n]});
+  for (const v of atomVerts(s,a,b)) c.push({type:'hex', atoms:hexAtoms(v[0],v[1])});
+  return c;
+}
+function outlineFromAtoms(atoms){
+  const dir = new Set(), vk = v=> v[0]+','+v[1];
+  for (const [s,a,b] of atoms){
+    const vs = atomVerts(s,a,b);
+    for (let i=0;i<3;i++) dir.add(vk(vs[i])+'>'+vk(vs[(i+1)%3]));
+  }
+  const next = new Map();
+  for (const e of dir){
+    const [p,q] = e.split('>');
+    if (!dir.has(q+'>'+p)) next.set(p,q);
+  }
+  const start = next.keys().next().value;
+  const out = []; let cur = start;
+  do { out.push(cur.split(',').map(Number)); cur = next.get(cur); }
+  while (cur !== start && out.length <= next.size);
+  return out;
+}
+const AREA = {tri:1, rh:2, hex:6};
+function mulberry32(seed){
+  let t = seed >>> 0;
+  return function(){
+    t = (t + 0x6D2B79F5) >>> 0;
+    let r = Math.imul(t ^ (t >>> 15), 1 | t);
+    r = (r + Math.imul(r ^ (r >>> 7), 61 | r)) ^ r;
+    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/* ---------- state ---------- */
+const S = { tiles: new Map(), occ: new Map(), blocked: new Set(), nextId: 1 };
+function resetState(){ S.tiles.clear(); S.occ.clear(); S.blocked.clear(); S.nextId = 1; }
+function placeTile(type, atoms){
+  for (const [s,a,b] of atoms){
+    const k = AK(s,a,b);
+    if (S.occ.has(k) || S.blocked.has(k)) return null;
+  }
+  const id = S.nextId++;
+  const tile = {id, type, atoms, outline: outlineFromAtoms(atoms), fill:'base', h: 1};
+  S.tiles.set(id, tile);
+  for (const [s,a,b] of atoms) S.occ.set(AK(s,a,b), id);
+  return tile;
+}
+function deleteTile(id){
+  const t = S.tiles.get(id); if (!t) return;
+  for (const [s,a,b] of t.atoms) S.occ.delete(AK(s,a,b));
+  S.tiles.delete(id);
+}
+function atomCentroid(s,a,b){
+  const vs = atomVerts(s,a,b);
+  let x=0,y=0; for (const [va,vb] of vs){ x += VX(va,vb); y += VY(va,vb); }
+  return [x/3, y/3];
+}
+
+/* ---------- generation (identical algorithm to HexMosaic post-review) ---------- */
+function buildFrontier(){
+  const set = new Set();
+  for (const k of S.occ.keys()){
+    const [s,a,b] = AP(k);
+    for (const [ns,na,nb] of neighbors(s,a,b)){
+      const nk = AK(ns,na,nb);
+      if (!S.occ.has(nk) && !S.blocked.has(nk)) set.add(nk);
+    }
+  }
+  return set;
+}
+function generate(opts, additional){
+  const {seed, target, wHex, wRh, wTri, strat, gapP, gapSz} = opts;
+  const rng = mulberry32(additional ? (seed + S.tiles.size*2654435761) : seed);
+  if (!additional){
+    resetState();
+    placeTile('hex', hexAtoms(0,0));
+  }
+  if (S.tiles.size === 0) placeTile('hex', hexAtoms(0,0));
+  const goal = additional ? S.tiles.size + target : target;
+  const fSet = buildFrontier();
+  const fArr = [...fSet];
+  const pushF = k => { if (!fSet.has(k) && !S.occ.has(k) && !S.blocked.has(k)){ fSet.add(k); fArr.push(k); } };
+  const validF = k => fSet.has(k) && !S.occ.has(k) && !S.blocked.has(k);
+  function popRandomF(){
+    while (fArr.length){
+      const i = Math.floor(rng()*fArr.length);
+      const k = fArr[i];
+      fArr[i] = fArr[fArr.length-1]; fArr.pop();
+      if (!validF(k)){ fSet.delete(k); continue; }
+      return k;
+    }
+    return null;
+  }
+  function pickFrontier(){
+    if (strat === 'random') return popRandomF();
+    const K = 14; let best = null, bestD = strat==='compact' ? Infinity : -Infinity;
+    for (let i=0;i<K;i++){
+      const k = popRandomF();
+      if (k === null) break;
+      const [s,a,b] = AP(k);
+      const [cx,cy] = atomCentroid(s,a,b);
+      const d = cx*cx + cy*cy;
+      if (strat==='compact' ? d < bestD : d > bestD){
+        if (best !== null){ fArr.push(best); }
+        best = k; bestD = d;
+      } else fArr.push(k);
+    }
+    return best;
+  }
+  function blockBlob(k0, size){
+    const q = [k0]; let n = 0;
+    while (q.length && n < size){
+      const k = q.shift();
+      if (S.occ.has(k) || S.blocked.has(k)) continue;
+      S.blocked.add(k); fSet.delete(k); n++;
+      const [s,a,b] = AP(k);
+      for (const [ns,na,nb] of neighbors(s,a,b)){
+        const nk = AK(ns,na,nb);
+        if (!S.occ.has(nk) && !S.blocked.has(nk)) q.push(nk);
+      }
+    }
+  }
+  const wSum = wHex + wRh + wTri;
+  function chooseType(avail){
+    let pool = [];
+    if (avail.has('hex')) pool.push(['hex', wHex]);
+    if (avail.has('rh'))  pool.push(['rh',  wRh]);
+    if (avail.has('tri')) pool.push(['tri', wTri]);
+    let tot = pool.reduce((s,p)=>s+p[1], 0);
+    if (tot <= 0) return pool.length ? pool[Math.floor(rng()*pool.length)][0] : null;
+    let r = rng()*tot;
+    for (const [ty,w] of pool){ r -= w; if (r <= 0) return ty; }
+    return pool[pool.length-1][0];
+  }
+  let guard = (goal - S.tiles.size) * 40 + 1000;
+  while (wSum > 0 && S.tiles.size < goal && guard-- > 0){
+    const k = pickFrontier();
+    if (k === null) break;
+    if (gapP > 0 && rng() < gapP){ blockBlob(k, gapSz); continue; }
+    const [s,a,b] = AP(k);
+    const legal = candidatesFor(s,a,b).filter(c =>
+      c.atoms.every(([cs,ca,cb]) => { const ck = AK(cs,ca,cb); return !S.occ.has(ck) && !S.blocked.has(ck); }));
+    if (!legal.length){ fSet.delete(k); continue; }
+    const avail = new Set(legal.map(c=>c.type));
+    const ty = chooseType(avail);
+    const ofType = legal.filter(c => c.type === ty);
+    const chosen = ofType[Math.floor(rng()*ofType.length)];
+    const tile = placeTile(chosen.type, chosen.atoms);
+    if (tile){
+      for (const [ts,ta,tb] of chosen.atoms){
+        fSet.delete(AK(ts,ta,tb));
+        for (const [ns,na,nb] of neighbors(ts,ta,tb)) pushF(AK(ns,na,nb));
+      }
+    } else { fSet.delete(k); }
+  }
+}
+
+/* ---------- heights ---------- */
+function tileCentroid(t){
+  let x=0,y=0,n=0;
+  for (const [a,b] of t.outline){ x += VX(a,b); y += VY(a,b); n++; }
+  return [x/n, y/n];
+}
+function assignHeights(mode, hseed, hmin, hmax, force){
+  // force=true (generate / explicit "apply heights") re-rolls everything and clears
+  // manual flags; otherwise hand-sculpted columns (raise/lower/set-h) are preserved
+  const rng = mulberry32(hseed);
+  const lo = Math.min(hmin, hmax), hi = Math.max(hmin, hmax);
+  let maxR = 0.0001;
+  if (mode === 'dome' || mode === 'ramp'){
+    for (const t of S.tiles.values()){
+      const [x,y] = tileCentroid(t);
+      maxR = Math.max(maxR, Math.hypot(x,y));
+    }
+  }
+  const D = DIRS[UI.dir], dx = VX(D[0],D[1]), dy = VY(D[0],D[1]);
+  const dl = Math.hypot(dx,dy);
+  for (const t of S.tiles.values()){
+    const r = rng(); // one draw per tile: skips never shift the stream
+    if (force) t.hManual = false;
+    else if (t.hManual) continue;
+    if (mode === 'flat'){ t.h = lo; continue; }
+    if (mode === 'random'){ t.h = lo + Math.floor(r*(hi-lo+1)); continue; }
+    const [x,y] = tileCentroid(t);
+    if (mode === 'dome'){
+      t.h = Math.round(hi - (Math.hypot(x,y)/maxR)*(hi-lo));
+    } else { // ramp: staircase along the extrusion direction
+      const s = (x*dx + y*dy)/dl; // signed distance along d̂
+      t.h = Math.round(lo + ((s/maxR + 1)/2)*(hi-lo));
+    }
+    t.h = Math.max(0, Math.min(30, t.h));
+  }
+  S.appliedHMode = mode;
+}
+
+/* ---------- UI state ---------- */
+const $ = id => document.getElementById(id);
+// six lattice directions as (da,db) vertex steps; index = data-dir
+const DIRS = [[1,0],[0,1],[-1,1],[-1,0],[0,-1],[1,-1]];
+const UI = {
+  paint: 'base', strat: 'compact', wmode: 'random', hmode: 'random',
+  dir: 5, // (1,-1): up-right on screen
+  view: {x:-12, y:-9, w:24},
+};
+function styleOpts(){
+  return {
+    base: $('baseCol').value, win: $('winCol').value, bg: $('bgCol').value,
+    borderW: parseFloat($('bw').value)/100, borderC: $('borderCol').value,
+    tbg: $('tbg').checked, flatWin: $('flatWin').checked,
+    sl: parseInt($('sl').value)/100, sr: parseInt($('sr').value)/100,
+  };
+}
+function resolveColor(tile, st){
+  if (tile.fill === 'base') return st.base;
+  if (tile.fill === 'window') return st.win;
+  if (tile.fill === 'transparent') return null; // pit: column not drawn
+  return tile.fill; // custom '#rrggbb'
+}
+function shade(hex, f){
+  const r = Math.round(parseInt(hex.slice(1,3),16)*f),
+        g = Math.round(parseInt(hex.slice(3,5),16)*f),
+        b = Math.round(parseInt(hex.slice(5,7),16)*f);
+  return '#'+[r,g,b].map(v=>Math.max(0,Math.min(255,v)).toString(16).padStart(2,'0')).join('');
+}
+
+/* ---------- face builder: exact painter sweep over atom columns ----------
+   One height level = one lattice step along DIRS[UI.dir]; occlusion couples only
+   atoms in the same lattice band along that direction, where centroid order is
+   total => sorting all atoms by centroid·d̂ descending is an EXACT painter order. */
+function edgeFamily(p, q){ // canonical direction key of a lattice edge
+  let da = q[0]-p[0], db = q[1]-p[1];
+  if (da < 0 || (da === 0 && db < 0)){ da = -da; db = -db; }
+  return da+','+db;
+}
+function wallFamilies(){ // the two edge families that can show as walls (not ∥ d)
+  const D = DIRS[UI.dir];
+  const dKey = edgeFamily([0,0], D);
+  return ['1,0','0,1','1,-1'].filter(k => k !== dKey);
+}
+function buildFaces(st){
+  const D = DIRS[UI.dir];
+  const dx = VX(D[0],D[1]), dy = VY(D[0],D[1]);
+  const dl = Math.hypot(dx,dy), dhx = dx/dl, dhy = dy/dl;
+  const fams = wallFamilies(); // [famL, famR]
+  const wallShade = {}; wallShade[fams[0]] = st.sl; wallShade[fams[1]] = st.sr;
+  const items = [];
+  for (const t of S.tiles.values()){
+    const col = resolveColor(t, st);
+    if (col === null) continue; // pit
+    for (const at of t.atoms) items.push({at, t, col});
+  }
+  items.sort((A,B) => {
+    const ca = atomCentroid(A.at[0],A.at[1],A.at[2]), cb = atomCentroid(B.at[0],B.at[1],B.at[2]);
+    return (cb[0]*dhx + cb[1]*dhy) - (ca[0]*dhx + ca[1]*dhy); // descending along d̂
+  });
+  const faces = [];
+  for (const {at, t, col} of items){
+    const h = Math.max(0, t.h|0);
+    const flat = (t.fill === 'window' && st.flatWin);
+    const vs = atomVerts(at[0],at[1],at[2]);
+    if (h > 0){
+      const [cx0,cy0] = atomCentroid(at[0],at[1],at[2]);
+      for (let i=0;i<3;i++){
+        const p = vs[i], q = vs[(i+1)%3];
+        // outward normal in screen coords, oriented away from the atom centroid
+        const ex = VX(q[0],q[1])-VX(p[0],p[1]), ey = VY(q[0],q[1])-VY(p[0],p[1]);
+        let nx = ey, ny = -ex;
+        const mx = (VX(p[0],p[1])+VX(q[0],q[1]))/2, my = (VY(p[0],p[1])+VY(q[0],q[1]))/2;
+        if (nx*(mx-cx0) + ny*(my-cy0) < 0){ nx = -nx; ny = -ny; }
+        if (nx*dx + ny*dy < -1e-9){ // "lower" edge along d: visible wall
+          const fam = edgeFamily(p,q);
+          faces.push({
+            pts: [p, q, [q[0]+h*D[0], q[1]+h*D[1]], [p[0]+h*D[0], p[1]+h*D[1]]],
+            fill: flat ? col : shade(col, wallShade[fam] !== undefined ? wallShade[fam] : st.sr),
+            tid: t.id, kind: 'wall',
+          });
+        }
+      }
+    }
+    faces.push({
+      pts: vs.map(v => [v[0]+h*D[0], v[1]+h*D[1]]),
+      fill: col, // top face at full tone
+      tid: t.id, kind: 'top',
+    });
+  }
+  return faces;
+}
+function facesBounds(faces){
+  if (!faces.length) return {minx:-2,miny:-2,maxx:2,maxy:2};
+  let minx=Infinity,miny=Infinity,maxx=-Infinity,maxy=-Infinity;
+  for (const f of faces) for (const [a,b] of f.pts){
+    const x=VX(a,b), y=VY(a,b);
+    if (x<minx)minx=x; if (x>maxx)maxx=x; if (y<miny)miny=y; if (y>maxy)maxy=y;
+  }
+  return {minx,miny,maxx,maxy};
+}
+function ptsAttr(pts){
+  return pts.map(([a,b]) => (VX(a,b).toFixed(4))+','+(VY(a,b).toFixed(4))).join(' ');
+}
+
+/* ---------- svg scene ---------- */
+const board = $('board'), gFaces = $('gFaces'), bgRect = $('bgRect');
+let FACES = []; // last built face list (draw order), reused by exports/bounds
+let restyleRaf = 0, restyleStructural = false, lastBorderOn = null;
+function scheduleRestyle(structural = true){
+  if (structural) restyleStructural = true;
+  if (restyleRaf) return;
+  restyleRaf = requestAnimationFrame(() => {
+    restyleRaf = 0;
+    const s = restyleStructural; restyleStructural = false;
+    restyleScene(s);
+  });
+}
+function restyleScene(structural = true){
+  const st = styleOpts();
+  bgRect.setAttribute('fill', st.bg);
+  const borderOn = st.borderW > 0;
+  const newFaces = buildFaces(st);
+  // style-only pass: geometry unchanged — patch fills/strokes on existing nodes
+  if (!structural && lastBorderOn === borderOn && FACES.length === newFaces.length){
+    FACES = newFaces; // exports read fills from FACES: keep them fresh
+    const kids = gFaces.children;
+    for (let i=0;i<newFaces.length;i++){
+      kids[i].setAttribute('fill', newFaces[i].fill);
+      kids[i].setAttribute('stroke', newFaces[i].fill);
+    }
+    if (borderOn) for (let i=newFaces.length;i<kids.length;i++){
+      kids[i].setAttribute('stroke', st.borderC);
+      kids[i].setAttribute('stroke-width', st.borderW);
+    }
+    updateDims();
+    return;
+  }
+  FACES = newFaces;
+  lastBorderOn = borderOn;
+  gFaces.textContent = '';
+  const frag = document.createDocumentFragment();
+  for (const f of FACES){
+    const p = document.createElementNS('http://www.w3.org/2000/svg','polygon');
+    p.setAttribute('points', ptsAttr(f.pts));
+    p.setAttribute('fill', f.fill);
+    // same-color overpaint stroke kills butt-joint hairlines between atom faces
+    p.setAttribute('stroke', f.fill);
+    p.setAttribute('stroke-width', 0.02);
+    p.setAttribute('stroke-linejoin', 'round');
+    p.dataset.tid = f.tid;
+    frag.appendChild(p);
+  }
+  // tile-top borders, painter-safe enough at border 0 default (see README)
+  const st2 = styleOpts();
+  if (st2.borderW > 0){
+    const D = DIRS[UI.dir];
+    for (const t of S.tiles.values()){
+      if (resolveColor(t, st2) === null) continue;
+      const p = document.createElementNS('http://www.w3.org/2000/svg','polygon');
+      p.setAttribute('points', ptsAttr(t.outline.map(v => [v[0]+(t.h|0)*D[0], v[1]+(t.h|0)*D[1]])));
+      p.setAttribute('fill', 'none');
+      p.setAttribute('stroke', st2.borderC);
+      p.setAttribute('stroke-width', st2.borderW);
+      p.setAttribute('stroke-linejoin', 'round');
+      p.style.pointerEvents = 'none';
+      frag.appendChild(p);
+    }
+  }
+  gFaces.appendChild(frag);
+  updateLedger();
+  updateDims();
+}
+
+/* ---------- viewbox pan/zoom (as HexMosaic) ---------- */
+function updateViewBox(){
+  const r = board.getBoundingClientRect();
+  const asp = r.height / Math.max(1, r.width);
+  const v = UI.view;
+  board.setAttribute('viewBox', v.x+' '+v.y+' '+v.w+' '+(v.w*asp));
+}
+function clientToSvg(cx, cy){
+  const r = board.getBoundingClientRect();
+  const asp = r.height / Math.max(1, r.width);
+  return [UI.view.x + (cx - r.left)/r.width * UI.view.w,
+          UI.view.y + (cy - r.top)/r.height * (UI.view.w*asp)];
+}
+function fitView(){
+  const bb = facesBounds(FACES), pad = 1;
+  const r = board.getBoundingClientRect();
+  const asp = (r.width > 4 && r.height > 4) ? r.height / r.width : 0.618;
+  const w = bb.maxx - bb.minx + 2*pad, h = bb.maxy - bb.miny + 2*pad;
+  UI.view.w = Math.max(w, h/Math.max(asp,.0001));
+  UI.view.x = (bb.minx + bb.maxx)/2 - UI.view.w/2;
+  UI.view.y = (bb.miny + bb.maxy)/2 - UI.view.w*asp/2;
+  updateViewBox();
+}
+board.addEventListener('wheel', e => {
+  e.preventDefault();
+  const f = e.deltaY > 0 ? 1.15 : 1/1.15;
+  const [mx,my] = clientToSvg(e.clientX, e.clientY);
+  const v = UI.view;
+  v.x = mx - (mx - v.x)*f; v.y = my - (my - v.y)*f; v.w *= f;
+  updateViewBox();
+}, {passive:false});
+let drag = null;
+board.addEventListener('pointerdown', e => {
+  if (e.button !== 0) return;
+  drag = {x:e.clientX, y:e.clientY, vx:UI.view.x, vy:UI.view.y, moved:false, target:e.target};
+  board.setPointerCapture(e.pointerId);
+});
+board.addEventListener('pointermove', e => {
+  if (!drag) return;
+  if (e.pointerType === 'mouse' && e.buttons === 0){ drag = null; return; }
+  const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+  if (Math.abs(dx)+Math.abs(dy) > 4) drag.moved = true;
+  if (drag.moved){
+    const r = board.getBoundingClientRect();
+    UI.view.x = drag.vx - dx/r.width * UI.view.w;
+    UI.view.y = drag.vy - dy/r.width * UI.view.w;
+    updateViewBox();
+  }
+});
+board.addEventListener('pointerup', e => {
+  if (drag && !drag.moved && drag.target && drag.target.dataset && drag.target.dataset.tid){
+    paintTile(+drag.target.dataset.tid);
+  }
+  drag = null;
+});
+board.addEventListener('pointercancel', () => { drag = null; });
+window.addEventListener('resize', updateViewBox);
+
+function paintTile(id){
+  const t = S.tiles.get(id); if (!t) return;
+  if (UI.paint === 'delete'){ deleteTile(id); scheduleRestyle(); return; }
+  if (UI.paint === 'raise'){ t.h = Math.min(30, (t.h|0)+1); t.hManual = true; }
+  else if (UI.paint === 'lower'){ t.h = Math.max(0, (t.h|0)-1); t.hManual = true; }
+  else if (UI.paint === 'seth'){ t.h = Math.max(0, Math.min(30, parseInt($('setH').value)||0)); t.hManual = true; }
+  else if (UI.paint === 'custom'){ t.fill = $('customCol').value; }
+  else { t.fill = UI.paint; }
+  scheduleRestyle();
+}
+
+/* ---------- windows (identical to HexMosaic post-review) ---------- */
+function tileAdjacency(){
+  const adj = new Map();
+  for (const t of S.tiles.values()) adj.set(t.id, new Set());
+  for (const t of S.tiles.values()){
+    for (const [s,a,b] of t.atoms){
+      for (const [ns,na,nb] of neighbors(s,a,b)){
+        const o = S.occ.get(AK(ns,na,nb));
+        if (o !== undefined && o !== t.id){ adj.get(t.id).add(o); adj.get(o).add(t.id); }
+      }
+    }
+  }
+  return adj;
+}
+function applyWindowPattern(mode, fraction, wseed, clusterSz){
+  for (const t of S.tiles.values()) if (t.fill === 'window') t.fill = 'base';
+  const paintable = [];
+  for (const t of S.tiles.values()) if (t.fill === 'base') paintable.push(t.id);
+  if (!paintable.length) return;
+  const rng = mulberry32(wseed);
+  const targetN = Math.min(Math.round(fraction * S.tiles.size), paintable.length);
+  if (mode === 'random'){
+    for (let i=0;i<targetN;i++){
+      const j = i + Math.floor(rng()*(paintable.length - i));
+      [paintable[i], paintable[j]] = [paintable[j], paintable[i]];
+      S.tiles.get(paintable[i]).fill = 'window';
+    }
+  } else {
+    const adj = tileAdjacency();
+    const free = paintable.slice();
+    const idx = new Map(free.map((id,i)=>[id,i]));
+    const take = id => {
+      const i = idx.get(id); if (i === undefined) return;
+      const last = free[free.length-1];
+      free[i] = last; idx.set(last, i);
+      free.pop(); idx.delete(id);
+    };
+    let made = 0;
+    while (made < targetN && free.length){
+      const q = [free[Math.floor(rng()*free.length)]];
+      let grown = 0;
+      while (q.length && grown < clusterSz && made < targetN){
+        const id = q.splice(Math.floor(rng()*q.length),1)[0];
+        const t = S.tiles.get(id);
+        if (t.fill !== 'base') continue;
+        t.fill = 'window'; take(id); grown++; made++;
+        for (const n of adj.get(id)) if (S.tiles.get(n).fill === 'base') q.push(n);
+      }
+    }
+  }
+}
+
+/* ---------- ledger ---------- */
+function audit(){
+  let n = {hex:0, rh:0, tri:0}, sumAreas = 0, arityBad = 0, mapBad = 0, win = 0, pit = 0;
+  let hMin = Infinity, hMax = -Infinity;
+  const seen = new Map();
+  for (const t of S.tiles.values()){
+    n[t.type]++; sumAreas += t.atoms.length;
+    if (t.atoms.length !== AREA[t.type]) arityBad++;
+    if (t.fill === 'window') win++;
+    if (t.fill === 'transparent') pit++;
+    hMin = Math.min(hMin, t.h|0); hMax = Math.max(hMax, t.h|0);
+    for (const [s,a,b] of t.atoms){
+      const k = AK(s,a,b);
+      if (seen.has(k)) mapBad++; else seen.set(k, t.id);
+      if (S.occ.get(k) !== t.id) mapBad++;
+    }
+  }
+  const occOk = S.occ.size === sumAreas && seen.size === sumAreas;
+  // wall geometry identity: sampled wall faces must be exact 1×h parallelograms
+  // with a 60° or 120° corner (side vectors are unit lattice edge and h·d)
+  let wallOk = true, wallsChecked = 0;
+  for (const f of FACES){
+    if (f.kind !== 'wall') continue;
+    if (wallsChecked >= 50) break;
+    wallsChecked++;
+    const [p,q,r2] = f.pts;
+    const ux = VX(q[0],q[1])-VX(p[0],p[1]), uy = VY(q[0],q[1])-VY(p[0],p[1]);
+    const vx2 = VX(r2[0],r2[1])-VX(q[0],q[1]), vy2 = VY(r2[0],r2[1])-VY(q[0],q[1]);
+    const lu = Math.hypot(ux,uy), lv = Math.hypot(vx2,vy2);
+    const cosA = (ux*vx2+uy*vy2)/(lu*lv);
+    if (Math.abs(lu-1) > 1e-9 || Math.abs(Math.abs(cosA)-0.5) > 1e-9) wallOk = false;
+  }
+  return {n, sumAreas, occ:S.occ.size, arityBad, mapBad, occOk, win, pit,
+          blocked:S.blocked.size, total:S.tiles.size, hMin, hMax, wallOk, wallsChecked,
+          faces: FACES.length};
+}
+function updateLedger(){
+  const a = audit();
+  const ok = a.occOk && a.arityBad === 0 && a.mapBad === 0 && a.wallOk;
+  $('ledger').innerHTML =
+    '<span class="'+(ok?'ok':'bad')+'">'+(ok?'&#10003; LEDGER':'&#10007; LEDGER BROKEN')+'</span> '+
+    '<span class="k">&Sigma; areas</span> <span class="a">'+a.sumAreas+'</span> '+
+    '<span class="k">= occupied atoms</span> <span class="'+(a.occOk?'ok':'bad')+'">'+a.occ+'</span><br>'+
+    '<span class="k">tiles</span> <span class="a">'+a.total+'</span> '+
+    '<span class="k">= hex</span> '+a.n.hex+' <span class="k">+ rh</span> '+a.n.rh+
+    ' <span class="k">+ tri</span> '+a.n.tri+'<br>'+
+    '<span class="k">walls 60&deg;/120&deg; exact</span> <span class="'+(a.wallOk?'ok':'bad')+'">'+
+    (a.wallOk?'&#10003;':'&#10007;')+'</span> <span class="k">('+a.wallsChecked+' sampled)</span> '+
+    '<span class="k">faces</span> <span class="a">'+a.faces+'</span><br>'+
+    '<span class="k">h &isin;</span> <span class="a">['+(a.total?a.hMin:0)+', '+(a.total?a.hMax:0)+']</span> '+
+    '<span class="k">windows</span> <span class="a">'+a.win+'</span> '+
+    '<span class="k">pits</span> <span class="a">'+a.pit+'</span> '+
+    '<span class="k">gap atoms</span> <span class="a">'+a.blocked+'</span>'+
+    (a.arityBad||a.mapBad ? '<br><span class="bad">arity errors '+a.arityBad+' &middot; map errors '+a.mapBad+'</span>' : '');
+}
+
+/* ---------- exports ---------- */
+function exportGeom(){
+  const st = styleOpts();
+  const bb = facesBounds(FACES);
+  const pad = st.borderW/2 + 0.1;
+  return {st, minx: bb.minx - pad, miny: bb.miny - pad,
+          w: (bb.maxx - bb.minx) + 2*pad, h: (bb.maxy - bb.miny) + 2*pad};
+}
+function exportPixelDims(g){
+  let ppe = parseFloat($('ppe').value);
+  if (!isFinite(ppe)) ppe = 60;
+  ppe = Math.min(512, Math.max(4, ppe));
+  let W = Math.max(1, Math.round(g.w*ppe)), Hh = Math.max(1, Math.round(g.h*ppe)), f = 1;
+  const MAXD = 16000;
+  if (W > MAXD || Hh > MAXD){
+    f = MAXD / Math.max(W, Hh);
+    W = Math.round(W*f); Hh = Math.round(Hh*f);
+  }
+  return {W, Hh, scale: ppe*f, clamped: f < 1};
+}
+function updateDims(){
+  const d = exportPixelDims(exportGeom());
+  $('vDims').textContent = d.W+' × '+d.Hh+' px'+(d.clamped ? ' (clamped)' : '');
+}
+function makeCanvas(){
+  const g = exportGeom();
+  const d = exportPixelDims(g);
+  const cv = document.createElement('canvas');
+  cv.width = d.W; cv.height = d.Hh;
+  const ctx = cv.getContext('2d');
+  ctx.setTransform(d.scale, 0, 0, d.scale, -g.minx*d.scale, -g.miny*d.scale);
+  return {cv, ctx, g, scale: d.scale};
+}
+function traceFace(ctx, pts){
+  ctx.beginPath();
+  pts.forEach(([a,b], i) => {
+    const x = VX(a,b), y = VY(a,b);
+    i ? ctx.lineTo(x,y) : ctx.moveTo(x,y);
+  });
+  ctx.closePath();
+}
+function drawFaces(ctx, colorOf){ // painter order with same-color overpaint stroke
+  ctx.lineJoin = 'round';
+  for (const f of FACES){
+    const c = colorOf(f);
+    traceFace(ctx, f.pts);
+    ctx.fillStyle = c; ctx.fill();
+    ctx.strokeStyle = c; ctx.lineWidth = 0.02; ctx.stroke();
+  }
+}
+function drawTopBorders(ctx, strokeStyle, w){
+  const D = DIRS[UI.dir], st = styleOpts();
+  ctx.strokeStyle = strokeStyle; ctx.lineWidth = w; ctx.lineJoin = 'round';
+  for (const t of S.tiles.values()){
+    if (resolveColor(t, st) === null) continue;
+    traceFace(ctx, t.outline.map(v => [v[0]+(t.h|0)*D[0], v[1]+(t.h|0)*D[1]]));
+    ctx.stroke();
+  }
+}
+function renderColor(ctx, g, forceBg){
+  const st = g.st;
+  if (forceBg || !st.tbg){
+    ctx.save(); ctx.setTransform(1,0,0,1,0,0);
+    ctx.fillStyle = st.bg; ctx.fillRect(0,0,ctx.canvas.width,ctx.canvas.height);
+    ctx.restore();
+  }
+  drawFaces(ctx, f => f.fill);
+  if (st.borderW > 0) drawTopBorders(ctx, st.borderC, st.borderW);
+}
+function renderMask(ctx){
+  const inv = $('mInv').checked, st = styleOpts();
+  ctx.save(); ctx.setTransform(1,0,0,1,0,0);
+  ctx.fillStyle = '#000000'; ctx.fillRect(0,0,ctx.canvas.width,ctx.canvas.height);
+  ctx.restore();
+  const winSet = new Set();
+  for (const t of S.tiles.values()) if (t.fill === 'window') winSet.add(t.id);
+  drawFaces(ctx, f => winSet.has(f.tid) ? '#FFFFFF' : '#000000');
+  if ($('mBorders').checked && st.borderW > 0) drawTopBorders(ctx, '#000000', st.borderW);
+  if (inv){
+    ctx.save(); ctx.setTransform(1,0,0,1,0,0);
+    ctx.globalCompositeOperation = 'difference';
+    ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0,0,ctx.canvas.width,ctx.canvas.height);
+    ctx.restore();
+  }
+}
+function dlBlob(name, blob){
+  if (!blob){
+    alert('Export failed: image too large for this browser to encode. Lower "px per edge" and try again.');
+    return;
+  }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+}
+function fname(ext, suffix){
+  // seeds snapshotted when actually consumed — not the live (possibly re-diced) inputs
+  return 'hex_prism_s'+(S.usedSeed||0)+'_h'+(S.usedHSeed||0)+'_'+S.tiles.size+'t'+(suffix||'')+'.'+ext;
+}
+$('bPNG').onclick = () => {
+  const {cv, ctx, g} = makeCanvas();
+  renderColor(ctx, g, false);
+  cv.toBlob(b => dlBlob(fname('png'), b), 'image/png');
+};
+$('bJPG').onclick = () => {
+  const {cv, ctx, g} = makeCanvas();
+  renderColor(ctx, g, true);
+  cv.toBlob(b => dlBlob(fname('jpg'), b), 'image/jpeg', parseFloat($('jq').value)/100);
+};
+$('bMask').onclick = () => {
+  const {cv, ctx} = makeCanvas();
+  renderMask(ctx);
+  cv.toBlob(b => dlBlob(fname('png', '_mask'), b), 'image/png');
+};
+$('bSVG').onclick = () => {
+  try {
+    const g = exportGeom(), st = g.st;
+    const d = exportPixelDims(g);
+    const n4 = x => x.toFixed(4);
+    let out = '<svg xmlns="http://www.w3.org/2000/svg" width="'+d.W+
+      '" height="'+d.Hh+'" viewBox="'+n4(g.minx)+' '+n4(g.miny)+
+      ' '+n4(g.w)+' '+n4(g.h)+'">\n';
+    if (!st.tbg) out += '<rect x="'+n4(g.minx)+'" y="'+n4(g.miny)+'" width="'+
+      n4(g.w)+'" height="'+n4(g.h)+'" fill="'+st.bg+'"/>\n';
+    for (const f of FACES)
+      out += '<polygon points="'+ptsAttr(f.pts)+'" fill="'+f.fill+'" stroke="'+f.fill+
+        '" stroke-width="0.02" stroke-linejoin="round"/>\n';
+    if (st.borderW > 0){
+      const D = DIRS[UI.dir];
+      for (const t of S.tiles.values()){
+        if (resolveColor(t, st) === null) continue;
+        out += '<polygon points="'+ptsAttr(t.outline.map(v => [v[0]+(t.h|0)*D[0], v[1]+(t.h|0)*D[1]]))+
+          '" fill="none" stroke="'+st.borderC+'" stroke-width="'+st.borderW+'" stroke-linejoin="round"/>\n';
+      }
+    }
+    out += '</svg>\n';
+    dlBlob(fname('svg'), new Blob([out], {type:'image/svg+xml'}));
+  } catch (err){
+    alert('SVG export failed: '+err.message);
+  }
+};
+
+/* ---------- control wiring ---------- */
+function genOpts(){
+  return {
+    seed: parseInt($('seed').value) || 0,
+    target: parseInt($('tiles').value),
+    wHex: parseInt($('wh').value), wRh: parseInt($('wr').value), wTri: parseInt($('wt').value),
+    strat: UI.strat,
+    gapP: parseInt($('gap').value)/100, gapSz: parseInt($('gsz').value),
+  };
+}
+function applyHeightsNow(force){
+  assignHeights(UI.hmode, parseInt($('hseed').value)||0,
+                parseInt($('hmin').value), parseInt($('hmax').value), force);
+  S.usedHSeed = parseInt($('hseed').value)||0;
+}
+$('bGen').onclick = () => {
+  S.usedSeed = parseInt($('seed').value)||0;
+  generate(genOpts(), false); applyHeightsNow(true); restyleScene(); fitView();
+};
+$('bGrow').onclick = () => {
+  const o = genOpts(); o.target = Math.max(5, Math.round(S.tiles.size*0.25));
+  // pre-existing columns keep their heights (sculpted or seeded); only new tiles roll
+  const keep = new Map();
+  for (const [id,t] of S.tiles) keep.set(id, [t.h, !!t.hManual]);
+  S.usedSeed = parseInt($('seed').value)||0;
+  generate(o, true);
+  applyHeightsNow(false);
+  for (const [id,hm] of keep){ const t = S.tiles.get(id); if (t){ t.h = hm[0]; t.hManual = hm[1]; } }
+  restyleScene(); fitView();
+};
+$('bClear').onclick = () => { resetState(); restyleScene(); };
+$('bDice').onclick = () => { $('seed').value = Math.floor(Math.random()*100000); };
+$('bHDice').onclick = () => { $('hseed').value = Math.floor(Math.random()*100000); };
+$('bWDice').onclick = () => { $('wseed').value = Math.floor(Math.random()*100000); };
+$('bHApply').onclick = () => { applyHeightsNow(true); scheduleRestyle(); }; // explicit full re-roll
+$('bWApply').onclick = () => {
+  applyWindowPattern(UI.wmode, parseInt($('wfrac').value)/100,
+                     parseInt($('wseed').value)||0, parseInt($('csz').value));
+  scheduleRestyle();
+};
+$('bWClear').onclick = () => {
+  for (const t of S.tiles.values()) if (t.fill === 'window') t.fill = 'base';
+  scheduleRestyle();
+};
+$('bFit').onclick = fitView;
+
+function bindGroup(containerId, dataKey, uiKey, after){
+  $(containerId).addEventListener('click', e => {
+    const b = e.target.closest('.pbtn'); if (!b || b.dataset[dataKey] === undefined) return;
+    UI[uiKey] = isNaN(+b.dataset[dataKey]) ? b.dataset[dataKey] : +b.dataset[dataKey];
+    for (const x of $(containerId).querySelectorAll('.pbtn')) x.classList.toggle('active', x === b);
+    if (after) after();
+  });
+}
+bindGroup('stratBtns', 'strat', 'strat');
+bindGroup('wmodeBtns', 'wmode', 'wmode');
+bindGroup('hmodeBtns', 'hmode', 'hmode');
+bindGroup('dirBtns', 'dir', 'dir', () => {
+  // a ramp staircase follows the extrusion direction: re-derive (sculpted tiles kept)
+  if (S.appliedHMode === 'ramp') applyHeightsNow(false);
+  scheduleRestyle();
+});
+// the two paint groups share one UI.paint state
+for (const gid of ['paintBtns','paintBtns2']){
+  $(gid).addEventListener('click', e => {
+    const b = e.target.closest('.pbtn'); if (!b || !b.dataset.paint) return;
+    UI.paint = b.dataset.paint;
+    for (const g2 of ['paintBtns','paintBtns2'])
+      for (const x of $(g2).querySelectorAll('.pbtn')) x.classList.toggle('active', x === b);
+  });
+}
+
+const liveLabels = [
+  ['tiles','vTiles', v=>v], ['wh','vWh', v=>v], ['wr','vWr', v=>v], ['wt','vWt', v=>v],
+  ['gap','vGap', v=>v+'%'], ['gsz','vGsz', v=>v], ['wfrac','vWfrac', v=>v+'%'],
+  ['csz','vCsz', v=>v], ['bw','vBw', v=>v+'% of edge'], ['jq','vJq', v=>v],
+  ['hmin','vHmin', v=>v], ['hmax','vHmax', v=>v], ['sl','vSl', v=>v+'%'], ['sr','vSr', v=>v+'%'],
+];
+for (const [id, lab, fmt] of liveLabels)
+  $(id).addEventListener('input', () => { $(lab).textContent = fmt($(id).value); });
+for (const id of ['baseCol','winCol','bgCol','borderCol','bw','tbg','flatWin','sl','sr'])
+  $(id).addEventListener('input', () => scheduleRestyle(false)); // style-only pass
+$('ppe').addEventListener('input', () => updateDims());
+
+/* ---------- boot ---------- */
+S.usedSeed = parseInt($('seed').value)||0;
+generate(genOpts(), false);
+applyHeightsNow(true);
+restyleScene();
+requestAnimationFrame(() => requestAnimationFrame(fitView));
+</script>
+</body>
+</html>

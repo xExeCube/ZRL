@@ -1,0 +1,1637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ZRL — LatMosaic: Hex Beam v1</title>
+<style>
+  :root{
+    --bg:#161616; --panel:#1d1d1d; --bshadow:#2F0542; --bline:#502FA5;
+    --accent:#485FC7; --text:#FFF; --hi:#009E86; --bad:#E22211;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font-family:'Segoe UI',system-ui,sans-serif;font-size:14px}
+  code,.mono{font-family:'Courier New',monospace}
+  header{padding:16px 22px 0 22px;display:flex;align-items:flex-start;gap:14px}
+  header .titles{flex:1}
+  h1{margin:0;font-size:1.25rem;letter-spacing:3px;color:var(--hi);text-transform:uppercase}
+  .sub{color:#888;font-size:.75rem;letter-spacing:1px;font-family:'Courier New',monospace}
+  .hamb{background:#0f0f0f;color:var(--hi);border:1px solid var(--bline);border-radius:8px;
+    font-size:1.2rem;line-height:1;padding:6px 10px;cursor:pointer;margin-top:2px}
+  .hamb:hover{background:#242424}
+  main{padding:0 22px 30px 22px}
+  .layout{display:flex;gap:14px;margin-top:14px;align-items:flex-start;flex-wrap:wrap}
+  .layout.collapsed .controls{display:none}
+  .panel{background:var(--panel);border:1px solid var(--bshadow);border-radius:10px;
+    box-shadow:0 0 14px var(--bshadow);padding:14px}
+  .controls{width:300px;flex-shrink:0;max-height:84vh;overflow-y:auto}
+  /* the render window: drag its bottom-right corner to resize; the hamburger hides
+     the controls so it can take the whole width */
+  .canvaswrap{flex:1;min-width:320px;min-height:240px;height:78vh;padding:6px;resize:both;overflow:hidden}
+  /* the corner handle writes an inline width; a flex:1 item ignores it (flex-basis
+     0%), so once a width has been dragged, let the item keep it (review 07/09) */
+  .canvaswrap[style*="width"]{flex:0 1 auto}
+  .controls .sect:focus-visible{outline:1px solid var(--hi);outline-offset:2px}
+  svg#board{display:block;width:100%;height:100%;border:1px solid var(--bshadow);border-radius:8px;cursor:crosshair;touch-action:none}
+  svg#board polygon:hover{filter:brightness(1.25)}
+  .ledgerbar{margin-top:14px}
+  .hidden{display:none!important}
+  .sect{margin:14px 0 6px 0;color:var(--accent);font-size:.7rem;letter-spacing:2px;
+    text-transform:uppercase;border-bottom:1px solid var(--bshadow);padding-bottom:3px;
+    font-family:'Courier New',monospace}
+  .controls .sect{cursor:pointer;user-select:none}
+  .controls .sect::after{content:'\25BE';float:right;color:#666}
+  .controls .sect.closed::after{content:'\25B8'}
+  .sect:first-child{margin-top:0}
+  .presets{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
+  .pbtn{flex:1;min-width:52px;background:#0f0f0f;color:#aaa;border:1px solid var(--bshadow);
+    border-radius:6px;padding:7px 4px;cursor:pointer;font-family:'Courier New',monospace;font-size:.75rem;
+    transition:.15s;white-space:normal;line-height:1.15}
+  .pbtn:hover{color:var(--text);border-color:var(--bline)}
+  .pbtn.active{color:var(--text);border-color:var(--bline);background:#242424}
+  .pbtn.go{color:var(--hi);border-color:var(--hi)}
+  label.ctl{display:block;font-size:.75rem;color:#bbb;margin:10px 0 2px 0;
+    font-family:'Courier New',monospace}
+  label.ctl .v{float:right;color:var(--accent)}
+  input[type=range]{width:100%;accent-color:var(--accent);height:4px}
+  input[type=number]{width:80px;background:#0f0f0f;color:var(--text);border:1px solid var(--bshadow);
+    border-radius:5px;padding:4px 6px;font-family:'Courier New',monospace;font-size:.8rem}
+  input[type=color]{width:34px;height:24px;padding:0;border:1px solid var(--bshadow);border-radius:5px;
+    background:#0f0f0f;vertical-align:middle;cursor:pointer}
+  .row{display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap;
+    font-family:'Courier New',monospace;font-size:.75rem;color:#bbb}
+  .row label{display:flex;gap:4px;align-items:center;cursor:pointer}
+  .readout{font-family:'Courier New',monospace;font-size:.75rem;line-height:1.7;
+    margin-top:8px;border-top:1px solid var(--bshadow);padding-top:8px}
+  .readout .ok{color:var(--hi)} .readout .bad{color:var(--bad)}
+  .readout .k{color:#888} .readout .a{color:var(--accent)}
+  .note{margin-top:12px;color:#888;font-size:.75rem;line-height:1.5;max-width:960px}
+  .note b,.hi{color:var(--hi);font-weight:bold}
+</style>
+</head>
+<body>
+<header>
+  <div class="titles">
+    <h1>LatMosaic &mdash; Hex Beam</h1>
+    <div class="sub">&#8484;&sup3; beam walks flattened along (1,1,1) &middot; impossible-occlusion crossings (Reutersv&auml;rd mode) &middot; ledger checked live</div>
+  </div>
+  <button class="hamb" id="bHamb" title="show / hide the controls (the render window is resizable at its corner)">&#9776;</button>
+</header>
+<main>
+<div class="layout">
+  <div class="panel controls">
+
+    <div class="sect">Figure</div>
+    <div class="presets" id="figBtns">
+      <button class="pbtn" data-fig="tribar">3-bar</button>
+      <button class="pbtn" data-fig="hexring">6-bar</button>
+      <button class="pbtn" data-fig="dblhex">double 6-bar</button>
+      <button class="pbtn" data-fig="sierp3">Sierpi&nacute;ski 3-bar</button>
+      <button class="pbtn" data-fig="tri3strip">3-bar strip</button>
+      <button class="pbtn" data-fig="tri3tile">3-bar tiling</button>
+      <button class="pbtn active" data-fig="knot">knot walk</button>
+      <span style="flex-basis:100%;height:0"></span>
+      <button class="pbtn" data-fig="hextile">hex tiling</button>
+      <button class="pbtn" data-fig="hextight">tight tiling</button>
+      <button class="pbtn" data-fig="hexabut">abut tiling</button>
+      <button class="pbtn" data-fig="hexchain">chain tiling</button>
+      <button class="pbtn" data-fig="hexpacked">packed honeycomb</button>
+      <button class="pbtn" data-fig="kagome">kagome (loose)</button>
+      <button class="pbtn" data-fig="dblhoney">double 6-bar honeycomb</button>
+    </div>
+    <label class="ctl">beam family</label>
+    <div class="presets" id="famBtns">
+      <button class="pbtn active" data-family="cube">cubes</button>
+      <button class="pbtn" data-family="rhomb">rhombohedra</button>
+      <button class="pbtn" data-family="mixed">mixed (6 dirs)</button>
+    </div>
+    <label class="ctl">view axis (isomer views: the same cubes seen along another body diagonal)</label>
+    <div class="presets" id="axisBtns">
+      <button class="pbtn active" data-axis="111">(1,1,1)</button>
+      <button class="pbtn" data-axis="11m">(1,1,&minus;1)</button>
+      <button class="pbtn" data-axis="1m1">(1,&minus;1,1)</button>
+      <button class="pbtn" data-axis="m11">(&minus;1,1,1)</button>
+    </div>
+    <label class="ctl">arm length (Sierpi&nacute;ski: smallest 3-bar) <span class="v" id="vArm">6</span></label>
+    <input type="range" id="arm" min="3" max="12" value="6">
+    <label class="ctl">tiling size (Sierpi&nacute;ski: depth = n&minus;1) <span class="v" id="vTilen">3&times;3</span></label>
+    <input type="range" id="tilen" min="2" max="5" value="3">
+    <label class="ctl">knot segments <span class="v" id="vSegs">9</span></label>
+    <input type="range" id="segs" min="3" max="24" value="9">
+    <label class="ctl">segment length <span class="v" id="vLen">3&ndash;6</span></label>
+    <input type="range" id="lmin" min="2" max="10" value="3">
+    <input type="range" id="lmax" min="2" max="12" value="6">
+    <label class="ctl">crossing bias <span class="v" id="vBias">60%</span></label>
+    <input type="range" id="bias" min="0" max="100" value="60">
+    <div class="row">
+      seed <input type="number" id="seed" value="1618" step="1">
+      <button class="pbtn" id="bDice" style="flex:0;min-width:34px" title="random seed">&#127922;</button>
+      <button class="pbtn go" id="bGen" style="flex:0">generate</button>
+    </div>
+
+    <div class="sect">Illusion (per-crossing occlusion)</div>
+    <label class="ctl">flip probability <span class="v" id="vFlip">0%</span></label>
+    <input type="range" id="flipP" min="0" max="100" value="0">
+    <div class="row">
+      illusion seed <input type="number" id="iseed" value="42" step="1">
+      <button class="pbtn" id="bIDice" style="flex:0;min-width:34px" title="random illusion seed">&#127922;</button>
+    </div>
+    <div class="row"><span class="k">0% = honest depth &middot; 100% = every crossing inverted &middot;
+      between = coherent coin-flip per beam pair</span></div>
+
+    <div class="sect">Paint (click a beam)</div>
+    <div class="presets" id="paintBtns">
+      <button class="pbtn active" data-paint="auto">palette</button>
+      <button class="pbtn" data-paint="window">window</button>
+      <button class="pbtn" data-paint="custom">custom</button>
+      <button class="pbtn" data-paint="delete">delete</button>
+    </div>
+    <div class="row">custom color <input type="color" id="customCol" value="#FF00FF"></div>
+
+    <div class="sect">Style</div>
+    <div class="row">
+      <label>window <input type="color" id="winCol" value="#00FF00"></label>
+      <label>bg <input type="color" id="bgCol" value="#161616"></label>
+      <label><input type="checkbox" id="flatWin" checked> flat windows</label>
+    </div>
+    <label class="ctl">side shade X <span class="v" id="vSx">62%</span></label>
+    <input type="range" id="sx" min="10" max="100" value="62">
+    <label class="ctl">Necker mode (depth-sign prior via shading)</label>
+    <div class="presets" id="neckerBtns">
+      <button class="pbtn active" data-necker="solid">solid</button>
+      <button class="pbtn" data-necker="hollow">hollow</button>
+      <button class="pbtn" data-necker="flat">ambiguous</button>
+    </div>
+    <label class="ctl">side shade Y <span class="v" id="vSy">42%</span></label>
+    <input type="range" id="sy" min="10" max="100" value="42">
+    <div class="row">
+      <label><input type="checkbox" id="tbg"> transparent background</label>
+      <button class="pbtn" id="bShuffle" style="flex:0">shuffle palette</button>
+    </div>
+    <div class="row">
+      <label><input type="checkbox" id="lineCol"> color by line (collinear continuations share a color)</label>
+    </div>
+
+    <div class="sect">Export</div>
+    <div class="row">
+      px per edge <input type="number" id="ppe" value="60" min="4" max="512" step="1">
+      <span id="vDims" class="k"></span>
+    </div>
+    <div class="presets">
+      <button class="pbtn" id="bPNG">png</button>
+      <button class="pbtn" id="bJPG">jpeg</button>
+      <button class="pbtn" id="bSVG">svg</button>
+    </div>
+    <label class="ctl">jpeg quality <span class="v" id="vJq">92</span></label>
+    <input type="range" id="jq" min="50" max="100" value="92">
+    <div class="row">
+      <label><input type="checkbox" id="mInv"> invert mask</label>
+    </div>
+    <div class="presets">
+      <button class="pbtn go" id="bMask">mask png</button>
+      <button class="pbtn" id="bFit">fit view</button>
+    </div>
+  </div>
+
+  <div class="panel canvaswrap">
+    <svg id="board" xmlns="http://www.w3.org/2000/svg">
+      <rect id="bgRect" x="-10000" y="-10000" width="20000" height="20000" fill="#161616"></rect>
+      <g id="gAtoms"></g>
+    </svg>
+  </div>
+</div>
+
+<div class="panel ledgerbar">
+  <div class="sect">Ledger (identity checks)</div>
+  <div class="readout" id="ledger" style="border-top:none;margin-top:2px;padding-top:0"></div>
+</div>
+
+<p class="note"><b>What this is.</b> Beams of unit cubes walk through &#8484;&sup3; and are flattened
+along the cube diagonal: cell (x,y,z) projects to the hexagon at lattice vertex
+(x&minus;y,&nbsp;y&minus;z), its three visible faces (+x,&nbsp;+y,&nbsp;+z) landing as the three
+60&deg;/120&deg; rhombus orientations, two atoms each &mdash; the ZRL canon's cube&rarr;hexagon fact
+made into a renderer. Hidden surfaces are resolved <b>per atom</b>: every face's depth is a linear
+function of position whose pairwise order cannot change inside an atom (face-plane intersection
+lines project onto atom edges &mdash; the ledger re-verifies this on live samples), so the deepest
+face at the atom centroid is exactly the visible one. <b>The illusion:</b> where two beams contest
+the same atoms (a crossing &mdash; 3D positions differing by a multiple of (1,1,1)), the winner can
+be flipped per <i>beam pair</i>, coherently: 0% is honest geometry, 100% inverts every crossing,
+anything between is a seeded coin-flip per pair &mdash; Reutersv&auml;rd weaving. Solid 3D joints
+(beams meeting corner-to-corner) share atoms too, but are never flippable: only true same-column
+crossings carry a coin, so elbows always render as solid unions. The <b>tribar</b>
+preset is the Penrose triangle: three arms +x, +y, +z whose 3D closure error
+(L&minus;1)&middot;(1,1,1) projects to zero, so the honest renderer already draws an impossible
+figure (closure measured live in the ledger).
+The <b>knot walk</b> grows a random axis-turning beam chain that is bribed (crossing bias) into
+revisiting its own projected columns at different depths. Click a beam to paint it &mdash;
+<span class="hi">window</span> beams render flat chroma for GIMP masks; <b>mask png</b> = white
+where window beams own the pixel. Same seeds &rarr; same figure.
+<b>Hex tiling</b> vs <b>tight tiling</b>: both lay an n&times;n honeycomb of independent
+impossible hex rings (chirality alternating by parity; genuinely impossible rings cannot
+edge-share, so they abut). The loose layout leaves a connected 3-cell channel between all rings
+(open moat &mdash; image shows through everywhere); the TIGHT layout (pitches 2L+1 / 2L+3,
+verified on the torus for L=3..8) closes the moat completely except two enclosed solid-lozenge
+windows per 2-ring period &mdash; (L&minus;1)&times;(L+1) and L&times;(L+2) diamonds, each bordered
+by exactly 4 rings: crisp rhombus cutouts for the overlay, the rings + rhombi plane tiling.
+<b>Abut tiling</b>: disjoint rings joined leg-to-leg along chains &mdash; consecutive rings abut along
+their parallel slanted legs, chirality alternating &mdash; and chains stacked so a ring's horizontal
+leg and the next ring's meet corner-to-corner, collinear. Chain step (2L+2, &minus;(L+1)), stack step
+(0, 2L+2). Its windows are TRUE 60&deg; rhombi of side L and L+1 alternating (2L&sup2; and 2(L+1)&sup2;
+atoms, one per ring, each bordered by 4 rings); the wobble's long leg makes the bigger rhombus. The
+ledger counts atoms shared between rings live (must be 0 in these three layouts).
+<b>Chain tiling</b> (the user's 6-bar + 4-bar tiling) is different in kind: a FUSED structure. Every
+6-bar is an identical copy; down a column each 6-bar's top bar IS the bar above's bottom bar (the
+double-hex shared-bar mechanism, chained), and side by side the columns share the side-vertex cube
+where two straight bar-lines cross in an X &mdash; shared bars and vertex cubes exist once, so the
+whole tiling is one connected set of cubes (column step (1,&minus;L,L+1), column pitch
+(L,&minus;L,&minus;L) in &#8484;&sup3;). The windows are identical lozenges of interior sides L&minus;1 and
+L&minus;2, and each one, read as a 4-bar, closes in 3D except for exactly ONE inherited false joint
+(&minus;1,0,&minus;1): the rhombus is a genuine impossible 4-bar (its bars are L+1, L, L, L &mdash; a
+wobbled rhombus, which is why this 4-cycle can be impossible while an equal-sided one cannot). The
+ledger re-walks every 6-bar against the scene: all sides present, closure k=&minus;1 measured for every
+complete ring, and the shared bars / vertex cubes counted from cell ownership.
+<b>Packed honeycomb</b>: the densest packing of disjoint 6-bars (abut chain with stack (L, L+2)).
+Its only gaps are single atoms &mdash; exactly one unit triangle per ring, where three rings meet, at
+every L. That atom is the wobble's irreducible residue: a regular hexagon would tile with no gap at
+all, but a regular 6-bar cannot be impossible (its false joints would have to cancel), so one atom per
+ring is as close as an impossible honeycomb gets to gapless.
+<b>Sierpi&nacute;ski 3-bar</b>: the fractal bar-sharing lattice &mdash; three sub-3-bars at the corners
+of a 3-bar of twice the arm (minus one), sharing their corner cubes pairwise, recursively (arm slider =
+smallest 3-bar, tiling-size slider = depth+1; total arm 2<sup>d</sup>(m&minus;1)+1). One connected cube
+set with no lifts; every leaf closes by column overlap, and every assembled triangle cycle is
+impossible too: the outline of a depth-d gasket has 2<sup>d</sup> column-overlap joints (one per
+leaf on its hypotenuse) and a hole opened at level l has 2<sup>l&minus;1</sup> (one in the smallest
+holes) &mdash; the closure hierarchy's &ldquo;triangle cycles are always impossible&rdquo; made fractal. The ledger re-walks every
+leaf against the scene and counts the shared corner cubes (3 per internal node).
+<b>3-bar strip / 3-bar tiling</b>: the triangular tiling of alternating up and down 3-bars in which
+EVERY bar is shared by one up and one down triangle (the double-hex mechanism applied to 3-bars; the
+strip keeps one row). The up-triangle lattice T1 = (&minus;(L&minus;1), &minus;L, 0), T2 =
+(&minus;(L&minus;1), &minus;(2L&minus;2), &minus;L) follows from the cell equations; one connected cube set
+with zero unintended coincidences; up triangles close by +(L&minus;1)(1,1,1), down ones by
+&minus;(L&minus;1)(1,1,1) &mdash; all column overlaps, so every triangle is impossible and every
+closing pair is a true crossing (the flip slider works per triangle). Each triangle encloses
+(L&minus;4)&sup2; atoms for arm &ge; 4: solid at arms 3 and 4, one-atom windows at 5, 9-atom windows at 7.
+<b>Colour by line</b> (Style): every beam is coloured by the projected lattice line it lies on, so
+collinear continuations across shared bars and vertex cubes share a colour &mdash; the Sierpi&nacute;ski
+gasket's three outer edges become three colours, and in the chain tiling each column of legs and the
+4-bar windows they bound read as one line.
+<b>Kagome (loose)</b>: a strict kagome of 6-bars &mdash; every ring sharing corner cubes with six
+neighbours around triangular holes &mdash; does not exist: in projection an all-identical kagome fails
+locally (each ring presents sides (L&minus;1, L, L) to one triangle class and (L, L+1, L+1) to the other, so
+no hole is equal-sided), mixing the 12 rotation / mirror / chirality ring variants does not rescue it
+(single holes can close, but no assignment of variants to a radius-3 patch of 37 rings closes every
+hole &mdash; exhaustive search), and, independently, every projectively closed triangular hole carries a
+nonzero 3D residue. The
+realizable relative shares corner cubes in two of the three directions and is loose by one column in
+the third; its holes are triangles of (L&minus;3)&sup2; and (L&minus;2)&sup2; atoms, one of each per ring for
+arm &ge; 4 (at arm 3 the smaller hole closes to a solid corner), each an impossible 3-bar whose whole
+residue sits at the loose vertex.
+<b>Double 6-bar honeycomb</b>: alternating-chirality double 6-bars on the lattice T1=(L+4, 2&minus;L, 3),
+T2=(L&minus;1, L+1, &minus;(2L+2)) cover the plane with no gap atom at all &mdash; the only uncovered atoms are
+the ring interiors (checked per fundamental domain, L=4, 6, 8). The sharing is sparse: each double unit
+shares its own L&minus;1 bar (the double-hex mechanism) and one L bar with its column neighbour (A's +y bar
+is that neighbour's B &minus;y bar, each ring's corner cube sitting one step past the other's bar end);
+every other bar abuts a neighbouring bar outer-edge to outer-edge, the two bars' cubes two lattice steps
+apart in projection so no atom is left between them. A rings k=&minus;1, B rings k=+1, no crossings.
+<b>View axis (isomer views)</b>: every figure here is a real set of unit cubes in &#8484;&sup3;; the picture is
+its projection along the body diagonal (1,1,1). The other three body diagonals are lattice-equivalent view
+directions: the same cubes under a lattice rotation, rendered the same way. Along (1,1,&minus;1) and
+(&minus;1,1,1) a 6-bar opens into a bow-tie whose two ends no longer meet (two lattice steps apart); along
+(1,&minus;1,1) it is a self-crossing bow-tie whose ends still meet at a false joint (D=(&minus;1,0,&minus;1) =
+&minus;y &minus; (1,&minus;1,1)) &mdash; the same sculpture is impossible from two of the four lattice directions. The
+double 6-bar becomes the "two open rings joined by a bar" of the card_spin3d tumble, and the honeycomb
+rows of such hourglasses (a different lattice from the catalogue's hourglass chain, whose period (L,1,&minus;L)
+shares two bars). The ledger keeps auditing closures and fused units in the (1,1,1) frame, where the identities live;
+the rendered-scene checks follow the view. Cube cells only.</p>
+</main>
+
+<script>
+'use strict';
+/* ---------- lattice atoms (same scheme as the sibling apps) ---------- */
+const SQ3H = Math.sqrt(3)/2;
+const VX = (a,b)=> a + b*0.5, VY = (a,b)=> b*SQ3H;
+const AK = (s,a,b)=> s+','+a+','+b;
+function atomVerts(s,a,b){
+  return s===0 ? [[a,b],[a+1,b],[a,b+1]]
+               : [[a+1,b],[a+1,b+1],[a,b+1]];
+}
+function neighbors(s,a,b){ // the 3 edge-adjacent atoms
+  return s===0 ? [[1,a,b],[1,a-1,b],[1,a,b-1]]
+               : [[0,a,b],[0,a+1,b],[0,a,b+1]];
+}
+function atomCentroidLat(s,a,b){ // centroid in LATTICE (a,b) coords, exact thirds
+  return s===0 ? [a+1/3, b+1/3] : [a+2/3, b+2/3];
+}
+function mulberry32(seed){
+  let t = seed >>> 0;
+  return function(){
+    t = (t + 0x6D2B79F5) >>> 0;
+    let r = Math.imul(t ^ (t >>> 15), 1 | t);
+    r = (r + Math.imul(r ^ (r >>> 7), 61 | r)) ^ r;
+    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/* ---------- 3D state ----------
+   Projection (ZRL canon, node-verified): cell (x,y,z) -> lattice vertex
+   v = (x−y, y−z); +x ↦ (1,0), +y ↦ (−1,1), +z ↦ (0,−1) — three unit lattice
+   directions at 120°; (1,1,1) ↦ 0, so columns are the diagonal classes.
+   Visible faces +x/+y/+z of a cube land on the 6 atoms of hexAtoms(v). */
+const S = {
+  beams: [],        // {id, cells:[[x,y,z]...], fill:'auto'|'window'|'#hex', autoColor}
+  usedSeed: 0, paletteOff: 0,
+};
+const PALETTE = ['#E22211','#485FC7','#FFC845','#009E86','#B44BF0','#FF7A00','#25C4E8','#E84393'];
+const CK = c => c[0]+','+c[1]+','+c[2];
+/* Cell kinds: a cell is the parallelepiped at integer base p spanned by three edge
+   vectors E. Cubes use the axes; rhombohedra use (1,1,0),(1,0,1),(0,1,1) — every
+   face a 60° rhombus in 3D, edges projecting onto the OTHER three lattice
+   directions at the same length (node-verified 31/08). Both kinds project to the
+   same 3-rhombus hexagon; fams label faces by projected rhombus orientation so
+   shading stays consistent: 'z' = the R2 ("top") orientation, 'x','y' the sides. */
+const KINDS = {
+  c: {E:[[1,0,0],[0,1,0],[0,0,1]], fams:['x','y','z'], name:'cube'},
+  r: {E:[[1,1,0],[1,0,1],[0,1,1]], fams:['z','y','x'], name:'rhombohedron'},
+};
+const PROJ = v => [v[0]-v[1], v[1]-v[2]];   // 3D -> lattice (a,b); (1,1,1) -> 0
+const SUM1 = v => v[0]+v[1]+v[2];
+const cross3 = (p,q) => [p[1]*q[2]-p[2]*q[1], p[2]*q[0]-p[0]*q[2], p[0]*q[1]-p[1]*q[0]];
+const dot3 = (p,q) => p[0]*q[0]+p[1]*q[1]+p[2]*q[2];
+function cellsMap(canonical = false){ // 3D occupancy: 'kind:x,y,z' -> beamId (first beam wins)
+  // in the VIEW frame (cells rotated for the chosen isomer axis) unless canonical
+  const m = new Map();
+  for (const bm of S.beams)
+    for (const c of (canonical ? bm.cells : viewCells(bm))){
+      const k = bm.kind+':'+CK(c);
+      if (!m.has(k)) m.set(k, bm.id);
+    }
+  return m;
+}
+function latToAtom(ca, cb){ // lattice point (inside a unit triangle) -> that atom
+  const A = Math.floor(ca), B = Math.floor(cb);
+  return [(ca-A)+(cb-B) < 1 ? 0 : 1, A, B];
+}
+function rhombusAtoms(q0, dj, dk){ // unit lattice rhombus at q0 spanned by dj,dk -> its 2 atoms
+  const dxy = VX(dj[0],dj[1])*VX(dk[0],dk[1]) + VY(dj[0],dj[1])*VY(dk[0],dk[1]);
+  const A = q0, B = [q0[0]+dj[0], q0[1]+dj[1]], C = [q0[0]+dk[0], q0[1]+dk[1]], D = [B[0]+dk[0], B[1]+dk[1]];
+  const tris = dxy > 0 ? [[A,B,C],[B,D,C]] : [[A,B,D],[A,D,C]]; // split along the short diagonal
+  return tris.map(t => latToAtom((t[0][0]+t[1][0]+t[2][0])/3, (t[0][1]+t[1][1]+t[2][1])/3));
+}
+/* visible faces of a cell: for each edge e_i, the face spanned by the other two at
+   offset e_i ("far") if its outward normal faces the viewer (+(1,1,1)), else the
+   near face; each face = 2 atoms + a closed-form LINEAR depth(a,b). For cubes this
+   reproduces the hand-derived z: a+2b+3Z, x: 3X−2a−b, y: 3Y+a−b exactly. */
+function cellFaces(kind, cx,cy,cz){
+  const K = KINDS[kind], p = [cx,cy,cz], faces = [];
+  for (let i=0;i<3;i++){
+    const j = (i+1)%3, k = (i+2)%3, ei = K.E[i], ej = K.E[j], ek = K.E[k];
+    let n = cross3(ej, ek); if (dot3(n, ei) < 0) n = n.map(x => -x); // outward for the far face
+    const far = dot3(n, [1,1,1]) > 0;
+    const q0 = far ? [p[0]+ei[0], p[1]+ei[1], p[2]+ei[2]] : p;
+    const base = PROJ(q0), dj = PROJ(ej), dk = PROJ(ek);
+    const D0 = SUM1(q0), sj = SUM1(ej), sk = SUM1(ek);
+    const det = dj[0]*dk[1] - dj[1]*dk[0];
+    const depth = (a,b) => {
+      const da = a - base[0], db = b - base[1];
+      const al = (da*dk[1] - db*dk[0]) / det, be = (dj[0]*db - dj[1]*da) / det;
+      return D0 + al*sj + be*sk;
+    };
+    faces.push({fam: K.fams[i], atoms: rhombusAtoms(base, dj, dk), depth});
+  }
+  return faces;
+}
+
+/* geometric occupancy: cubes and rhombohedra of different kinds (or rhombohedra at
+   odd-parity bases in mixed walks) can interpenetrate without sharing a base key.
+   Two cells overlap if they share a base or either one's centre lies strictly
+   inside the other. Cube-cube and FCC rhomb-rhomb never overlap except by base. */
+function cellCenter(kind, p){
+  const E = KINDS[kind].E;
+  return [p[0]+(E[0][0]+E[1][0]+E[2][0])/2, p[1]+(E[0][1]+E[1][1]+E[2][1])/2, p[2]+(E[0][2]+E[1][2]+E[2][2])/2];
+}
+function insideCell(kind, p, q){ // q strictly inside the cell of `kind` at base p?
+  const d = [q[0]-p[0], q[1]-p[1], q[2]-p[2]];
+  let a, b, g;
+  if (kind === 'c'){ a = d[0]; b = d[1]; g = d[2]; }
+  else { a = (d[0]+d[1]-d[2])/2; b = (d[0]-d[1]+d[2])/2; g = (-d[0]+d[1]+d[2])/2; }
+  const e = 1e-9;
+  return a > e && a < 1-e && b > e && b < 1-e && g > e && g < 1-e;
+}
+function cellsOverlap(k1, p1, k2, p2){
+  if (p1[0]===p2[0] && p1[1]===p2[1] && p1[2]===p2[2]) return true;
+  return insideCell(k1, p1, cellCenter(k2, p2)) || insideCell(k2, p2, cellCenter(k1, p1));
+}
+/* a ring closes in projection when its end cell is the start cell, shares its
+   column, or is adjacent to it: D = e + k(1,1,1) with e ∈ {0, ±E_i}. k ≠ 0 means
+   the joint is FALSE (cells never touch) — the figure is impossible. */
+function ringClosure(name, kind, start, end){
+  const D = [end[0]-start[0], end[1]-start[1], end[2]-start[2]];
+  const P = [D[0]-D[1], D[1]-D[2]];
+  const opts = [{n:'0', v:[0,0,0]}];
+  KINDS[kind].E.forEach((e,i) => { opts.push({n:'+E'+i, v:e}); opts.push({n:'−E'+i, v:e.map(x=>-x)}); });
+  for (const o of opts){
+    if (o.v[0]-o.v[1] === P[0] && o.v[1]-o.v[2] === P[1]){
+      const r = [D[0]-o.v[0], D[1]-o.v[1], D[2]-o.v[2]];
+      if (r[0] === r[1] && r[1] === r[2]) return {name, D, e:o.n, k:r[0], closed:true};
+    }
+  }
+  return {name, D, e:null, k:null, closed:false};
+}
+
+/* ---------- figure generators ---------- */
+function makeBeam(cells, kind){
+  const id = S.beams.length;
+  S.beams.push({id, cells, kind: kind || 'c', fill:'auto',
+                autoColor: PALETTE[(id + S.paletteOff) % PALETTE.length]});
+}
+function genTribar(L, kind){
+  S.beams = [];
+  const E = KINDS[kind].E;
+  const add = (p, e, t) => [p[0]+t*e[0], p[1]+t*e[1], p[2]+t*e[2]];
+  const A = [], B = [], C = [];
+  const o = [0,0,0];
+  for (let t=0; t<L; t++) A.push(add(o, E[0], t));
+  const cB = add(o, E[0], L-1);
+  for (let t=1; t<L; t++) B.push(add(cB, E[1], t));
+  const cC = add(cB, E[1], L-1);
+  for (let t=1; t<L; t++) C.push(add(cC, E[2], t));
+  makeBeam(A, kind); makeBeam(B, kind); makeBeam(C, kind);
+  // closure gap = (L−1)(E0+E1+E2): (L−1)(1,1,1) for cubes, (L−1)(2,2,2) for rhombohedra —
+  // both project to zero, so end and start share a column (measured live in the ledger)
+}
+/* hexagonal beam ring with ONE false joint (the Penrose-stairs mechanism the user's
+   seeds produce): sides [L, L+1, L, L, L, L] along +E0, −E2, +E1, −E0, +E2, −E1.
+   End − start = −E0 − E2 (−(1,0,1) for cubes) = adjacency step + k(1,1,1), k ≠ 0. */
+function ringCells(kind, start, dirs, lens, includeStart){
+  const E = KINDS[kind].E, beams = [];
+  let p = start.slice();
+  dirs.forEach((di, i) => {
+    const e = E[Math.abs(di)-1].map(x => x*Math.sign(di));
+    const cells = (i === 0 && includeStart) ? [p.slice()] : [];
+    for (let t=0; t<lens[i]; t++){ p = [p[0]+e[0], p[1]+e[1], p[2]+e[2]]; cells.push(p.slice()); }
+    beams.push(cells);
+  });
+  return beams;
+}
+function genHexRing(L, kind){
+  S.beams = [];
+  // first beam owns the start cell, so its run is L−1 steps beyond it
+  for (const cells of ringCells(kind, [0,0,0], [1,-3,2,-1,3,-2], [L-1, L+1, L, L, L, L], true)) makeBeam(cells, kind);
+}
+function genDoubleHex(L, kind){
+  genHexRing(L, kind);
+  // ring B shares ring A's first beam (traversed backwards), then +E2, −E1, +E0, −E2, +E1
+  for (const cells of ringCells(kind, [0,0,0], [3,-2,1,-3,2], [L+1, L, L, L, L], false)) makeBeam(cells, kind);
+}
+function genHexTile(L, n, kind, mode){
+  // mode: 'loose' (default) | 'tight' | 'abut' | 'packed' | 'chain'
+  if (mode === 'abut') return genHexAbut(L, n, kind);
+  if (mode === 'packed') return genHexAbut(L, n, kind, [L, L+2]);
+  if (mode === 'chain') return genHexChain(L, n, kind);
+  const tight = mode === 'tight';
+  // n×n honeycomb of INDEPENDENT impossible hex rings, abutting (rings do not share
+  // beams — a regular hexagon's false joints must sum to zero, so genuinely
+  // impossible tiles need the ±1 side wobble, which cannot edge-share cleanly; the
+  // abutting layout renders as a chunky honeycomb, ideal as an image overlay).
+  // Chirality alternates ±k by (q+r) parity; each ring gets its own depth level so
+  // rings never collide in 3D (depth shifts are invisible in projection).
+  // TWO layout families (both torus+plane verified 07/09/2026):
+  //  LOOSE (default): screen-x pitch 2L+5, b-pitch 2L+6, row b-shift compensated
+  //   in a, flip offsets (−2, 2L+1). The inter-ring space is one connected 3-cell
+  //   channel network — open moat, image shows through everywhere between rings.
+  //  TIGHT: a-pitch 2L+1, b-pitch 2L+3, NO row shift, flip offsets (L−1, L).
+  //   Rings tile with ZERO inter-ring gap except two enclosed SOLID lozenges per
+  //   2-ring period — (L−1)×(L+1) and L×(L+2), i.e. 2(L²−1) and 2L(L+2) atoms,
+  //   each bordered by exactly 4 rings: crisp diamond windows instead of a moat.
+  //   (The lozenge equals the 2-tribar rhombus ATOM COUNT for L≤4 but never its
+  //   shape — cube-cell figures cannot make 60° lozenge corners; see README.)
+  //   Cosmetic: the flip b-offset L is even for even L, so the 0.5-unit screen-x
+  //   zigzag of flipped rings disappears at even L.
+  // CUBE family only (regenerate() coerces): constants from the cube walk footprint.
+  S.beams = [];
+  const liftOf = (da,db) => [da+db, db, 0]; // any 3D vector projecting to (da,db)
+  const px = tight ? 2*L + 1 : 2*L + 5, pb = tight ? 2*L + 3 : 2*L + 6;
+  for (let r=0; r<n; r++) for (let q=0; q<n; q++){
+    const flip = (q + r) % 2 === 1;
+    // a flipped (negated-dirs) ring walks the other way round, so its bounding box
+    // sits point-reflected about the base — shift its base to align both boxes
+    const aBase = tight
+      ? q*px + (flip ? L-1 : 0)
+      : q*px - Math.round(r*pb/2) + (flip ? -2 : 0);
+    const bBase = r*pb + (flip ? (tight ? L : 2*L+1) : 0);
+    const base0 = liftOf(aBase, bBase);
+    // review 11/09: the former per-ring depth band (q+r·n)(6L+12) is gone — rings of these
+    // layouts never share a projected column, so at one depth level no two cells coincide
+    // and the on-axis render is byte-identical, while off-axis the band strung the rings
+    // out ~800 lattice units along a diagonal
+    const depth = 0;
+    const base = [base0[0]+depth, base0[1]+depth, base0[2]+depth];
+    const dirs = flip ? [1,-3,2,-1,3,-2].map(x=>-x) : [1,-3,2,-1,3,-2];
+    const lens = [L-1, L+1, L, L, L, L];
+    for (const cells of ringCells(kind, base, dirs, lens, true)){
+      makeBeam(cells, kind);
+      // ring tag for the ledger's cross-ring audit: beam IDS are reindexed when a
+      // beam is deleted, so ⌊id/6⌋ grouping would false-alarm after a delete
+      // (review 07/09) — the tag survives splice+reindex
+      S.beams[S.beams.length-1].ring = q + r*n;
+    }
+  }
+}
+/* ABUT tiling (07/09/2026): DISJOINT rings joined leg-to-leg along a chain —
+   consecutive rings abut along their parallel ±b legs (outer edge to outer
+   edge), chirality alternating — and chains stacked so that one ring's a-leg end
+   and the next ring's a-leg start meet corner-to-corner with the legs collinear
+   (chirality constant along the stack). In base coordinates (a flipped ring's
+   footprint is point-reflected about its base, so odd chain positions carry the
+   flip offset (−2, 2L+1) that puts its centre on the grid):
+     chain step C = (2L+2, −(L+1)),  stack step S = (0, 2L+2).
+   Verified at the atom level (tilefit/chainscan.js) L=3..8: zero overlaps, every
+   ring interior intact, and the windows are TRUE 60° RHOMBI — 2L² and 2(L+1)²
+   atoms, i.e. side L and side L+1 alternating along the chain (the wobble's long
+   leg makes the bigger one), each bordered by exactly 4 rings: one rhombus per
+   ring. The classic hexagon+rhombus tiling with rings that touch but share
+   nothing. (S = (0, 2L) would share one CELL between the slanted legs; S =
+   (0, 2L+1) grazes at two corners — both overlap at the atom level.)
+   PACKED honeycomb = the same chain with stack S = (L, L+2): the densest
+   packing of disjoint wobbled 6-bars the full contact scan found. Fundamental
+   domain (L+1)(3L+4) cells per ring against the zero-gap floor (ring atoms +
+   interior)/2 = (L+1)(3L+4) − ½: the only gaps are SINGLE ATOMS, exactly one
+   unit triangle per ring where three rings meet, at every L (verified L=3..9,
+   TileFitCLAUDE/sierp3_MIRROR.js). That one atom is the wobble's irreducible
+   residue: a regular hexagon would tile with no gap, but a regular 6-bar ring
+   cannot be impossible (its false joints must cancel), so the closest an
+   impossible honeycomb gets to gapless is one atom per ring. */
+function genHexAbut(L, n, kind, stack){
+  S.beams = [];
+  const liftOf = (da,db) => [da+db, db, 0];
+  const C = [2*L+2, -(L+1)], St = stack || [0, 2*L+2], FO = [-2, 2*L+1];
+  for (let j=0; j<n; j++) for (let i=0; i<n; i++){
+    const flip = (i % 2) === 1;
+    const aBase = i*C[0] + j*St[0] + (flip ? FO[0] : 0);
+    const bBase = i*C[1] + j*St[1] + (flip ? FO[1] : 0);
+    const base0 = liftOf(aBase, bBase);
+    const depth = 0; // review 11/09: depth band removed (see genHexTile); hextight/abut/packed rings touch at most edge- or corner-wise in 3D, never by a face or a cell
+    const base = [base0[0]+depth, base0[1]+depth, base0[2]+depth];
+    const dirs = flip ? [1,-3,2,-1,3,-2].map(x=>-x) : [1,-3,2,-1,3,-2];
+    const lens = [L-1, L+1, L, L, L, L];
+    for (const cells of ringCells(kind, base, dirs, lens, true)){
+      makeBeam(cells, kind);
+      S.beams[S.beams.length-1].ring = i + j*n;
+    }
+  }
+}
+/* CHAIN tiling — the user's 6-bar + 4-bar tiling (07/09/2026), a FUSED structure:
+   every ring is an identical normal 6-bar; down a column each 6-bar's top bar IS
+   the bar above's bottom bar (the double-hex shared-bar mechanism, chained), and
+   side by side the columns share the side-vertex CUBE where two straight bar-
+   lines cross in an X. Shared bars and vertex cubes are created ONCE, so the
+   whole tiling is one connected set of cubes:
+     column step  TV = (1, −L, L+1)   [projects to (L+1, −(2L+1))]
+     column pitch TH = (L, −L, −L)    [projects to (2L, 0)]
+   Model-verified (tilefit/fusedN.js) L=4,6,8: zero unintended cell
+   coincidences; every 6-bar keeps its false joint D = (−1,0,−1) = +E1 − (1,1,1);
+   the windows between columns are all identical LOZENGES of interior sides L−1
+   and L−2 (2(L−1)(L−2) atoms), each bordered by 4 six-bars; and each such
+   window, read as a 4-bar, closes in 3D except for exactly ONE inherited false
+   joint (−1,0,−1): the rhombus is a genuine impossible 4-bar (its sides are
+   L+1, L, L, L — a wobbled rhombus, which is why a 4-cycle can be impossible
+   here while a plain equal-sided rhombus cannot). The user's reading of the
+   illusion — a locally consistent implied depth that fails to integrate around
+   any closed loop — is exactly what the ledger measures as k ≠ 0. */
+function genHexChain(L, n, kind){
+  S.beams = [];
+  const TV = [1, -L, L+1], TH = [L, -L, -L];
+  const dirs = [1,-3,2,-1,3,-2], lens = [L-1, L+1, L, L, L, L];
+  const rings = [];
+  for (let c=0; c<n; c++) for (let k=0; k<n; k++){
+    const base = [c*TH[0]+k*TV[0], c*TH[1]+k*TV[1], c*TH[2]+k*TV[2]];
+    const ring = rings.length;
+    rings.push({base});
+    ringCells(kind, base, dirs, lens, true).forEach((cells, side) => {
+      if (side === 3 && k > 0) return;            // top bar = the bar above's bottom bar (shared)
+      if (side === 4 && c > 0) cells = cells.slice(0, -1); // left vertex cube belongs to the left column's side-2 end
+      makeBeam(cells, kind);
+      S.beams[S.beams.length-1].ring = ring;
+    });
+  }
+  // generic fused-structure audit data: every unit is re-walked by the ledger
+  // against the scene (completeness, expected closure e + k(1,1,1), and cells
+  // owned by OTHER units = the shared slots)
+  S.fused = {label: 'chain tiling', expShared: n*(n-1)*L + (n-1)*n,
+    units: rings.map(r => ({base: r.base, dirs, lens, eExp: '+E1', kExp: -1})),
+    note: 'shared slots = n(n&minus;1) bars of L cells + (n&minus;1)n vertex cubes; every 4-bar window inherits one false joint (impossible rhombi, lozenge (L&minus;1)&times;(L&minus;2) interior)'};
+}
+/* SIERPIŃSKI 3-bar (07/09/2026): three sub-3-bars of arm m at the corners of a
+   3-bar of arm 2m−1, sharing their corner CUBES pairwise — B starts on A's +x
+   corner, C starts on A's +y corner, C's +x corner is B's +y corner — applied
+   recursively (depth d, smallest arm m₀ → total arm 2^d(m₀−1)+1). All pieces are
+   pure translations, no (1,1,1) lifts, so the whole gasket is ONE cube set.
+   Model-verified (TileFitCLAUDE/sierp3_MIRROR.js) d=1..4: shared corner cubes
+   exactly 3 per internal node, zero unintended coincidences; every leaf closes
+   by column overlap (D = (m−1)(1,1,1)); the outline of a level-l triangle is a
+   cycle with 2^l column-overlap joints (its hypotenuse is 2^l disjoint leaf +z
+   bars, each ending k = −(m₀−1) under the next) and the hole opened at level l
+   has 2^(l−1) — every joint is a column overlap, so every triangle at every
+   scale is impossible: the closure hierarchy's "triangle cycles are always
+   impossible" made fractal. (Review 07/09 corrected an earlier "two / one at
+   every level" — true only at depth 1.) */
+function genSierp3(m0, depth, kind){
+  S.beams = [];
+  const leaves = [];
+  const rec = (P, m, d) => {
+    if (d === 0){ leaves.push({P, m}); return; }
+    const s = (m-1)/2 + 1;                       // sub-arm: 2s−1 = m
+    rec(P, s, d-1);                              // A: the +x/+z corner
+    rec([P[0]+s-1, P[1], P[2]], s, d-1);         // B: starts on A's +x corner cube
+    rec([P[0]+s-1, P[1]+s-1, P[2]], s, d-1);     // C: starts on A's +y corner cube
+  };
+  const m = Math.pow(2, depth)*(m0-1) + 1;
+  rec([0,0,0], m, depth);
+  const occ = new Set();
+  leaves.forEach((lf, li) => {
+    ringCells(kind, lf.P, [1,2,3], [lf.m-1, lf.m-1, lf.m-1], true).forEach(cells => {
+      // shared corner cubes are created once (only bar END cells ever coincide)
+      const kept = cells.filter(c => { const k = kind+':'+CK(c); if (occ.has(k)) return false; occ.add(k); return true; });
+      if (kept.length){ makeBeam(kept, kind); S.beams[S.beams.length-1].ring = li; }
+    });
+  });
+  const internal = (Math.pow(3, depth) - 1) / 2;
+  S.fused = {label: 'Sierpi&nacute;ski 3-bar', expShared: 3*internal,
+    units: leaves.map(lf => ({base: lf.P, dirs: [1,2,3], lens: [lf.m-1, lf.m-1, lf.m-1], eExp: '0', kExp: lf.m-1})),
+    note: 'leaves close by column overlap (m&minus;1)(1,1,1); shared corner cubes = 3 per internal node; the outline is a cycle with 2<sup>'+depth+'</sup> column-overlap joints and a hole opened at level l has 2<sup>l&minus;1</sup> &mdash; impossible at every scale; total arm 2<sup>d</sup>(m&minus;1)+1 = '+m};
+}
+/* ALTERNATING 3-BAR STRIP / TILING (09/09/2026) — bar-sharing, every bar shared by
+   an up 3-bar (+x,+y,+z) and a down 3-bar (−x,−y,−z). The down 3-bar D shares the
+   up 3-bar U(P)'s +x bar as its −x bar (base Q = P+(L−1)x); solving the cell
+   equations for the next up 3-bars that share D's −y and −z bars gives the up-
+   triangle lattice T1 = (−(L−1), −L, 0), T2 = (−(L−1), −(2L−2), −L): D(P) is
+   shared by U(P), U(P+T1), U(P+T2) — the triangular tiling, all bars shared, one
+   connected cube set. STRIP = the T1 direction only. Model-verified
+   (TileFitCLAUDE/tri3_MIRROR.js) L=4,5,7: shared slots exactly as designed, zero
+   unintended coincidences, every triangle closes by column overlap
+   (±(L−1)(1,1,1)); each triangle encloses (L−4)² atoms for L≥4 (solid at L=3
+   and 4, one-atom windows at L=5). Each closing pair (a 3-bar's end cube over its own start) is a
+   true crossing, so the flip machinery applies per triangle. */
+function genTri3(L, n, kind, mode){
+  S.beams = [];
+  const T1 = [-(L-1), -L, 0], T2 = [-(L-1), -(2*L-2), -L];
+  const coords = [];
+  if (mode === 'strip'){ for (let i=0; i<2*n; i++) coords.push([i, 0]); }
+  else for (let j=0; j<n; j++) for (let i=0; i<n; i++) coords.push([i, j]);
+  const ups = coords.map(([i,j]) => [i*T1[0]+j*T2[0], i*T1[1]+j*T2[1], i*T1[2]+j*T2[2]]);
+  const occ = new Set(), units = [];
+  const place = (base, dirs, lens, unit) => {
+    ringCells(kind, base, dirs, lens, true).forEach(cells => {
+      // shared bars exist once: cells already placed are skipped (whole bars or bar ends)
+      const kept = cells.filter(c => { const k = kind+':'+CK(c); if (occ.has(k)) return false; occ.add(k); return true; });
+      if (kept.length){ makeBeam(kept, kind); S.beams[S.beams.length-1].ring = unit; }
+    });
+  };
+  const lens = [L-1, L-1, L-1];
+  ups.forEach(P => { place(P, [1,2,3], lens, units.length); units.push({base: P, dirs: [1,2,3], lens, eExp: '0', kExp: L-1}); });
+  ups.forEach(P => { const Q = [P[0]+L-1, P[1], P[2]]; place(Q, [-1,-2,-3], lens, units.length); units.push({base: Q, dirs: [-1,-2,-3], lens, eExp: '0', kExp: -(L-1)}); });
+  const upKeys = new Set(ups.map(CK)); let expShared = 0;
+  ups.forEach(P => { expShared += L;
+    if (upKeys.has(CK([P[0]+T1[0], P[1]+T1[1], P[2]+T1[2]]))) expShared += L-1;
+    if (upKeys.has(CK([P[0]+T2[0], P[1]+T2[1], P[2]+T2[2]]))) expShared += L-1; });
+  S.fused = {label: mode === 'strip' ? '3-bar strip' : '3-bar tiling', expShared, units,
+    note: 'every bar shared by an up and a down 3-bar; up closures +(L&minus;1)(1,1,1), down &minus;(L&minus;1)(1,1,1) (column overlaps); each triangle encloses (L&minus;4)&sup2; atoms (L&ge;4; solid at 3); up-triangle lattice T1=(&minus;(L&minus;1),&minus;L,0), T2=(&minus;(L&minus;1),&minus;(2L&minus;2),&minus;L)'};
+}
+/* LOOSE-VERTEX KAGOME (09/09/2026) — the realizable kagome. A strict kagome of
+   6-bars (each ring sharing corner cubes with six neighbours, triangular holes)
+   does NOT exist. In projection an ALL-IDENTICAL kagome fails locally (each ring
+   presents (L−1,L,L) to one triangle class and (L,L+1,L+1) to the other, so no hole
+   is equal-sided); mixing the 12 chirality/rotation/mirror variants does not rescue
+   it — single holes can close in projection (288 of 1728 variant triples per class),
+   but no assignment of variants to the 37 rings of a radius-3 patch closes every
+   hole (kagome_MIRROR.js DFS, deepest partial 11 of 37) — and independently in 3D
+   every projectively closed triangular hole carries a residual k(1,1,1) with k ≠ 0
+   for L ≥ 3 (kagome3d_MIRROR.js, same geometric corner pairing). Periodic one- and
+   two-variant lattices over all corner pairings reach at most 4 corner contacts per
+   ring, never 6 (kagome_relax_MIRROR.js). (Review 10/09: the earlier wording claimed
+   a LOCAL 2D obstruction for every variant mix; that is false — the obstruction the
+   scripts establish is the global one.) Closest realizable relative: identical normal
+   rings on <T1,T2> = <(L,−L,L+1), (L,−L,−L)>, sharing corner cubes in TWO of the
+   three directions (our Q1 is the +T1 neighbour's Q4, our Q2 the +T2 neighbour's
+   Q5); the third direction is loose by exactly one column. Every hole is a
+   triangle — (L−3)² and (L−2)² atoms, one of each per ring for L ≥ 4 (at L=3
+   the (L−3)² hole is a solid corner; cover_MIRROR.js kagome 3) — and each is an
+   impossible 3-bar whose whole residue sits at the loose vertex. Re-verified
+   L=4..8 (fusedlat_MIRROR.js): zero unintended coincidences, zero crossings, zero
+   side rims, every ring k = −1. Shared corner cubes = 2n(n−1) in an n×n patch. */
+function genKagome(L, n, kind){
+  S.beams = [];
+  const T1 = [L, -L, L+1], T2 = [L, -L, -L];
+  const dirs = [1,-3,2,-1,3,-2], lens = [L-1, L+1, L, L, L, L];
+  const occ = new Set(), units = [];
+  for (let j=0; j<n; j++) for (let i=0; i<n; i++){
+    const base = [i*T1[0]+j*T2[0], i*T1[1]+j*T2[1], i*T1[2]+j*T2[2]];
+    const id = units.length;
+    ringCells(kind, base, dirs, lens, true).forEach(cells => {
+      const kept = cells.filter(c => { const k = kind+':'+CK(c); if (occ.has(k)) return false; occ.add(k); return true; });
+      if (kept.length){ makeBeam(kept, kind); S.beams[S.beams.length-1].ring = id; }
+    });
+    units.push({base, dirs, lens, eExp: '+E1', kExp: -1});
+  }
+  S.fused = {label: 'kagome (loose vertex)', expShared: 2*n*(n-1), units,
+    note: 'rings share corner cubes in 2 of 3 directions (a strict kagome is impossible: the wobble); holes are triangles of (L&minus;3)&sup2; and (L&minus;2)&sup2; atoms (arm &ge; 4; solid corner at 3), each an impossible 3-bar with its residue at the loose vertex'};
+}
+/* DOUBLE 6-BAR HONEYCOMB (09/09/2026) — a GAPLESS honeycomb of impossible rings.
+   Unit = the double 6-bar (ring A normal + ring B flipped sharing A's +x bar);
+   lattice T1 = (L+4, 2−L, 3), T2 = (L−1, L+1, −(2L+2)). Sharing is sparse (measured,
+   scratch dblshare.js): per unit the intra L−1 bar (A0 = B0) and ONE inter-unit bar —
+   A's +y bar (A2, L cells) is the +T2 neighbour's B −y bar (B2), with s = a0+(L+1)y,
+   i.e. each ring's corner cube lies one step past the other's bar end. Every other
+   bar abuts a neighbour's bar rim to rim with the cubes two lattice steps apart in
+   projection (same 3-colouring class), which leaves no atom between them: the
+   coverage check (TileFitCLAUDE/cover_MIRROR.js, L=4,6,8) finds every uncovered
+   atom of the fundamental domain inside a ring interior. Found by the 09/09 lattice
+   sweep, re-verified L=4..8 (fusedlat_MIRROR.js): zero unintended coincidences,
+   zero crossings, zero side rims, closures A k=−1 and B k=+1. Shared cell-slots in
+   an n×n patch: n²·L intra + L·n(n−1) inter = L·n(2n−1). */
+function genDblHoney(L, n, kind){
+  S.beams = [];
+  const T1 = [L+4, 2-L, 3], T2 = [L-1, L+1, -(2*L+2)];
+  const occ = new Set(), units = [];
+  const place = (u) => {
+    ringCells(kind, u.base, u.dirs, u.lens, true).forEach(cells => {
+      const kept = cells.filter(c => { const k = kind+':'+CK(c); if (occ.has(k)) return false; occ.add(k); return true; });
+      if (kept.length){ makeBeam(kept, kind); S.beams[S.beams.length-1].ring = units.length; }
+    });
+    units.push(u);
+  };
+  for (let j=0; j<n; j++) for (let i=0; i<n; i++){
+    const P = [i*T1[0]+j*T2[0], i*T1[1]+j*T2[1], i*T1[2]+j*T2[2]];
+    place({base: P, dirs: [1,-3,2,-1,3,-2], lens: [L-1, L+1, L, L, L, L], eExp: '+E1', kExp: -1});
+    // ring B: the full flipped walk from A's bar end; its first bar IS A's bar
+    place({base: [P[0]+L-1, P[1], P[2]], dirs: [-1,3,-2,1,-3,2], lens: [L-1, L+1, L, L, L, L], eExp: '−E1', kExp: 1});
+  }
+  // expected shared slots (closed form, independent of the dedupe above): the intra
+  // double-hex bar (L cells) per unit plus one L-cell bar per T2 adjacency
+  S.fused = {label: 'double 6-bar honeycomb', expShared: L*n*(2*n-1), units,
+    note: 'alternating-chirality double 6-bars: a GAPLESS honeycomb of impossible rings (the only uncovered atoms are ring interiors); 2 shared bars per double unit, all other bars abut rim to rim; A rings k=&minus;1, B rings k=+1'};
+}
+const DIRSETS = {
+  cube:  [{k:'c', v:[1,0,0]}, {k:'c', v:[0,1,0]}, {k:'c', v:[0,0,1]}],
+  rhomb: [{k:'r', v:[1,1,0]}, {k:'r', v:[1,0,1]}, {k:'r', v:[0,1,1]}],
+};
+DIRSETS.mixed = [...DIRSETS.cube, ...DIRSETS.rhomb];
+function genKnot(seed, nSegs, lmin, lmax, bias, family){
+  // NOTE: for family 'cube' the rng draw sequence is byte-identical to v1 — old seeds reproduce
+  S.beams = [];
+  const rng = mulberry32(seed);
+  const AX = DIRSETS[family] || DIRSETS.cube;
+  const occ = new Set();      // 'kind:x,y,z' of placed cells (origin registered under its owner's kind)
+  const placed = [];          // {k,p} for geometric cross-kind overlap tests
+  const cols = new Map();     // column key "a,b" -> [{s: sum, k: kind}] (crossing detection)
+  const colAdd = (c, kind) => {
+    const k = (c[0]-c[1])+','+(c[1]-c[2]);
+    if (!cols.has(k)) cols.set(k, []);
+    cols.get(k).push({s: c[0]+c[1]+c[2], k: kind});
+  };
+  // a same-column pair is a real crossing only if the BACK cell is fully behind the
+  // front one: |Δsum| ≥ 3 behind a cube, ≥ 6 behind a rhombohedron (which spans two
+  // diagonal steps — a cube 3 levels in front of its base sits INSIDE it)
+  const crossesBehind = (dsum, backKind) => Math.abs(dsum) >= (backKind === 'r' ? 6 : 3);
+  let pos = [0,0,0], prevAxis = -1;
+  let first = true;
+  for (let seg=0; seg<nSegs; seg++){
+    const lo = Math.min(lmin,lmax), hi = Math.max(lmin,lmax);
+    const cands = [];
+    for (let ax=0; ax<AX.length; ax++){
+      if (ax === prevAxis) continue;
+      const kind = AX[ax].k, e = AX[ax].v;
+      for (const dir of [1,-1]){
+        const len = lo + Math.floor(rng()*(hi-lo+1));
+        const cells = [];
+        let p = pos.slice();
+        for (let t=0; t<len; t++){
+          p = [p[0]+dir*e[0], p[1]+dir*e[1], p[2]+dir*e[2]];
+          if (occ.has(kind+':'+CK(p))) break;                              // same base, same kind
+          if (placed.some(o => cellsOverlap(kind, p, o.k, o.p))) break;      // interpenetration (any kinds)
+          cells.push(p.slice());
+        }
+        if (cells.length < 2) continue;
+        // crossing score: cells revisiting an existing projected column, genuinely behind/in front
+        let score = 0;
+        const mySum = c => c[0]+c[1]+c[2];
+        for (const c of cells){
+          const k = (c[0]-c[1])+','+(c[1]-c[2]);
+          const others = cols.get(k);
+          if (others && others.some(o => { const d = mySum(c) - o.s; return crossesBehind(d, d > 0 ? o.k : kind); })) score++;
+        }
+        cands.push({ax, kind, cells, w: 1 + (bias*8)*score});
+      }
+    }
+    if (!cands.length) break;
+    let tot = cands.reduce((s,c)=>s+c.w, 0), r = rng()*tot, pick = cands[cands.length-1];
+    for (const c of cands){ r -= c.w; if (r <= 0){ pick = c; break; } }
+    // first segment also owns the origin cell
+    const cells = first ? [pos.slice(), ...pick.cells] : pick.cells;
+    first = false;
+    makeBeam(cells, pick.kind);
+    for (const c of cells){ occ.add(pick.kind+':'+CK(c)); placed.push({k: pick.kind, p: c}); colAdd(c, pick.kind); }
+    pos = pick.cells[pick.cells.length-1];
+    prevAxis = pick.ax;
+  }
+}
+
+/* ---------- ownership resolution (the illusion machinery) ---------- */
+let ATOMS = [];      // [{key,s,a,b, beamId, fam}] winners, deterministic order
+let CROSSINGS = [];  // sorted pair keys "i|j" of contested beam pairs
+let FLIPS = new Set();
+let LEDGER_EXTRA = {contested:0, ties:0, depthCheckOk:true, depthChecked:0, closure:null};
+function pairKey(i,j){ return i<j ? i+'|'+j : j+'|'+i; }
+function hash32(str, seed){
+  let h = seed >>> 0;
+  for (let i=0;i<str.length;i++){
+    h = Math.imul(h ^ str.charCodeAt(i), 2654435761);
+    h = ((h << 13) | (h >>> 19)) >>> 0;
+  }
+  return h >>> 0;
+}
+function polyCentroid(pts){ let x=0,y=0; for (const [a,b] of pts){ x+=a; y+=b; } return [x/pts.length, y/pts.length]; }
+function polyArea2(pts){ let s=0; for (let i=0;i<pts.length;i++){ const p=pts[i], q=pts[(i+1)%pts.length]; s += p[0]*q[1]-q[0]*p[1]; } return s; }
+function clipByLine(poly, f){ // convex polygon split by the line f=0 (f linear): [{pts}, {pts}]
+  const vals = poly.map(([a,b]) => f(a,b));
+  const half = keepPos => {
+    const out = [];
+    for (let i=0;i<poly.length;i++){
+      const P = poly[i], Q = poly[(i+1)%poly.length], fp = vals[i], fq = vals[(i+1)%poly.length];
+      const inP = keepPos ? fp >= 0 : fp <= 0, inQ = keepPos ? fq >= 0 : fq <= 0;
+      if (inP) out.push(P);
+      if (inP !== inQ){ const t = fp/(fp-fq); out.push([P[0]+(Q[0]-P[0])*t, P[1]+(Q[1]-P[1])*t]); }
+    }
+    return out;
+  };
+  return [half(true), half(false)].filter(p => p.length >= 3 && Math.abs(polyArea2(p)) > 1e-9);
+}
+function resolvePiece(pts, cands){
+  // honest winner at the piece centroid. Crossing PROVENANCE: a rival beam counts
+  // as crossing here only if it has a candidate from a cell in the SAME projected
+  // column, genuinely behind (|Δsum| ≥ 3 behind a cube, ≥ 6 behind a rhombohedron).
+  // Solid 3D joints (adjacent cells, different columns) share atoms but never flip.
+  // The face DRAWN when flipped is the rival's own deepest face here (its real
+  // surface), not necessarily the same-column one.
+  const c = polyCentroid(pts);
+  let best = null, bd = -Infinity, second = -Infinity;
+  for (const cd of cands){
+    const d = cd.depthFn(c[0], c[1]);
+    if (d > bd + 1e-9){ second = bd; bd = d; best = cd; } else if (d > second) second = d;
+  }
+  const rivals = new Map(); // beamId -> its deepest face at this piece
+  for (const cd of cands){
+    if (cd.beamId === best.beamId) continue;
+    const d = cd.depthFn(c[0], c[1]);
+    const t = rivals.get(cd.beamId);
+    if (!t || d > t.d) rivals.set(cd.beamId, {cd, d});
+  }
+  let altBeam = null, ad = -Infinity;
+  for (const cd of cands){
+    if (cd.beamId === best.beamId || cd.col !== best.col) continue;
+    const dsum = cd.sum - best.sum, backKind = dsum < 0 ? cd.kind : best.kind;
+    if (Math.abs(dsum) >= (backKind === 'r' ? 6 : 3)){
+      const d = cd.depthFn(c[0], c[1]);
+      if (d > ad){ ad = d; altBeam = cd.beamId; }
+    }
+  }
+  const alt = altBeam === null ? null : rivals.get(altBeam).cd;
+  return {best, alt, rivals, tie: cands.length > 1 && Math.abs(bd - second) < 1e-9};
+}
+function splitPiece(pts, cands, depth){
+  // clip until the centroid winner is constant over the piece: every candidate whose
+  // depth difference to the winner changes sign across the vertices splits it
+  const c = polyCentroid(pts);
+  let w = null, wd = -Infinity;
+  for (const cd of cands){ const d = cd.depthFn(c[0], c[1]); if (d > wd + 1e-9){ wd = d; w = cd; } }
+  if (depth < 8) for (const cd of cands){
+    if (cd === w) continue;
+    const f = (a,b) => w.depthFn(a,b) - cd.depthFn(a,b);
+    const vals = pts.map(([a,b]) => f(a,b));
+    if (Math.min(...vals) < -1e-9 && Math.max(...vals) > 1e-9){
+      const h = clipByLine(pts, f);
+      if (h.length === 2) return h.flatMap(x => splitPiece(x, cands, depth+1));
+    }
+  }
+  return [pts];
+}
+function buildScene(){
+  const cm = cellsMap();
+  const own = new Map(); // atomKey -> {s,a,b, cands:[...]}
+  for (const [ck, beamId] of cm){
+    const kind = ck[0];
+    const [cx,cy,cz] = ck.slice(2).split(',').map(Number);
+    const col = (cx-cy)+','+(cy-cz), sum = cx+cy+cz; // candidate provenance (projected column)
+    for (const f of cellFaces(kind, cx,cy,cz)){
+      for (const [s,a,b] of f.atoms){
+        const k = AK(s,a,b);
+        let e = own.get(k);
+        if (!e){ e = {s,a,b, cands:[]}; own.set(k, e); }
+        const [ca,cb] = atomCentroidLat(s,a,b);
+        e.cands.push({beamId, kind, fam:f.fam, depth:f.depth(ca,cb), depthFn:f.depth, col, sum});
+      }
+    }
+  }
+  const mixed = new Set(S.beams.map(b => b.kind)).size > 1;
+  // pieces: whole atoms, except where face depth order changes INSIDE the atom —
+  // impossible within one kind on the FCC/cubic parity (intersection lines project
+  // onto lattice directions), but cube-vs-rhombohedron faces, and rhombohedra at
+  // odd-parity offsets in mixed walks, can meet along lines that project
+  // off-lattice; such atoms are clipped (recursively) along every depth-equality
+  // line until the centroid winner is constant over each piece
+  const pieces = []; let splits = 0;
+  for (const [k, e] of own){
+    e.cands.sort((p2,q2) => (q2.depth - p2.depth) || (p2.beamId - q2.beamId) || (p2.fam < q2.fam ? -1 : 1));
+    const tri = atomVerts(e.s, e.a, e.b);
+    const parts = e.cands.length > 1 ? splitPiece(tri, e.cands, 0) : [tri];
+    if (parts.length > 1) splits++;
+    for (const pts of parts) pieces.push({key:k, s:e.s, a:e.a, b:e.b, pts, cands:e.cands});
+  }
+  const pairSet = new Set();
+  let contested = 0, ties = 0;
+  const altPairsAt = new Map(); // atomKey -> Set(pairKey) of genuine crossings there
+  for (const pc of pieces){
+    const r = resolvePiece(pc.pts, pc.cands);
+    pc.best = r.best; pc.alt = r.alt; pc.rivals = r.rivals; if (r.tie) ties++;
+    if (pc.alt){
+      contested++;
+      const pk = pairKey(pc.best.beamId, pc.alt.beamId);
+      pairSet.add(pk);
+      if (!altPairsAt.has(pc.key)) altPairsAt.set(pc.key, new Set());
+      altPairsAt.get(pc.key).add(pk);
+    }
+  }
+  // rim pieces: the two beams' surfaces overlap here but no candidate pair shares a
+  // column (hexagon rims). If the pair is a registered crossing and an adjacent atom
+  // carries that crossing, the piece flips with it — otherwise a flipped crossing
+  // would leave single-triangle notches of the front beam poking through
+  for (const pc of pieces){
+    if (pc.alt || !pc.rivals.size) continue;
+    const nb = neighbors(pc.s, pc.a, pc.b).map(n => AK(n[0],n[1],n[2]));
+    for (const [rb, t] of pc.rivals){
+      const pk = pairKey(pc.best.beamId, rb);
+      if (!pairSet.has(pk)) continue;
+      if (nb.some(k => altPairsAt.has(k) && altPairsAt.get(k).has(pk))){ pc.alt = t.cd; break; }
+    }
+  }
+  CROSSINGS = [...pairSet].sort();
+  // identity-keyed coins: hash of the two beams' kind+cell content + illusion seed —
+  // stable under beam deletion/reindex, monotone in the probability slider
+  const p = (parseInt($('flipP').value)||0)/100;
+  const iseed = parseInt($('iseed').value)||0;
+  const sig = bm => bm.kind + ':' + bm.cells.map(CK).join(';');
+  FLIPS = new Set(CROSSINGS.filter(pk => {
+    const [i,j] = pk.split('|').map(Number);
+    const ss = [sig(S.beams[i]), sig(S.beams[j])].sort();
+    return mulberry32(hash32(ss[0]+'#'+ss[1], iseed))() < p;
+  }));
+  ATOMS = [];
+  let checkOk = true, checkedX = 0, checkedJ = 0, approx = 0;
+  for (const pc of pieces){
+    const winner = (pc.alt && FLIPS.has(pairKey(pc.best.beamId, pc.alt.beamId))) ? pc.alt : pc.best;
+    ATOMS.push({key:pc.key, s:pc.s, a:pc.a, b:pc.b, pts:pc.pts, beamId:winner.beamId, fam:winner.fam});
+    // depth-order theorem spot check (crossing pieces preferred, junctions too):
+    // the honest winner must agree at interior points near every vertex. In mixed
+    // scenes a THIRD face could still cross inside a split piece: counted as approx.
+    const isX = !!pc.alt, isJ = !isX && pc.cands.length > 1;
+    if (isX || isJ){ // every contested piece is checked (cheap)
+      if (isX) checkedX++; else checkedJ++;
+      const c0 = polyCentroid(pc.pts);
+      let bad = false;
+      for (const v of pc.pts){
+        const pa = c0[0]*0.4 + v[0]*0.6, pb = c0[1]*0.4 + v[1]*0.6;
+        let bi = null, bd = -Infinity;
+        for (const cd of pc.cands){ const d = cd.depthFn(pa,pb); if (d > bd + 1e-9){ bd = d; bi = cd; } }
+        if (bi !== pc.best && Math.abs(bd - pc.best.depthFn(pa,pb)) > 1e-9) bad = true;
+      }
+      if (bad){ if (mixed) approx++; else checkOk = false; }
+    }
+  }
+  // preset ring closures: MEASURED from the actual cells, not asserted
+  let closure = null;
+  const lastOf = bm => bm.cells[bm.cells.length-1];
+  if (UI.fig === 'tribar' && S.beams.length >= 3)
+    closure = [ringClosure('tribar', S.beams[0].kind, S.beams[0].cells[0], lastOf(S.beams[2]))];
+  else if (UI.fig === 'hexring' && S.beams.length >= 6)
+    closure = [ringClosure('ring', S.beams[0].kind, S.beams[0].cells[0], lastOf(S.beams[5]))];
+  else if (UI.fig === 'dblhex' && S.beams.length >= 11)
+    closure = [ringClosure('ring A', S.beams[0].kind, S.beams[0].cells[0], lastOf(S.beams[5])),
+               ringClosure('ring B', S.beams[0].kind, lastOf(S.beams[0]), lastOf(S.beams[10]))];
+  let nc = 0, nr = 0;
+  for (const bm of S.beams) (bm.kind === 'r' ? nr += bm.cells.length : nc += bm.cells.length);
+  // tiling audit: rings must never SHARE atoms — loose layout has a 3-cell moat,
+  // tight layout abuts edge-to-edge with zero contested area (torus-verified).
+  // Ring membership comes from the .ring tag stamped at generation (NOT ⌊id/6⌋:
+  // deleting a beam reindexes ids and would shift the grouping across real ring
+  // boundaries, counting ordinary elbow joints as cross-ring — review 07/09);
+  // b.id = array index holds after the delete reindex, so the lookup stays valid
+  let crossRing = null;
+  if (UI.fig === 'hextile' || UI.fig === 'hextight' || UI.fig === 'hexabut' || UI.fig === 'hexpacked'){
+    crossRing = 0;
+    for (const [, e] of own){
+      const rings = new Set(e.cands.map(cd => S.beams[cd.beamId].ring));
+      if (rings.size > 1) crossRing++;
+    }
+  }
+  // fused-structure audit (chain tiling, Sierpiński 3-bar): units SHARE bars and
+  // vertex cubes by design, so the atom audit above does not apply; instead re-walk
+  // every unit from its stored base and check against the SCENE: (a) all its cells
+  // exist (shared ones once); (b) for every COMPLETE unit, the closure measured
+  // between scene cells is the expected e + k(1,1,1) (gated on completeness — a
+  // re-walk alone would always agree, review 07/09); (c) shared slots counted from
+  // ownership: cells of this unit's walk owned by a beam of ANOTHER unit
+  let fused = null;
+  if (S.fused){
+    // identity frame: units are stored in canonical coordinates, so audit them
+    // against the canonical occupancy, whatever isomer axis is being rendered
+    const cmc = UI.axis === '111' ? cm : cellsMap(true);
+    const ownerUnit = c => { const b = cmc.get('c:'+CK(c)); return b === undefined ? -1 : S.beams[b].ring; };
+    let complete = 0, closuresOk = 0, shared = 0;
+    S.fused.units.forEach((u, id) => {
+      const beams = ringCells('c', u.base, u.dirs, u.lens, true), cells = beams.flat();
+      if (cells.every(cell => cmc.has('c:'+CK(cell)))){
+        complete++;
+        const last = beams[beams.length-1];
+        const rc = ringClosure('unit', 'c', beams[0][0], last[last.length-1]);
+        if (rc.closed && rc.e === u.eExp && rc.k === u.kExp) closuresOk++;
+      }
+      for (const cell of cells){ const o = ownerUnit(cell); if (o >= 0 && o !== id) shared++; }
+    });
+    fused = {label: S.fused.label, note: S.fused.note, n: S.fused.units.length, complete, closuresOk,
+             shared, expShared: S.fused.expShared};
+  }
+  LEDGER_EXTRA = {contested, ties, depthCheckOk: checkOk, checkedX, checkedJ, closure,
+                  splits, approx, mixed, nc, nr, crossRing, fused};
+}
+
+/* ---------- style / colors ---------- */
+const $ = id => document.getElementById(id);
+const UI = { paint:'auto', fig:'knot', family:'cube', necker:'solid', axis:'111', view:{x:-12,y:-9,w:24} };
+/* ISOMER VIEWS (10/09/2026): the same cube set seen along another body diagonal d.
+   A lattice rotation R (signed permutation, det +1) with R·d = (1,1,1) turns the
+   view along d into the standard (1,1,1) render of the rotated set R·S — the true
+   view along d up to an in-plane rotation of the image (review 11/09: verified not a
+   mirror on chiral sets; placing the rotated cube at base R·p rather than at the true
+   min-corner is a uniform lattice translation of the whole set, invisible after
+   fitView). Cube cells only: a rotated
+   rhombohedron is not the (1,1,1)-aligned kind the atom machinery knows, so the
+   family is coerced to cubes off-axis. Identity audits (preset closures, fused
+   units) are measured in the (1,1,1) frame; the rendered-scene checks (depth
+   order, ties, crossings) follow the view; the disjoint-ring overlap audit is
+   view-dependent and only informational off-axis. */
+const AXES = {
+  '111': {name: '(1,1,1)',       R: c => c},
+  '11m': {name: '(1,1,−1)', R: c => [c[0], -c[2], c[1]]},  // 90° about x: (1,1,−1) → (1,1,1)
+  '1m1': {name: '(1,−1,1)', R: c => [c[0], c[2], -c[1]]},  // 90° about x the other way
+  'm11': {name: '(−1,1,1)', R: c => [c[1], -c[0], c[2]]},  // 90° about z
+};
+const VR = c => AXES[UI.axis].R(c);
+const viewCells = bm => UI.axis === '111' ? bm.cells : bm.cells.map(VR);
+function styleOpts(){
+  return {
+    win: $('winCol').value, bg: $('bgCol').value, tbg: $('tbg').checked,
+    flatWin: $('flatWin').checked, lineCol: $('lineCol').checked,
+    sx: parseInt($('sx').value)/100, sy: parseInt($('sy').value)/100,
+    necker: UI.necker,
+  };
+}
+/* colour by LINE: every beam lies on one projected lattice line — a-direction
+   (b = const), b-direction (a = const) or (−1,1)-direction (a+b = const). Collinear
+   beams are continuations of each other across shared bars and vertex cubes (the
+   Sierpiński gasket's three outer edges, the chain tiling's column legs with their
+   4-bar windows), so giving each LINE a palette colour paints continuations alike.
+   Single-cell beams (corner-trimmed bars) have no direction of their own: they join
+   an existing line of a family that passes through them and touches them in 3D,
+   otherwise they get a line of their own.
+   Review fix 09/09: a projected line is SPLIT wherever two of its beams overlap in
+   projected columns — a collinear crossing at different depths (what the knot's
+   bias slider promotes). Keyed purely by line, front and back beam got one colour
+   and the same axis shading, and the crossing cue vanished; continuations never
+   overlap in columns, so the split leaves the gasket / chain-tiling lines intact.
+   Review fix 10/09: the split is order-independent — beams of one projected line
+   are first UNIONED along genuine 3D continuations (a cell of one beam 3D-adjacent
+   to a cell of another; on one projected line that forces the same 3D line), and
+   the unions are what the column-overlap split partitions, so two crossing beams
+   can no longer separate a continuation (knots only; no preset has such overlaps).
+   A single-cell beam joins a sub-line only if its column is free there. */
+function lineKeyOf(cell, fam){
+  const [a, b] = PROJ(cell);
+  return fam === 'h' ? 'h'+b : fam === 'v' ? 'v'+a : 'd'+(a+b);
+}
+function computeLines(){
+  const colKey = c => { const [a, b] = PROJ(c); return a+','+b; };
+  const groups = new Map(); // projected line key -> beams on it
+  const singles = [];
+  for (const bm of S.beams){
+    const vc = viewCells(bm); // lines are a property of the rendered image: view frame
+    if (vc.length >= 2){
+      const c0 = vc[0], c1 = vc[1];
+      const [da, db] = PROJ([c1[0]-c0[0], c1[1]-c0[1], c1[2]-c0[2]]);
+      const key = lineKeyOf(c0, db === 0 ? 'h' : da === 0 ? 'v' : 'd');
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(bm);
+    } else singles.push(bm);
+  }
+  const adj = (p, q) => Math.abs(p[0]-q[0]) + Math.abs(p[1]-q[1]) + Math.abs(p[2]-q[2]) === 1;
+  const subs = []; // sub-lines: {key, cells, cols} — beams of one sub-line never share a column
+  for (const [key, beams] of groups){
+    // 1. union genuine 3D continuations (order-independent)
+    const parent = beams.map((_, i) => i);
+    const find = i => parent[i] === i ? i : (parent[i] = find(parent[i]));
+    for (let i = 0; i < beams.length; i++) for (let j = i+1; j < beams.length; j++)
+      if (beams[i].cells.some(p => beams[j].cells.some(q => adj(p, q)))) parent[find(i)] = find(j);
+    const runs = new Map(); // root -> {beams, cols}
+    beams.forEach((bm, i) => {
+      const r = find(i); if (!runs.has(r)) runs.set(r, {beams: [], cols: new Set()});
+      const ru = runs.get(r); ru.beams.push(bm); viewCells(bm).forEach(c => ru.cols.add(colKey(c)));
+    });
+    // 2. runs that overlap in projected columns (collinear crossings) go to different sub-lines
+    const mine = [];
+    for (const ru of runs.values()){
+      let ln = mine.find(s => ![...ru.cols].some(k => s.cols.has(k)));
+      if (!ln){ ln = {key, cells: [], cols: new Set()}; mine.push(ln); subs.push(ln); }
+      ru.cols.forEach(k => ln.cols.add(k)); ru.beams.forEach(bm => { ln.cells.push(...bm.cells); bm.line = ln; });
+    }
+  }
+  for (const bm of singles){
+    const c = bm.cells[0], vc = VR(c), ck = colKey(vc); let ln = null; // adjacency is frame-free, keys/columns are view-frame
+    for (const fam of ['h','v','d']){ const k = lineKeyOf(vc, fam); ln = subs.find(s => s.key === k && !s.cols.has(ck) && s.cells.some(q => adj(c, q))) || null; if (ln) break; }
+    if (!ln){ ln = {key: 'p'+CK(c), cells: [], cols: new Set()}; subs.push(ln); }
+    ln.cells.push(c); ln.cols.add(ck); bm.line = ln;
+  }
+  subs.forEach((s, i) => { s.idx = i; });
+  for (const bm of S.beams) bm.line = bm.line.idx;
+}
+function shade(hex, f){
+  const r = Math.round(parseInt(hex.slice(1,3),16)*f),
+        g = Math.round(parseInt(hex.slice(3,5),16)*f),
+        b = Math.round(parseInt(hex.slice(5,7),16)*f);
+  return '#'+[r,g,b].map(v=>Math.max(0,Math.min(255,v)).toString(16).padStart(2,'0')).join('');
+}
+function beamBaseColor(bm, st){
+  if (bm.fill === 'window') return st.win;
+  if (bm.fill === 'auto') return (st.lineCol && bm.line !== undefined)
+    ? PALETTE[(bm.line + S.paletteOff) % PALETTE.length] : bm.autoColor;
+  return bm.fill;
+}
+function famShade(fam, st){
+  // the shading IS the depth-sign prior (light-from-above): permute it and the
+  // beams read hollow; equalize it and the figure goes Necker-bistable
+  if (st.necker === 'flat'){ return (1 + st.sx + st.sy)/3; }
+  if (st.necker === 'hollow'){ // brightness order reversed = relit from the opposite diagonal
+    return fam === 'z' ? st.sy : (fam === 'x' ? st.sx : 1);
+  }
+  return fam === 'z' ? 1 : (fam === 'x' ? st.sx : st.sy); // solid (light from above)
+}
+function atomFill(at, st){
+  const bm = S.beams[at.beamId];
+  const col = beamBaseColor(bm, st);
+  if (bm.fill === 'window' && st.flatWin) return col;
+  const f = famShade(at.fam, st);
+  return f === 1 ? col : shade(col, f);
+}
+
+/* ---------- svg scene (two-tier restyle as siblings) ---------- */
+const board = $('board'), gAtoms = $('gAtoms'), bgRect = $('bgRect');
+let restyleRaf = 0, restyleStructural = false;
+function scheduleRestyle(structural = true){
+  if (structural) restyleStructural = true;
+  if (restyleRaf) return;
+  restyleRaf = requestAnimationFrame(() => {
+    restyleRaf = 0;
+    const s2 = restyleStructural; restyleStructural = false;
+    restyleScene(s2);
+  });
+}
+function ptsAttr(pts){
+  return pts.map(([a,b]) => (VX(a,b).toFixed(4))+','+(VY(a,b).toFixed(4))).join(' ');
+}
+function restyleScene(structural = true){
+  const st = styleOpts();
+  bgRect.setAttribute('fill', st.bg);
+  if (structural) buildScene();
+  if (st.lineCol) computeLines(); // cheap: O(beams·cells); tracks deletions/regeneration
+  if (!structural && gAtoms.children.length === ATOMS.length){
+    const kids = gAtoms.children;
+    for (let i=0;i<ATOMS.length;i++){
+      const f = atomFill(ATOMS[i], st);
+      kids[i].setAttribute('fill', f);
+      kids[i].setAttribute('stroke', f);
+    }
+    updateDims();
+    return;
+  }
+  gAtoms.textContent = '';
+  const frag = document.createDocumentFragment();
+  for (const at of ATOMS){
+    const p = document.createElementNS('http://www.w3.org/2000/svg','polygon');
+    p.setAttribute('points', ptsAttr(at.pts));
+    const f = atomFill(at, st);
+    p.setAttribute('fill', f);
+    p.setAttribute('stroke', f);        // same-color overpaint: hairline kill
+    p.setAttribute('stroke-width', 0.02);
+    p.setAttribute('stroke-linejoin', 'round');
+    p.dataset.beam = at.beamId;
+    frag.appendChild(p);
+  }
+  gAtoms.appendChild(frag);
+  updateLedger();
+  updateDims();
+}
+
+/* ---------- viewbox pan/zoom ---------- */
+function updateViewBox(){
+  const r = board.getBoundingClientRect();
+  const asp = r.height / Math.max(1, r.width);
+  const v = UI.view;
+  board.setAttribute('viewBox', v.x+' '+v.y+' '+v.w+' '+(v.w*asp));
+}
+function clientToSvg(cx, cy){
+  const r = board.getBoundingClientRect();
+  const asp = r.height / Math.max(1, r.width);
+  return [UI.view.x + (cx - r.left)/r.width * UI.view.w,
+          UI.view.y + (cy - r.top)/r.height * (UI.view.w*asp)];
+}
+function atomsBounds(){
+  if (!ATOMS.length) return {minx:-2,miny:-2,maxx:2,maxy:2};
+  let minx=Infinity,miny=Infinity,maxx=-Infinity,maxy=-Infinity;
+  for (const at of ATOMS) for (const [a,b] of at.pts){
+    const x=VX(a,b), y=VY(a,b);
+    if (x<minx)minx=x; if (x>maxx)maxx=x; if (y<miny)miny=y; if (y>maxy)maxy=y;
+  }
+  return {minx,miny,maxx,maxy};
+}
+function fitView(){
+  const bb = atomsBounds(), pad = 1;
+  const r = board.getBoundingClientRect();
+  const asp = (r.width > 4 && r.height > 4) ? r.height / r.width : 0.618;
+  const w = bb.maxx - bb.minx + 2*pad, h = bb.maxy - bb.miny + 2*pad;
+  UI.view.w = Math.max(w, h/Math.max(asp,.0001));
+  UI.view.x = (bb.minx + bb.maxx)/2 - UI.view.w/2;
+  UI.view.y = (bb.miny + bb.maxy)/2 - UI.view.w*asp/2;
+  updateViewBox();
+}
+board.addEventListener('wheel', e => {
+  e.preventDefault();
+  const f = e.deltaY > 0 ? 1.15 : 1/1.15;
+  const [mx,my] = clientToSvg(e.clientX, e.clientY);
+  const v = UI.view;
+  v.x = mx - (mx - v.x)*f; v.y = my - (my - v.y)*f; v.w *= f;
+  updateViewBox();
+}, {passive:false});
+let drag = null;
+board.addEventListener('pointerdown', e => {
+  if (e.button !== 0) return;
+  drag = {x:e.clientX, y:e.clientY, vx:UI.view.x, vy:UI.view.y, moved:false, target:e.target};
+  board.setPointerCapture(e.pointerId);
+});
+board.addEventListener('pointermove', e => {
+  if (!drag) return;
+  if (e.pointerType === 'mouse' && e.buttons === 0){ drag = null; return; }
+  const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+  if (Math.abs(dx)+Math.abs(dy) > 4) drag.moved = true;
+  if (drag.moved){
+    const r = board.getBoundingClientRect();
+    UI.view.x = drag.vx - dx/r.width * UI.view.w;
+    UI.view.y = drag.vy - dy/r.width * UI.view.w;
+    updateViewBox();
+  }
+});
+board.addEventListener('pointerup', e => {
+  if (drag && !drag.moved && drag.target && drag.target.dataset && drag.target.dataset.beam !== undefined){
+    paintBeam(+drag.target.dataset.beam);
+  }
+  drag = null;
+});
+board.addEventListener('pointercancel', () => { drag = null; });
+window.addEventListener('resize', updateViewBox);
+// the hamburger toggle and the render window's corner handle change the board's
+// box WITHOUT a window resize; the viewBox must follow or pointer math, wheel-zoom
+// anchoring and pan scale drift (review 07/09). Setting a viewBox attribute does not
+// resize the element, so the observer cannot loop.
+if (window.ResizeObserver) new ResizeObserver(() => updateViewBox()).observe(board);
+
+function paintBeam(id){
+  const bm = S.beams[id]; if (!bm) return;
+  if (UI.paint === 'delete'){
+    S.beams.splice(id, 1);
+    S.beams.forEach((b,i) => { b.id = i; }); // reindex; flips re-derive deterministically
+    scheduleRestyle(true);
+    return;
+  }
+  bm.fill = UI.paint === 'custom' ? $('customCol').value : UI.paint;
+  scheduleRestyle(false); // ownership unchanged; fills only
+}
+
+/* ---------- ledger ---------- */
+function updateLedger(){
+  const cm = cellsMap();
+  // geometric collisions: any two cells sharing a base or interpenetrating (all kinds)
+  const all = [];
+  for (const bm of S.beams) for (const c of bm.cells) all.push({k: bm.kind, p: c});
+  let collisions = 0;
+  for (let i=0;i<all.length;i++) for (let j=i+1;j<all.length;j++)
+    if (cellsOverlap(all[i].k, all[i].p, all[j].k, all[j].p)) collisions++;
+  const L = LEDGER_EXTRA;
+  const closureOk = !L.closure || L.closure.every(r => r.closed);
+  const fusedOk = !L.fused || (L.fused.complete === L.fused.n && L.fused.closuresOk === L.fused.n &&
+                               L.fused.shared === L.fused.expShared);
+  const iso = UI.axis !== '111';
+  const ok = L.depthCheckOk && collisions === 0 && L.ties === 0 && closureOk && (iso || !(L.crossRing > 0)) && fusedOk;
+  $('ledger').innerHTML =
+    '<span class="'+(ok?'ok':'bad')+'">'+(ok?'&#10003; LEDGER':'&#10007; LEDGER BROKEN')+'</span> '+
+    (iso ? '<span class="k">view axis</span> <span class="a">'+AXES[UI.axis].name+'</span> <span class="k">(isomer view: '+
+           'the same cubes under a lattice rotation; closures and fused units audited in the (1,1,1) frame)</span> ' : '')+
+    '<span class="k">beams</span> <span class="a">'+S.beams.length+'</span> '+
+    '<span class="k">cells</span> <span class="a">'+cm.size+'</span> '+
+    '<span class="k">(cube '+L.nc+' / rhomb '+L.nr+')</span> '+
+    '<span class="k">pieces owned</span> <span class="a">'+ATOMS.length+'</span>'+
+    (L.splits ? ' <span class="k">split atoms</span> <span class="a">'+L.splits+'</span>' : '')+
+    (L.approx ? ' <span class="k">approx pieces</span> <span class="a">'+L.approx+'</span>' : '')+'<br>'+
+    '<span class="k">depth-order constant in atom</span> <span class="'+(L.depthCheckOk?'ok':'bad')+'">'+
+    (L.depthCheckOk?'&#10003;':'&#10007;')+'</span> <span class="k">('+L.checkedX+' crossing + '+L.checkedJ+' junction atoms &times;3 pts)</span><br>'+
+    '<span class="k">contested atoms</span> <span class="a">'+L.contested+'</span> '+
+    '<span class="k">crossing pairs</span> <span class="a">'+CROSSINGS.length+'</span> '+
+    '<span class="k">flipped</span> <span class="a">'+FLIPS.size+'</span> '+
+    '<span class="k">depth ties</span> <span class="'+(L.ties===0?'ok':'bad')+'">'+L.ties+'</span>'+
+    (collisions ? '<br><span class="bad">3D cell overlaps: '+collisions+'</span>' : '')+
+    (L.crossRing !== null && L.crossRing !== undefined
+      ? '<br><span class="k">tiling: atoms shared between rings</span> <span class="'+
+        (L.crossRing === 0 ? 'ok' : iso ? 'k' : 'bad')+'">'+L.crossRing+
+        (L.crossRing === 0 ? ' &#10003;' : iso ? ' (view-dependent: the packing is a (1,1,1)-frame identity)' : ' &#10007;')+'</span>'+
+        (UI.fig === 'hextight'
+          ? ' <span class="k">(tight family: gaps are the two solid lozenges '+
+            '2(L&sup2;&minus;1)+2L(L+2) atoms per 2-ring period, each bordered by 4 rings '+
+            '&mdash; torus-verified 07/09)</span>' : '')+
+        (UI.fig === 'hexabut'
+          ? ' <span class="k">(abut tiling: windows are true 60&deg; rhombi of side L and L+1 '+
+            'alternating, 2L&sup2; and 2(L+1)&sup2; atoms, one per ring, each bordered by 4 rings '+
+            '&mdash; atom-verified 07/09)</span>' : '')+
+        (UI.fig === 'hexpacked'
+          ? ' <span class="k">(packed honeycomb: the densest packing of disjoint 6-bars &mdash; the only '+
+            'gaps are single atoms, exactly ONE unit triangle per ring where three rings meet; domain '+
+            '(L+1)(3L+4) cells per ring = zero-gap floor + &frac12;. That atom is the wobble\'s irreducible '+
+            'residue: a regular hexagon would tile gaplessly, but a regular ring cannot be impossible)</span>' : '')
+      : '')+
+    (L.fused
+      ? '<br><span class="k">'+L.fused.label+' (fused):</span> <span class="k">units complete</span> <span class="'+
+        (L.fused.complete===L.fused.n?'ok':'bad')+'">'+L.fused.complete+'/'+L.fused.n+'</span> '+
+        '<span class="k">closures as expected (measured)</span> <span class="'+(L.fused.closuresOk===L.fused.n?'ok':'bad')+'">'+
+        L.fused.closuresOk+'/'+L.fused.n+'</span> '+
+        '<span class="k">shared cell-slots (measured)</span> <span class="'+(L.fused.shared===L.fused.expShared?'ok':'bad')+'">'+
+        L.fused.shared+'/'+L.fused.expShared+'</span> '+
+        '<span class="k">('+L.fused.note+')</span>'
+      : '')+
+    (L.closure ? L.closure.map(r => '<br><span class="k">'+r.name+' closure (measured):</span> '+
+      (r.closed
+        ? '<span class="ok">D = ('+r.D.join(',')+') = '+r.e+' + '+r.k+'&middot;(1,1,1) &rarr; '+
+          (r.k === 0 ? 'true joint (possible)' : (r.e === '0' ? 'column overlap' : 'FALSE joint')+', depth jump '+(3*r.k))+'</span>'
+        : '<span class="bad">not closed in projection, D = ('+r.D.join(',')+')</span>')).join('') : '');
+}
+
+/* ---------- exports ---------- */
+function exportGeom(){
+  const st = styleOpts();
+  const bb = atomsBounds();
+  const pad = 0.1;
+  return {st, minx: bb.minx - pad, miny: bb.miny - pad,
+          w: (bb.maxx - bb.minx) + 2*pad, h: (bb.maxy - bb.miny) + 2*pad};
+}
+function exportPixelDims(g){
+  let ppe = parseFloat($('ppe').value);
+  if (!isFinite(ppe)) ppe = 60;
+  ppe = Math.min(512, Math.max(4, ppe));
+  let W = Math.max(1, Math.round(g.w*ppe)), Hh = Math.max(1, Math.round(g.h*ppe)), f = 1;
+  const MAXD = 16000;
+  if (W > MAXD || Hh > MAXD){
+    f = MAXD / Math.max(W, Hh);
+    W = Math.round(W*f); Hh = Math.round(Hh*f);
+  }
+  return {W, Hh, scale: ppe*f, clamped: f < 1};
+}
+function updateDims(){
+  const d = exportPixelDims(exportGeom());
+  $('vDims').textContent = d.W+' × '+d.Hh+' px'+(d.clamped ? ' (clamped)' : '');
+}
+function makeCanvas(){
+  const g = exportGeom();
+  const d = exportPixelDims(g);
+  const cv = document.createElement('canvas');
+  cv.width = d.W; cv.height = d.Hh;
+  const ctx = cv.getContext('2d');
+  ctx.setTransform(d.scale, 0, 0, d.scale, -g.minx*d.scale, -g.miny*d.scale);
+  return {cv, ctx, g, scale: d.scale};
+}
+function drawAtoms(ctx, colorOf){
+  ctx.lineJoin = 'round';
+  for (const at of ATOMS){
+    const c = colorOf(at);
+    ctx.beginPath();
+    at.pts.forEach(([a,b],i) => {
+      const x=VX(a,b), y=VY(a,b);
+      i ? ctx.lineTo(x,y) : ctx.moveTo(x,y);
+    });
+    ctx.closePath();
+    ctx.fillStyle = c; ctx.fill();
+    ctx.strokeStyle = c; ctx.lineWidth = 0.02; ctx.stroke();
+  }
+}
+function renderColor(ctx, g, forceBg){
+  const st = g.st;
+  if (forceBg || !st.tbg){
+    ctx.save(); ctx.setTransform(1,0,0,1,0,0);
+    ctx.fillStyle = st.bg; ctx.fillRect(0,0,ctx.canvas.width,ctx.canvas.height);
+    ctx.restore();
+  }
+  drawAtoms(ctx, at => atomFill(at, st));
+}
+function renderMask(ctx){
+  const inv = $('mInv').checked;
+  ctx.save(); ctx.setTransform(1,0,0,1,0,0);
+  ctx.fillStyle = '#000000'; ctx.fillRect(0,0,ctx.canvas.width,ctx.canvas.height);
+  ctx.restore();
+  drawAtoms(ctx, at => S.beams[at.beamId].fill === 'window' ? '#FFFFFF' : '#000000');
+  if (inv){
+    ctx.save(); ctx.setTransform(1,0,0,1,0,0);
+    ctx.globalCompositeOperation = 'difference';
+    ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0,0,ctx.canvas.width,ctx.canvas.height);
+    ctx.restore();
+  }
+}
+function dlBlob(name, blob){
+  if (!blob){
+    alert('Export failed: image too large for this browser to encode. Lower "px per edge" and try again.');
+    return;
+  }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+}
+function fname(ext, suffix){
+  // dims are snapshotted at generation (S.usedArm / S.usedTilen), like the seed and
+  // family, so the export name describes the figure on screen, not the sliders
+  const dims = UI.fig !== 'knot'
+    ? '_L'+(S.usedArm||0) +
+      ((UI.fig.startsWith('hex') && UI.fig !== 'hexring') || UI.fig.startsWith('tri3') || UI.fig === 'kagome' || UI.fig === 'dblhoney' ? '_n'+(S.usedTilen||0) : '') +
+      (UI.fig === 'sierp3' ? '_d'+Math.min(4, (S.usedTilen||2) - 1) : '')
+    : '';
+  return 'hex_beam_s'+(S.usedSeed||0)+'_i'+(parseInt($('iseed').value)||0)+'_'+
+    (UI.fig)+'_'+(S.usedFamily||UI.family)+dims+(UI.axis !== '111' ? '_v'+UI.axis : '')+(suffix||'')+'.'+ext;
+}
+$('bPNG').onclick = () => {
+  const {cv, ctx, g} = makeCanvas();
+  renderColor(ctx, g, false);
+  cv.toBlob(b => dlBlob(fname('png'), b), 'image/png');
+};
+$('bJPG').onclick = () => {
+  const {cv, ctx, g} = makeCanvas();
+  renderColor(ctx, g, true);
+  cv.toBlob(b => dlBlob(fname('jpg'), b), 'image/jpeg', parseFloat($('jq').value)/100);
+};
+$('bMask').onclick = () => {
+  const {cv, ctx} = makeCanvas();
+  renderMask(ctx);
+  cv.toBlob(b => dlBlob(fname('png', '_mask'), b), 'image/png');
+};
+$('bSVG').onclick = () => {
+  try {
+    const g = exportGeom(), st = g.st;
+    const d = exportPixelDims(g);
+    const n4 = x => x.toFixed(4);
+    let out = '<svg xmlns="http://www.w3.org/2000/svg" width="'+d.W+
+      '" height="'+d.Hh+'" viewBox="'+n4(g.minx)+' '+n4(g.miny)+
+      ' '+n4(g.w)+' '+n4(g.h)+'">\n';
+    if (!st.tbg) out += '<rect x="'+n4(g.minx)+'" y="'+n4(g.miny)+'" width="'+
+      n4(g.w)+'" height="'+n4(g.h)+'" fill="'+st.bg+'"/>\n';
+    for (const at of ATOMS){
+      const f = atomFill(at, st);
+      out += '<polygon points="'+ptsAttr(at.pts)+'" fill="'+f+
+        '" stroke="'+f+'" stroke-width="0.02" stroke-linejoin="round"/>\n';
+    }
+    out += '</svg>\n';
+    dlBlob(fname('svg'), new Blob([out], {type:'image/svg+xml'}));
+  } catch (err){
+    alert('SVG export failed: '+err.message);
+  }
+};
+
+/* ---------- control wiring ---------- */
+function regenerate(params){
+  // generation parameters are read from the inputs once and snapshotted in S.gen, so a
+  // re-generation forced by a view change (regenerate(S.gen)) rebuilds the SAME figure
+  // rather than applying slider/seed edits the user has not submitted (review 11/09)
+  const P = params && params.seed !== undefined ? params : {
+    seed: parseInt($('seed').value)||0, arm: parseInt($('arm').value), tilen: parseInt($('tilen').value),
+    segs: parseInt($('segs').value), lmin: parseInt($('lmin').value), lmax: parseInt($('lmax').value),
+    bias: (parseInt($('bias').value)||0)/100 };
+  S.gen = P;
+  S.usedSeed = P.seed;
+  const preset = UI.fig !== 'knot';
+  // presets are single-kind, and hextile's layout constants are derived from the
+  // CUBE walk's projected extents (rhomb rings transpose the footprint): coerce
+  const TILE_MODES = {hextile: 'loose', hextight: 'tight', hexabut: 'abut', hexchain: 'chain', hexpacked: 'packed'};
+  const isTile = UI.fig in TILE_MODES;
+  S.fused = null;
+  const isFused3 = ['sierp3','tri3strip','tri3tile','kagome','dblhoney'].includes(UI.fig);
+  if ((preset && (UI.family === 'mixed' || ((isTile || isFused3) && UI.family === 'rhomb'))) ||
+      (UI.axis !== '111' && UI.family !== 'cube')){ // isomer views: cube cells only
+    UI.family = 'cube';
+    for (const x of $('famBtns').querySelectorAll('.pbtn')) x.classList.toggle('active', x.dataset.family === 'cube');
+  }
+  S.usedFamily = UI.family;
+  const kind = UI.family === 'rhomb' ? 'r' : 'c', L = P.arm;
+  S.usedArm = L || 0; S.usedTilen = P.tilen || 0;
+  if (UI.fig === 'tribar') genTribar(L, kind);
+  else if (UI.fig === 'hexring') genHexRing(L, kind);
+  else if (UI.fig === 'dblhex') genDoubleHex(L, kind);
+  else if (isTile) genHexTile(L, P.tilen, kind, TILE_MODES[UI.fig]);
+  else if (UI.fig === 'sierp3') genSierp3(L, Math.min(4, P.tilen - 1), kind);
+  else if (UI.fig === 'tri3strip' || UI.fig === 'tri3tile') genTri3(L, P.tilen, kind, UI.fig === 'tri3strip' ? 'strip' : 'tiling');
+  else if (UI.fig === 'kagome') genKagome(L, P.tilen, kind);
+  else if (UI.fig === 'dblhoney') genDblHoney(L, P.tilen, kind);
+  else genKnot(S.usedSeed, P.segs, P.lmin, P.lmax, P.bias, UI.family);
+  restyleScene(true); fitView();
+}
+$('bGen').onclick = () => regenerate();
+$('bDice').onclick = () => { $('seed').value = Math.floor(Math.random()*100000); };
+$('bIDice').onclick = () => { $('iseed').value = Math.floor(Math.random()*100000); scheduleRestyle(true); };
+$('bShuffle').onclick = () => {
+  S.paletteOff = (S.paletteOff + 3) % PALETTE.length;
+  S.beams.forEach((bm,i) => { bm.autoColor = PALETTE[(i + S.paletteOff) % PALETTE.length]; });
+  scheduleRestyle(false);
+};
+$('bFit').onclick = fitView;
+
+function bindGroup(containerId, dataKey, uiKey, after){
+  $(containerId).addEventListener('click', e => {
+    const b = e.target.closest('.pbtn'); if (!b || b.dataset[dataKey] === undefined) return;
+    if (UI[uiKey] === b.dataset[dataKey]) return; // re-clicking the active mode is a no-op
+    UI[uiKey] = b.dataset[dataKey];
+    for (const x of $(containerId).querySelectorAll('.pbtn')) x.classList.toggle('active', x === b);
+    if (after) after();
+  });
+}
+bindGroup('figBtns', 'fig', 'fig', regenerate);
+bindGroup('famBtns', 'family', 'family', regenerate);
+bindGroup('axisBtns', 'axis', 'axis', () => {
+  // isomer views are cube-only: an off-axis click on a rhombohedron/mixed scene regenerates as
+  // cubes — from the figure's own snapshotted parameters, not from unsubmitted input edits
+  if (UI.axis !== '111' && S.beams.some(b => b.kind === 'r')) regenerate(S.gen);
+  else { restyleScene(true); fitView(); }
+});
+bindGroup('paintBtns', 'paint', 'paint');
+// UI: hamburger hides the whole controls panel (render window takes the width,
+// any dragged width is cleared, the figure is re-fitted); each section header
+// collapses its own controls (keyboard: Tab + Enter/Space); the render window is
+// CSS-resizable at its bottom-right corner — the ResizeObserver above re-syncs
+// the viewBox so the drawing and the pointer math follow the new box
+const hamb = $('bHamb');
+hamb.setAttribute('aria-expanded', 'true');
+hamb.onclick = () => {
+  const collapsed = document.querySelector('.layout').classList.toggle('collapsed');
+  hamb.setAttribute('aria-expanded', String(!collapsed));
+  document.querySelector('.canvaswrap').style.width = '';
+  fitView();
+};
+for (const s of document.querySelectorAll('.controls .sect')){
+  s.tabIndex = 0; s.setAttribute('role', 'button'); s.setAttribute('aria-expanded', 'true');
+  const toggle = () => {
+    const closed = s.classList.toggle('closed');
+    s.setAttribute('aria-expanded', String(!closed));
+    for (let el = s.nextElementSibling; el && !el.classList.contains('sect'); el = el.nextElementSibling)
+      el.classList.toggle('hidden', closed);
+  };
+  s.addEventListener('click', toggle);
+  s.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); toggle(); } });
+}
+
+const liveLabels = [
+  ['arm','vArm', v=>v], ['segs','vSegs', v=>v], ['bias','vBias', v=>v+'%'],
+  ['flipP','vFlip', v=>v+'%'], ['sx','vSx', v=>v+'%'], ['sy','vSy', v=>v+'%'],
+  ['tilen','vTilen', v=>v+'×'+v],
+  ['jq','vJq', v=>v],
+];
+for (const [id, lab, fmt] of liveLabels)
+  $(id).addEventListener('input', () => { $(lab).textContent = fmt($(id).value); });
+const lenLab = () => { $('vLen').textContent =
+  Math.min($('lmin').value,$('lmax').value)+'–'+Math.max($('lmin').value,$('lmax').value); };
+$('lmin').addEventListener('input', lenLab);
+$('lmax').addEventListener('input', lenLab);
+// illusion inputs change OWNERSHIP: structural
+$('flipP').addEventListener('input', () => scheduleRestyle(true));
+$('iseed').addEventListener('input', () => scheduleRestyle(true));
+// style-only inputs
+for (const id of ['winCol','bgCol','tbg','flatWin','sx','sy','lineCol'])
+  $(id).addEventListener('input', () => scheduleRestyle(false));
+bindGroup('neckerBtns', 'necker', 'necker', () => scheduleRestyle(false));
+$('ppe').addEventListener('input', () => updateDims());
+
+/* ---------- boot ---------- */
+regenerate();
+requestAnimationFrame(() => requestAnimationFrame(fitView));
+</script>
+</body>
+</html>

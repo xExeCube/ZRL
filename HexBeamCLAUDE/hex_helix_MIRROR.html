@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ZRL — LatMosaic: Hex Helix</title>
+<style>
+  :root{
+    --bg:#161616; --panel:#1d1d1d; --bshadow:#2F0542; --bline:#502FA5;
+    --accent:#485FC7; --text:#FFF; --hi:#009E86; --bad:#E22211;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font-family:'Segoe UI',system-ui,sans-serif;font-size:14px}
+  header{padding:16px 22px 0 22px}
+  h1{margin:0;font-size:1.25rem;letter-spacing:3px;color:var(--hi);text-transform:uppercase}
+  .sub{color:#888;font-size:.75rem;letter-spacing:1px;font-family:'Courier New',monospace}
+  main{padding:0 22px 30px 22px}
+  .layout{display:flex;gap:14px;margin-top:14px;align-items:flex-start;flex-wrap:wrap}
+  .panel{background:var(--panel);border:1px solid var(--bshadow);
+    box-shadow:0 0 14px var(--bshadow);padding:14px}
+  .controls{width:300px;flex-shrink:0}
+  .canvaswrap{flex:1;min-width:320px;padding:6px}
+  canvas{display:block;width:100%;background:var(--bg);border:1px solid var(--bshadow);cursor:grab}
+  .sect{margin:14px 0 6px 0;color:var(--accent);font-size:.7rem;letter-spacing:2px;
+    text-transform:uppercase;border-bottom:1px solid var(--bshadow);padding-bottom:3px;
+    font-family:'Courier New',monospace}
+  .sect:first-child{margin-top:0}
+  .presets{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
+  .pbtn{flex:1;min-width:56px;background:#0f0f0f;color:#aaa;border:1px solid var(--bshadow);
+    padding:7px 4px;cursor:pointer;font-family:'Courier New',monospace;font-size:.75rem;
+    transition:.15s;white-space:nowrap}
+  .pbtn:hover{color:var(--text);border-color:var(--bline)}
+  .pbtn.active{color:var(--text);border-color:var(--bline);background:#242424}
+  .pbtn.go{color:var(--hi);border-color:var(--hi)}
+  label.ctl{display:block;font-size:.75rem;color:#bbb;margin:10px 0 2px 0;
+    font-family:'Courier New',monospace}
+  label.ctl .v{float:right;color:var(--accent)}
+  input[type=range]{width:100%;accent-color:var(--accent);height:4px}
+  input[type=number]{width:80px;background:#0f0f0f;color:var(--text);border:1px solid var(--bshadow);
+    padding:4px 6px;font-family:'Courier New',monospace;font-size:.8rem}
+  .row{display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap;
+    font-family:'Courier New',monospace;font-size:.75rem;color:#bbb}
+  .readout{font-family:'Courier New',monospace;font-size:.75rem;line-height:1.7;
+    margin-top:8px;border-top:1px solid var(--bshadow);padding-top:8px}
+  .readout .ok{color:var(--hi)} .readout .bad{color:var(--bad)}
+  .readout .k{color:#888} .readout .a{color:var(--accent)}
+  .note{margin-top:12px;color:#888;font-size:.75rem;line-height:1.5;max-width:960px}
+  .note b,.hi{color:var(--hi);font-weight:bold}
+</style>
+</head>
+<body>
+<header>
+  <h1>LatMosaic &mdash; Hex Helix</h1>
+  <div class="sub">the possible cousin of the impossible hexagon &middot; a hexagonal walk climbing k(1,1,1) per lap &middot; ledger checked live</div>
+</header>
+<main>
+<div class="layout">
+  <div class="panel controls">
+
+    <div class="sect">Helix</div>
+    <label class="ctl">side length L <span class="v" id="vL">6</span></label>
+    <input type="range" id="L" min="3" max="12" value="6">
+    <label class="ctl">climb per lap k <span class="v" id="vK">1</span></label>
+    <input type="range" id="K" min="1" max="4" value="1">
+    <label class="ctl">laps <span class="v" id="vLaps">3</span></label>
+    <input type="range" id="laps" min="1" max="10" value="3">
+    <label class="ctl">starts (multi-start thread, max k) <span class="v" id="vStarts">1</span></label>
+    <input type="range" id="starts" min="1" max="4" value="1">
+    <label class="ctl">triangle connectors per lap (0&ndash;6) <span class="v" id="vConn">2</span></label>
+    <input type="range" id="conn" min="0" max="6" value="2">
+    <label class="ctl">color by</label>
+    <div class="presets" id="colBtns">
+      <button class="pbtn active" data-colmode="lap">lap</button>
+      <button class="pbtn" data-colmode="start">start</button>
+      <button class="pbtn" data-colmode="side">side</button>
+    </div>
+
+    <div class="sect">View</div>
+    <div class="presets" id="viewBtns">
+      <button class="pbtn active" data-view="axis">down the axis (1,1,1)</button>
+    </div>
+    <div class="presets" id="viewBtns2">
+      <button class="pbtn" data-view="sideY">y-side (&minus;y)</button>
+      <button class="pbtn" data-view="sideX">x-side (&minus;x)</button>
+    </div>
+    <label class="ctl">lap shear (exploded view, axis only) <span class="v" id="vShear">0.0</span></label>
+    <input type="range" id="shear" min="0" max="30" value="0">
+
+    <div class="sect">Export</div>
+    <div class="row">px per edge <input type="number" id="ppe" value="40" min="4" max="256" step="1"></div>
+    <div class="presets">
+      <button class="pbtn" id="bPNG">png (current view)</button>
+      <button class="pbtn" id="bFit">fit view</button>
+    </div>
+
+    <div class="sect">Ledger (identity checks)</div>
+    <div class="readout" id="ledger" style="border-top:none;margin-top:2px;padding-top:0"></div>
+  </div>
+
+  <div class="panel canvaswrap"><canvas id="cv" width="1200" height="820"></canvas></div>
+</div>
+
+<p class="note"><b>What this is.</b> The impossible hexagons close by lying about one joint; the
+helix tells the truth: a hexagonal walk with sides (L+k, L, L+k, L, L+k, L) climbs exactly
+k&middot;(1,1,1) per lap, so <b>every lap projects to the same closed hexagon</b> (checked live) and
+the 3D object is an honest infinite staircase &mdash; the Penrose stairs' legitimate sibling. Down
+the axis you see ONE hexagon no matter how many laps exist (the top lap hides the rest; the
+<b>lap shear</b> slider explodes the stack to reveal them). The <b>y-side / x-side</b> views answer
+what the ring looks like from the side: a climbing zigzag coil.
+<b>Triangle connectors</b>: any path joining a point on one lap to the point k&middot;(1,1,1) above
+it has edge-sum k(1,1,1), which projects to a CLOSED loop &mdash; the minimal x,y,z staircase
+connector projects to exactly a unit triangle. Connections between laps are therefore
+<i>triangle-flavored by necessity</i>: in the axis view every connector appears as a small closed
+triangle decorating the ring (the tribar corner motif is the only currency inter-lap rungs can be
+paid in). <b>Multi-start</b>: a k-climb helix admits exactly k parallel interleaved threads
+(shifts by j&middot;(1,1,1), j &lt; k) &mdash; k=2 is a double helix, k=3 a triple; the slider clamps
+to k and the ledger counts collisions (0 when legal).</p>
+</main>
+
+<script>
+'use strict';
+/* projection + atom core (cube cells, honest max-depth — the helix is a REAL object) */
+const SQ3H = Math.sqrt(3)/2;
+const VX = (a,b)=> a + b*0.5, VY = (a,b)=> b*SQ3H;
+const AK = (s,a,b)=> s+','+a+','+b;
+function atomVerts(s,a,b){
+  return s===0 ? [[a,b],[a+1,b],[a,b+1]]
+               : [[a+1,b],[a+1,b+1],[a,b+1]];
+}
+function atomCentroidLat(s,a,b){
+  return s===0 ? [a+1/3, b+1/3] : [a+2/3, b+2/3];
+}
+function cellFaces(cx,cy,cz){
+  const a = cx-cy, b = cy-cz;
+  return [
+    {fam:2, atoms:[[0,a,b-1],[1,a-1,b-1]], depth:(ca,cb)=> ca + 2*cb + 3*(cz+1)},
+    {fam:0, atoms:[[0,a,b],  [1,a,b-1]],   depth:(ca,cb)=> 3*(cx+1) - 2*ca - cb},
+    {fam:1, atoms:[[0,a-1,b],[1,a-1,b]],   depth:(ca,cb)=> 3*(cy+1) + ca - cb},
+  ];
+}
+const SHADES = [0.62, 0.42, 1.0]; // fam x, y, z(top)
+const PALETTE = ['#E22211','#485FC7','#FFC845','#009E86','#B44BF0','#FF7A00','#25C4E8','#E84393'];
+const CONN_COLOR = '#FFFFFF';
+const E = [[1,0,0],[0,1,0],[0,0,1]];
+const CK = c => c[0]+','+c[1]+','+c[2];
+const $ = id => document.getElementById(id);
+
+/* ---------- generation ----------
+   One lap: directions (+x, −z, +y, −x, +z, −y), lengths (L+k, L, L+k, L, L+k, L)
+   → 3D displacement k(1,1,1), projected displacement 0 (every lap = the same hexagon).
+   Connectors: from a lap corner c, runs of k cells along +x, +y, +z reach
+   c + k(1,1,1) — the same corner one lap up; the projected path is a closed triangle. */
+let BEAMS = [], COLLISIONS = 0, SKIPPED_CONN = 0;
+function genHelix(L, k, laps, starts, connPerLap){
+  BEAMS = []; COLLISIONS = 0; SKIPPED_CONN = 0;
+  const occ = new Set();
+  const lay = (cells, meta) => {
+    for (const c of cells){
+      if (occ.has(CK(c))) COLLISIONS++;
+      occ.add(CK(c));
+    }
+    BEAMS.push(Object.assign({cells}, meta));
+  };
+  const DIRS = [[1,0,0],[0,0,-1],[0,1,0],[-1,0,0],[0,0,1],[0,-1,0]]; // +x −z +y −x +z −y
+  const LENS = [L+k, L, L+k, L, L+k, L];
+  // pass 1: all rings (all starts, all laps) — connectors are placed afterwards
+  // against COMPLETE occupancy, so they can never thread through a later lap or a
+  // sibling multi-start thread unnoticed
+  const cornerStore = [];
+  for (let s2=0; s2<starts; s2++){
+    let pos = [s2, s2, s2]; // multi-start: shift by j(1,1,1)
+    for (let lap=0; lap<laps; lap++){
+      const corners = [pos.slice()];
+      for (let side=0; side<6; side++){
+        const d = DIRS[side], cells = [];
+        if (lap === 0 && side === 0) cells.push(pos.slice()); // first beam owns the origin
+        for (let t=0; t<LENS[side]; t++){
+          pos = [pos[0]+d[0], pos[1]+d[1], pos[2]+d[2]];
+          cells.push(pos.slice());
+        }
+        lay(cells, {kind:'ring', start:s2, lap, side});
+        corners.push(pos.slice());
+      }
+      cornerStore.push({s2, lap, corners});
+    }
+  }
+  // pass 2: triangle connectors. The x/y/z runs can be taken in any of 6 orders and
+  // all of them project to the same closed triangle — try each until one avoids the
+  // rings (certain corners are blocked for certain orders: the ring leaves/enters
+  // the target corner along an axis the connector must not approach from)
+  const ORDERS = [[0,1,2],[0,2,1],[1,0,2],[1,2,0],[2,0,1],[2,1,0]];
+  for (const rec of cornerStore){
+    if (rec.lap >= laps-1) continue;
+    for (let j=0; j<connPerLap; j++){
+      const c0 = rec.corners[j];
+      let placed = false;
+      for (const ord of ORDERS){
+        const path = [];
+        let p = c0.slice();
+        for (const ax of ord) for (let t=0; t<k; t++){
+          p = [p[0]+E[ax][0], p[1]+E[ax][1], p[2]+E[ax][2]];
+          path.push(p.slice());
+        }
+        // the last cell (c0 + k(1,1,1)) lies ON the next lap's ring: drop it
+        const mid = path.slice(0, path.length-1);
+        if (mid.some(c => occ.has(CK(c)))) continue;
+        lay(mid, {kind:'conn', start:rec.s2, lap:rec.lap, side:-1, origin:c0.slice()});
+        placed = true;
+        break;
+      }
+      if (!placed) SKIPPED_CONN++;
+    }
+  }
+}
+
+/* ---------- coloring ---------- */
+function shade(hex, f){
+  const r = Math.round(parseInt(hex.slice(1,3),16)*f),
+        g = Math.round(parseInt(hex.slice(3,5),16)*f),
+        b = Math.round(parseInt(hex.slice(5,7),16)*f);
+  return '#'+[r,g,b].map(v=>Math.max(0,Math.min(255,v)).toString(16).padStart(2,'0')).join('');
+}
+function beamColor(bm){
+  if (bm.kind === 'conn') return CONN_COLOR;
+  const mode = UI.colmode;
+  if (mode === 'lap') return PALETTE[bm.lap % PALETTE.length];
+  if (mode === 'start') return PALETTE[bm.start % PALETTE.length];
+  return PALETTE[bm.side % PALETTE.length];
+}
+
+/* ---------- axis view: per-atom honest resolve, optionally sheared per lap ---------- */
+function resolveAtoms(beamIdx){ // beamIdx: indices into BEAMS to include
+  const own = new Map();
+  beamIdx.forEach(bi => {
+    const bm = BEAMS[bi];
+    for (const c of bm.cells){
+      for (const f of cellFaces(c[0],c[1],c[2])){
+        for (const [s,a,b] of f.atoms){
+          const k2 = AK(s,a,b);
+          let e = own.get(k2);
+          if (!e){ e = {s,a,b, bd:-Infinity, best:null}; own.set(k2, e); }
+          const [ca,cb] = atomCentroidLat(s,a,b);
+          const d = f.depth(ca,cb);
+          if (d > e.bd + 1e-9){ e.bd = d; e.best = {bi, fam:f.fam}; }
+        }
+      }
+    }
+  });
+  const out = [];
+  for (const [k2,e] of own) out.push({s:e.s, a:e.a, b:e.b, bi:e.best.bi, fam:e.best.fam});
+  return out;
+}
+function drawAtomList(g, atoms, ox, oy){
+  for (const at of atoms){
+    const col = beamColor(BEAMS[at.bi]);
+    const f = SHADES[at.fam] === 1 ? col : shade(col, SHADES[at.fam]);
+    g.beginPath();
+    atomVerts(at.s,at.a,at.b).forEach(([a,b],i) => {
+      const x = VX(a,b)+ox, y = VY(a,b)+oy;
+      i ? g.lineTo(x,y) : g.moveTo(x,y);
+    });
+    g.closePath();
+    g.fillStyle = f; g.fill();
+    g.strokeStyle = f; g.lineWidth = 0.02; g.lineJoin = 'round'; g.stroke();
+  }
+}
+/* ---------- side views: axis-aligned orthographic, cells as unit squares ----------
+   view −y: cell (x,y,z) → square at (x, −z), hidden surface = max y (painter asc).
+   view −x: cell → (y, −z), painter by x. The (1,1,1) axis runs up-right at 45°-ish. */
+function drawSide(g, axis){ // axis: 1 for −y view, 0 for −x view
+  const cells = [];
+  BEAMS.forEach((bm, bi) => bm.cells.forEach(c => cells.push({c, bi})));
+  cells.sort((p,q) => p.c[axis] - q.c[axis]); // far first, near (max along axis) overpaints
+  for (const {c, bi} of cells){
+    // a max-axis-visible painter is the camera AT +axis looking along −axis; its
+    // screen-right with z-up is −x (for −y view). u = +x would parity-mirror the
+    // image and reverse the helix's apparent chirality — the one thing this app
+    // must never lie about.
+    const u = axis === 1 ? -c[0]-1 : c[1];
+    const v = -c[2];
+    const col = beamColor(BEAMS[bi]);
+    g.fillStyle = col;
+    g.fillRect(u, v, 1, 1);
+    g.strokeStyle = shade(col, 0.55); g.lineWidth = 0.06;
+    g.strokeRect(u+0.03, v+0.03, 0.94, 0.94);
+  }
+}
+
+/* ---------- canvas, pan/zoom, render ---------- */
+const cv = $('cv'), ctx = cv.getContext('2d');
+const UI = { view:'axis', colmode:'lap', cam:{x:0, y:0, scale:30} };
+let AXIS_GROUPS = null; // cached per-(start,lap) atom lists for the sheared path
+let AXIS_ALL = null;    // cached global resolve for shear=0
+function rebuildCaches(){
+  AXIS_ALL = resolveAtoms(BEAMS.map((_,i)=>i));
+  AXIS_GROUPS = [];
+  const keyOf = bm => bm.start+'|'+bm.lap+'|'+(bm.kind==='conn'?1:0);
+  const groups = new Map();
+  BEAMS.forEach((bm,i) => {
+    const k2 = keyOf(bm);
+    if (!groups.has(k2)) groups.set(k2, {lap:bm.lap, start:bm.start, conn:bm.kind==='conn', idx:[]});
+    groups.get(k2).idx.push(i);
+  });
+  // draw order: low laps first (they sit behind), rings before their connectors
+  AXIS_GROUPS = [...groups.values()].sort((p,q) => (p.lap - q.lap) || (p.conn - q.conn) || (p.start - q.start));
+  for (const gr of AXIS_GROUPS) gr.atoms = resolveAtoms(gr.idx);
+}
+function render(){
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.fillStyle = '#161616'; ctx.fillRect(0,0,cv.width,cv.height);
+  ctx.save();
+  ctx.translate(cv.width/2 + UI.cam.x, cv.height/2 + UI.cam.y);
+  ctx.scale(UI.cam.scale, UI.cam.scale);
+  const shear = parseInt($('shear').value)/10;
+  if (UI.view === 'axis'){
+    if (shear === 0) drawAtomList(ctx, AXIS_ALL, 0, 0);
+    else for (const gr of AXIS_GROUPS)
+      drawAtomList(ctx, gr.atoms, 0, -shear*gr.lap - (gr.conn ? shear/2 : 0));
+  } else {
+    drawSide(ctx, UI.view === 'sideY' ? 1 : 0);
+  }
+  ctx.restore();
+  updateLedger();
+}
+function fitView(){
+  // rough bounds from cells in the current view
+  let minx=Infinity,miny=Infinity,maxx=-Infinity,maxy=-Infinity;
+  const shear = parseInt($('shear').value)/10;
+  for (const bm of BEAMS) for (const c of bm.cells){
+    let x, y;
+    if (UI.view === 'axis'){
+      const a=c[0]-c[1], b=c[1]-c[2]; x = VX(a,b);
+      y = VY(a,b) - (shear ? shear*bm.lap + (bm.kind==='conn' ? shear/2 : 0) : 0);
+    }
+    else if (UI.view === 'sideY'){ x = -c[0]-1; y = -c[2]; }
+    else { x = c[1]; y = -c[2]; }
+    if (x<minx)minx=x; if (x>maxx)maxx=x; if (y<miny)miny=y; if (y>maxy)maxy=y;
+  }
+  if (UI.view !== 'axis'){ maxx += 1; maxy += 1; } // side-view squares span +1
+  const w = maxx-minx+4, h = maxy-miny+4;
+  UI.cam.scale = Math.min(cv.width/w, cv.height/h);
+  UI.cam.x = -((minx+maxx)/2) * UI.cam.scale;
+  UI.cam.y = -((miny+maxy)/2) * UI.cam.scale;
+  render();
+}
+let drag = null;
+cv.addEventListener('pointerdown', e => {
+  if (e.button !== 0) return;
+  drag = {x:e.clientX, y:e.clientY, cx:UI.cam.x, cy:UI.cam.y};
+  cv.setPointerCapture(e.pointerId);
+});
+cv.addEventListener('pointermove', e => {
+  if (!drag) return;
+  if (e.buttons === 0){ drag = null; return; }
+  const r = cv.getBoundingClientRect(), f = cv.width / r.width;
+  UI.cam.x = drag.cx + (e.clientX - drag.x)*f;
+  UI.cam.y = drag.cy + (e.clientY - drag.y)*f;
+  render();
+});
+cv.addEventListener('pointerup', () => { drag = null; });
+cv.addEventListener('pointercancel', () => { drag = null; });
+cv.addEventListener('wheel', e => {
+  e.preventDefault();
+  const f = e.deltaY > 0 ? 1/1.15 : 1.15;
+  UI.cam.scale *= f; UI.cam.x *= f; UI.cam.y *= f;
+  render();
+}, {passive:false});
+
+/* ---------- ledger ----------
+   identities: (1) per-lap 3D displacement = k(1,1,1) measured from ring corner walks;
+   (2) every lap's projected cell set equals lap 0's (the compression theorem);
+   (3) each connector's edge-sum projects to (0,0) (closed triangle);
+   (4) 3D collisions = 0 (multi-start legality). */
+function updateLedger(){
+  const L = parseInt($('L').value), k = parseInt($('K').value),
+        laps = parseInt($('laps').value), starts = UI.effStarts, conn = parseInt($('conn').value);
+  // projected-set equality across ALL (start, lap) rings vs the (0,0) reference —
+  // the compression theorem AND the multi-start identity in one check
+  const rings = new Map();
+  for (const bm of BEAMS) if (bm.kind === 'ring'){
+    const key = bm.start+'|'+bm.lap;
+    if (!rings.has(key)) rings.set(key, new Set());
+    const set = rings.get(key);
+    for (const c of bm.cells) set.add((c[0]-c[1])+','+(c[1]-c[2]));
+  }
+  const ref = rings.get('0|0');
+  let sameProj = !!ref;
+  for (const [key, set] of rings){
+    if (set.size !== ref.size){ sameProj = false; break; }
+    for (const k2 of set) if (!ref.has(k2)){ sameProj = false; break; }
+    if (!sameProj) break;
+  }
+  // measured climb: every consecutive lap pair on every thread must differ by
+  // exactly k(1,1,1) at its side-0 first cell (lap 0's side 0 carries the extra
+  // origin cell — compare its cells[1] so the (0,1) pair is measured too)
+  let climbOk = true, climbPairs = 0;
+  for (let s2=0; s2<starts; s2++) for (let lap=0; lap<laps-1; lap++){
+    const bA = BEAMS.find(b => b.kind==='ring' && b.start===s2 && b.lap===lap && b.side===0);
+    const bB = BEAMS.find(b => b.kind==='ring' && b.start===s2 && b.lap===lap+1 && b.side===0);
+    if (!bA || !bB) continue;
+    climbPairs++;
+    const cA = bA.cells[lap === 0 ? 1 : 0], cB = bB.cells[0];
+    const d = [cB[0]-cA[0], cB[1]-cA[1], cB[2]-cA[2]];
+    if (d[0] !== k || d[1] !== k || d[2] !== k) climbOk = false;
+  }
+  // connector closure, measured: the path must run unit-axis-step-wise from its
+  // origin corner and end one unit step short of origin + k(1,1,1) — so the FULL
+  // path's displacement is exactly k(1,1,1), which projects to a closed triangle
+  let connClosed = true, connCount = 0;
+  // monotone non-negative unit steps of exact length 3k−1: pins the path to the
+  // x/y/z-run family whose full displacement is k(1,1,1) — the closed side-k triangle
+  const isPosUnit = d => (d[0]+d[1]+d[2] === 1) && d.every(x => x === 0 || x === 1);
+  for (const bm of BEAMS) if (bm.kind === 'conn'){
+    connCount++;
+    const c0 = bm.origin, target = [c0[0]+k, c0[1]+k, c0[2]+k];
+    let prev = c0, chainOk = bm.cells.length === 3*k - 1;
+    for (const c of bm.cells){
+      if (!isPosUnit([c[0]-prev[0], c[1]-prev[1], c[2]-prev[2]])) chainOk = false;
+      prev = c;
+    }
+    if (!isPosUnit([target[0]-prev[0], target[1]-prev[1], target[2]-prev[2]])) chainOk = false;
+    if (!chainOk) connClosed = false;
+  }
+  const ok = sameProj && connClosed && climbOk && COLLISIONS === 0;
+  $('ledger').innerHTML =
+    '<span class="'+(ok?'ok':'bad')+'">'+(ok?'&#10003; LEDGER':'&#10007; LEDGER BROKEN')+'</span> '+
+    '<span class="k">beams</span> <span class="a">'+BEAMS.length+'</span> '+
+    '<span class="k">starts</span> <span class="a">'+starts+'</span>'+
+    (starts < parseInt($('starts').value) ? ' <span class="k">(clamped to k)</span>' : '')+'<br>'+
+    '<span class="k">all laps project to the same hexagon</span> <span class="'+(sameProj?'ok':'bad')+'">'+
+    (sameProj?'&#10003;':'&#10007;')+'</span> <span class="k">(compression: '+laps+' laps &times; '+starts+' threads &rarr; 1 outline)</span><br>'+
+    '<span class="k">connectors closed in projection</span> <span class="'+(connClosed?'ok':'bad')+'">'+
+    (connClosed?'&#10003;':'&#10007;')+'</span> <span class="k">('+connCount+' placed'+
+    (SKIPPED_CONN?', '+SKIPPED_CONN+' skipped: blocked':'')+')</span><br>'+
+    '<span class="k">3D collisions</span> <span class="'+(COLLISIONS===0?'ok':'bad')+'">'+COLLISIONS+'</span> '+
+    '<span class="k">climb measured</span> '+
+    (climbPairs === 0
+      ? '<span class="k">n/a (1 lap)</span>'
+      : '<span class="'+(climbOk?'ok':'bad')+'">'+(climbOk?'&#10003;':'&#10007;')+
+        '</span> <span class="k">('+climbPairs+' pairs)</span>')+
+    ' <span class="a">'+k+'&middot;(1,1,1)/lap &middot; pitch '+k+'&radic;3</span>';
+}
+
+/* ---------- wiring ---------- */
+function regen(){
+  const k = parseInt($('K').value);
+  UI.effStarts = Math.min(parseInt($('starts').value), k);
+  genHelix(parseInt($('L').value), k, parseInt($('laps').value),
+           UI.effStarts, parseInt($('conn').value));
+  rebuildCaches();
+  fitView();
+}
+for (const [id, lab] of [['L','vL'],['K','vK'],['laps','vLaps'],['starts','vStarts'],['conn','vConn']])
+  $(id).addEventListener('input', () => { $(lab).textContent = $(id).value; regen(); });
+$('shear').addEventListener('input', () => { $('vShear').textContent = (parseInt($('shear').value)/10).toFixed(1); render(); });
+function bindGroup(ids, dataKey, uiKey, after){
+  for (const id of ids) $(id).addEventListener('click', e => {
+    const b = e.target.closest('.pbtn'); if (!b || b.dataset[dataKey] === undefined) return;
+    UI[uiKey] = b.dataset[dataKey];
+    for (const gid of ids) for (const x of $(gid).querySelectorAll('.pbtn'))
+      x.classList.toggle('active', x.dataset[dataKey] === UI[uiKey]);
+    if (after) after();
+  });
+}
+bindGroup(['viewBtns','viewBtns2'], 'view', 'view', fitView);
+bindGroup(['colBtns'], 'colmode', 'colmode', render);
+$('bFit').onclick = fitView;
+$('bPNG').onclick = () => {
+  // re-render at export resolution: ppe pixels per lattice unit
+  const ppe = Math.min(256, Math.max(4, parseInt($('ppe').value)||40));
+  const off = document.createElement('canvas');
+  // bounds: must mirror the DRAW offsets exactly, incl. the connectors' extra
+  // shear/2 and (pad 2) the atom-vertex extent beyond the cell anchor
+  let minx=Infinity,miny=Infinity,maxx=-Infinity,maxy=-Infinity;
+  const shear = parseInt($('shear').value)/10;
+  for (const bm of BEAMS) for (const c of bm.cells){
+    let x, y;
+    if (UI.view === 'axis'){
+      const a=c[0]-c[1], b=c[1]-c[2]; x = VX(a,b);
+      y = VY(a,b) - (shear ? shear*bm.lap + (bm.kind==='conn' ? shear/2 : 0) : 0);
+    }
+    else if (UI.view === 'sideY'){ x = -c[0]-1; y = -c[2]; }
+    else { x = c[1]; y = -c[2]; }
+    if (x<minx)minx=x; if (x>maxx)maxx=x; if (y<miny)miny=y; if (y>maxy)maxy=y;
+  }
+  if (UI.view !== 'axis'){ maxx += 1; maxy += 1; }
+  const w = maxx-minx+4, h = maxy-miny+4;
+  off.width = Math.max(1, Math.min(16000, Math.round(w*ppe)));
+  off.height = Math.max(1, Math.min(16000, Math.round(h*ppe)));
+  const g = off.getContext('2d');
+  g.fillStyle = '#161616'; g.fillRect(0,0,off.width,off.height);
+  g.setTransform(ppe, 0, 0, ppe, -(minx-2)*ppe, -(miny-2)*ppe);
+  if (UI.view === 'axis'){
+    if (shear === 0) drawAtomList(g, AXIS_ALL, 0, 0);
+    else for (const gr of AXIS_GROUPS) drawAtomList(g, gr.atoms, 0, -shear*gr.lap - (gr.conn ? shear/2 : 0));
+  } else drawSide(g, UI.view === 'sideY' ? 1 : 0);
+  off.toBlob(b => {
+    if (!b){ alert('Export failed: try a lower px per edge.'); return; }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(b);
+    a.download = 'hex_helix_L'+$('L').value+'_k'+$('K').value+'_'+$('laps').value+'laps_'+UI.view+'.png';
+    document.body.appendChild(a); a.click();
+    setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+  }, 'image/png');
+};
+
+regen();
+</script>
+</body>
+</html>
