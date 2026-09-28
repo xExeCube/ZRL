@@ -1,0 +1,1066 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ZRL — RotLab: Card Spin 3D</title>
+<style>
+  :root{
+    --bg:#161616; --panel:#1d1d1d; --bshadow:#2F0542; --bline:#502FA5;
+    --accent:#485FC7; --text:#FFF; --hi:#009E86; --bad:#E22211;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font-family:'Segoe UI',system-ui,sans-serif;font-size:14px}
+  header{padding:16px 22px 0 22px}
+  h1{margin:0;font-size:1.25rem;letter-spacing:3px;color:var(--hi);text-transform:uppercase}
+  .sub{color:#888;font-size:.75rem;letter-spacing:1px;font-family:'Courier New',monospace}
+  main{padding:0 22px 30px 22px}
+  .layout{display:flex;gap:14px;margin-top:14px;align-items:flex-start;flex-wrap:wrap}
+  .panel{background:var(--panel);border:1px solid var(--bshadow);
+    box-shadow:0 0 14px var(--bshadow);padding:14px}
+  .controls{width:300px;flex-shrink:0}
+  .canvaswrap{flex:1;min-width:320px;padding:6px}
+  #stage{display:block;width:100%;height:76vh;border:1px solid var(--bshadow)}
+  .sect{margin:14px 0 6px 0;color:var(--accent);font-size:.7rem;letter-spacing:2px;
+    text-transform:uppercase;border-bottom:1px solid var(--bshadow);padding-bottom:3px;
+    font-family:'Courier New',monospace}
+  .sect:first-child{margin-top:0}
+  .presets{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
+  .pbtn{flex:1;min-width:52px;background:#0f0f0f;color:#aaa;border:1px solid var(--bshadow);
+    padding:7px 4px;cursor:pointer;font-family:'Courier New',monospace;font-size:.75rem;
+    transition:.15s;white-space:nowrap}
+  .pbtn:hover{color:var(--text);border-color:var(--bline)}
+  .pbtn.active{color:var(--text);border-color:var(--bline);background:#242424}
+  .pbtn.go{color:var(--hi);border-color:var(--hi)}
+  label.ctl{display:block;font-size:.75rem;color:#bbb;margin:10px 0 2px 0;
+    font-family:'Courier New',monospace}
+  label.ctl .v{float:right;color:var(--accent)}
+  input[type=range]{width:100%;accent-color:var(--accent);height:4px}
+  input[type=color]{width:34px;height:24px;padding:0;border:1px solid var(--bshadow);
+    background:#0f0f0f;vertical-align:middle;cursor:pointer}
+  .row{display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap;
+    font-family:'Courier New',monospace;font-size:.75rem;color:#bbb}
+  .row label{display:flex;gap:4px;align-items:center;cursor:pointer}
+  .readout{font-family:'Courier New',monospace;font-size:.75rem;line-height:1.7;
+    margin-top:8px;border-top:1px solid var(--bshadow);padding-top:8px}
+  .readout .ok{color:var(--hi)} .readout .k{color:#888} .readout .a{color:var(--accent)}
+  .note{margin-top:12px;color:#888;font-size:.75rem;line-height:1.5;max-width:960px}
+  .note b,.hi{color:var(--hi);font-weight:bold}
+  #cdnwarn{display:none;color:var(--bad);font-family:'Courier New',monospace;font-size:.8rem;
+    padding:10px 22px}
+</style>
+</head>
+<body>
+<header>
+  <h1>RotLab &mdash; Card Spin 3D</h1>
+  <div class="sub">the card flip, promoted: tilted, movable, up-to-3-axis spin &middot; real 3D tribar/hex subjects &middot; three.js, annotated</div>
+</header>
+<div id="cdnwarn">three.js (or its OrbitControls addon) failed to load from the CDN &mdash; are you
+offline? This app needs cdn.jsdelivr.net (same as cut_and_project_threejs).</div>
+<main>
+<div class="layout">
+  <div class="panel controls">
+
+    <div class="sect">Subject</div>
+    <div class="presets" id="shapeBtns">
+      <button class="pbtn active" data-shape="card">image card</button>
+      <button class="pbtn" data-shape="tribar">3D tribar</button>
+    </div>
+    <div class="presets" id="shapeBtns2">
+      <button class="pbtn" data-shape="hexring">3D hex ring</button>
+      <button class="pbtn" data-shape="dblhex">3D double hex</button>
+    </div>
+    <div class="row"><span class="k">beam objects are REAL 3D geometry pre-rotated so their magic
+      (1,1,1) direction faces the camera: front view = the illusion; a 180&deg; spin about a
+      vertical centre axis passes through the reveal to the mirror-winding illusion</span></div>
+
+    <div class="sect">Card faces (card subject)</div>
+    <input type="file" id="fImg" accept="image/*" style="display:none">
+    <input type="file" id="fImg2" accept="image/*" style="display:none">
+    <div class="presets">
+      <button class="pbtn" id="bLoad">load image</button>
+      <button class="pbtn" id="bDemo">demo pattern</button>
+    </div>
+    <div class="row"><span id="imgName" style="color:#888">demo pattern</span></div>
+    <div class="presets">
+      <button class="pbtn" id="bLoad2">load back image</button>
+      <button class="pbtn" id="bDemo2">demo back</button>
+      <button class="pbtn" id="bClear2">clear back</button>
+    </div>
+    <div class="row"><span id="backName" style="color:#888">none &mdash; back = mirrored front</span></div>
+    <label class="ctl">thickness (slab; walls = border pixels) <span class="v" id="vThick">0%</span></label>
+    <input type="range" id="thick" min="0" max="60" value="0">
+
+    <div class="sect">Silhouette (any subject)</div>
+    <div class="row">
+      <label><input type="checkbox" id="silOn"> silhouette</label>
+      <label>color <input type="color" id="silCol" value="#EDEDED"></label>
+    </div>
+    <label class="ctl">luminance threshold (opaque card images) <span class="v" id="vSilT">60%</span></label>
+    <input type="range" id="silT" min="5" max="95" value="60">
+
+    <div class="sect">Axis A</div>
+    <div class="presets" id="presetA">
+      <button class="pbtn" data-p="center">center</button>
+      <button class="pbtn" data-p="left">left</button>
+      <button class="pbtn" data-p="right">right</button>
+      <button class="pbtn" data-p="top">top</button>
+      <button class="pbtn" data-p="bottom">bottom</button>
+    </div>
+    <label class="ctl">tilt <span class="v" id="vTiltA">0&deg;</span></label>
+    <input type="range" id="tiltA" min="-90" max="90" value="0">
+    <label class="ctl">position (&minus;1 = edge &hellip; +1 = edge) <span class="v" id="vOffA">0.00</span></label>
+    <input type="range" id="offA" min="-100" max="100" value="0">
+    <label class="ctl">&theta;<sub>A</sub> <span class="v" id="vAngA">0&deg;</span></label>
+    <input type="range" id="angA" min="0" max="360" step="0.5" value="0">
+    <label class="ctl">speed <span class="v" id="vSpdA">60&deg;/s</span></label>
+    <input type="range" id="spdA" min="-180" max="180" value="60">
+
+    <div class="sect">Axis B (second axis)</div>
+    <div class="row"><label><input type="checkbox" id="onB"> enable dual-axis spin</label></div>
+    <label class="ctl">tilt <span class="v" id="vTiltB">90&deg;</span></label>
+    <input type="range" id="tiltB" min="-90" max="90" value="90">
+    <label class="ctl">position <span class="v" id="vOffB">0.00</span></label>
+    <input type="range" id="offB" min="-100" max="100" value="0">
+    <label class="ctl">&theta;<sub>B</sub> <span class="v" id="vAngB">0&deg;</span></label>
+    <input type="range" id="angB" min="0" max="360" step="0.5" value="0">
+    <label class="ctl">speed <span class="v" id="vSpdB">37&deg;/s</span></label>
+    <input type="range" id="spdB" min="-180" max="180" value="37">
+
+    <div class="sect">Axis C (third axis)</div>
+    <div class="row"><label><input type="checkbox" id="onC"> enable third axis</label></div>
+    <label class="ctl">tilt <span class="v" id="vTiltC">45&deg;</span></label>
+    <input type="range" id="tiltC" min="-90" max="90" value="45">
+    <label class="ctl">position <span class="v" id="vOffC">0.00</span></label>
+    <input type="range" id="offC" min="-100" max="100" value="0">
+    <label class="ctl">&theta;<sub>C</sub> <span class="v" id="vAngC">0&deg;</span></label>
+    <input type="range" id="angC" min="0" max="360" step="0.5" value="0">
+    <label class="ctl">speed <span class="v" id="vSpdC">23&deg;/s</span></label>
+    <input type="range" id="spdC" min="-180" max="180" value="23">
+
+    <div class="sect">View</div>
+    <div class="presets">
+      <button class="pbtn go" id="bPlay">play</button>
+      <button class="pbtn" id="bStop">stop</button>
+      <button class="pbtn" id="bFront">front view</button>
+    </div>
+    <div class="row">
+      <label><input type="checkbox" id="showAxes" checked> show spin axes (view only)</label>
+    </div>
+    <div class="row">
+      <label><input type="checkbox" id="orthoCam" checked> orthographic</label>
+    </div>
+
+    <div class="sect">Export (axes never included)</div>
+    <div class="presets">
+      <button class="pbtn" id="bPNG">png frame</button>
+      <button class="pbtn go" id="bGIF">gif loop</button>
+    </div>
+    <div class="row">
+      <label><input type="checkbox" id="gifTrans" checked> transparent background</label>
+    </div>
+    <div class="row"><span id="gifStatus" class="k"></span></div>
+
+    <div class="sect">Readout</div>
+    <div class="readout" id="readout" style="border-top:none;margin-top:2px;padding-top:0"></div>
+  </div>
+
+  <div class="panel canvaswrap"><div id="stage"></div></div>
+</div>
+
+<p class="note"><b>What this is.</b> The 2D card_flip generalized in three.js: the image is a
+double-sided textured plane (the back face IS the mirror &mdash; three.js gives the flip's endpoint
+for free), spun about <b>axis A</b> &mdash; tiltable to any in-plane angle and slidable so
+position &plusmn;1 is the hinge-on-edge case &mdash; and optionally about <b>axes B and C</b>
+simultaneously, each with its own signed velocity. All enabled axes are fixed in the world, so the
+motion is R<sub>C</sub>&middot;R<sub>B</sub>&middot;R<sub>A</sub> (each at its own &omega;t): a
+tumble. Loading a <b>back image</b> replaces the mirror with a true two-faced card (the back reads
+unmirrored when it faces you, like a physical card &mdash; mid-flip you can tell which
+interpretation you are seeing, so the dancer ambiguity is deliberately traded for a playing-card).
+The <b>thickness</b> slider extrudes the card into a slab whose four walls are the image's border
+pixels stacked through the depth: at the front view thickness projects to zero (nothing changes),
+and for a CENTRED axis the slab's silhouette outline w|cos&theta;|+&tau;|sin&theta;| is still an
+even function of &theta; &mdash; the spinning-dancer ambiguity survives thickness exactly. In
+silhouette mode the walls are solid silhouette-color (a cutout's border pixels are transparent, so
+textured walls would vanish and the two remaining faces would wobble by an ODD offset
+(&tau;/2)sin&theta; &mdash; enough to reveal the spin direction; solid walls keep the ambiguity
+honest). Same caveat for a NON-silhouette image with transparent margins: its border pixels are
+alpha-0, so its slab has no visible walls and reads as two faces separated by a gap &mdash; crop
+such images to content if you want walls.
+With <b>rationally related</b> speeds the tumble is periodic and the gif loop closes exactly (the
+exporter computes the least common period from the integer speeds); with incommensurate speeds the
+motion is <b>quasi-periodic</b> and never repeats &mdash; the temporal cousin of the quasilattice.
+The axes render as colored lines in the view only; exports never include them. The card uses no
+lighting (MeshBasic): shading would add depth cues, and the whole point of the front view is that a
+cue-free spinning card is direction-ambiguous &mdash; drag to orbit and the ambiguity dissolves,
+press <b>front view</b> and it returns. Silhouette mode gives the spinning-dancer condition exactly
+as in card_flip.</p>
+
+<p class="note"><b>The 3D beam subjects.</b> The tribar / hex ring / double hex are hex_beam's exact
+cell walks built as REAL geometry &mdash; each straight beam one box of unit-cube cells &mdash; and
+the whole object is pre-rotated so its magic direction (1,1,1) points at the camera. So the
+question &ldquo;does the object rotate, or the camera?&rdquo; dissolves: only the relative
+orientation reaches the projection, and rotating the object keeps every axis/gif control working
+unchanged. <b>Front view = the illusion view</b>: the tribar's gap (L&minus;1)(1,1,1) lies exactly
+along the line of sight, so the open end hides behind the near beam (Gregory's column-overlap
+mechanism, physically realized). A 180&deg; spin about the default vertical centre axis is
+precisely the animation between the two magic viewpoints &mdash; illusion &rarr; gap reveal &rarr;
+the <i>mirror-winding</i> illusion at 180&deg; (viewing down &minus;(1,1,1) shows the enantiomer,
+the isomer4d connection). These subjects ARE lit (Lambert, one fixed key light plus a low ambient floor &mdash; the ambient
+is load-bearing: the third face family is edge-on to the key and would otherwise render black): a
+real object relights as it turns &mdash; that is the honest difference between spinning an object
+and spinning its image, which card_flip and tribar_spin could only fake by re-deriving shading at
+lattice coincidences. Silhouette mode flattens them to one unlit color: unlike the card (whose outline only
+squashes by cos&theta;), a volume's silhouette genuinely changes shape through the turn, yet the
+spin direction stays undecidable &mdash; the true spinning-dancer condition.</p>
+</main>
+
+<!-- three.js via CDN import map — same version and CDN as cut_and_project_threejs -->
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+<script>
+setTimeout(()=>{ if(!window.__threeLoaded) document.getElementById('cdnwarn').style.display='block'; }, 4000);
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+window.__threeLoaded = true;
+document.getElementById('cdnwarn').style.display = 'none';
+
+const $ = id => document.getElementById(id);
+const stage = $('stage');
+
+/* ---------- renderer / cameras ----------
+   preserveDrawingBuffer lets the gif/png exporters read pixels back after render.
+   alpha:true lets the transparent-background export clear to alpha 0. */
+const renderer = new THREE.WebGLRenderer({antialias:true, preserveDrawingBuffer:true, alpha:true});
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.setClearColor(0x161616, 1);
+stage.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+/* two cameras, toggled: orthographic is the honest "projection" of the illusion,
+   perspective adds the keystone. Both share OrbitControls via a swap.
+   Clip planes (reviews 07/09, three rounds): an edge-pivoted TRIPLE-axis tumble can
+   swing the subject up to 7·r₀ = 3.5·hypot(w,h) world units from the origin — each
+   world-fixed conjugated rotation translates the CENTER by up to 2·r₀ (6·r₀ total,
+   attained by three 180° point-reflections at offsets −1/+1/−1), and the far CORNER
+   adds its own half-diagonal r₀ on top (round 3 caught the missing term: the 6·r₀
+   bound was sharp only for the center). The bound GROWS with image aspect, so no
+   constant plane is safe. The depth
+   window and the perspective fov are therefore derived PER SUBJECT in
+   updateCameraBounds(): ortho gets near/far = ±(bound) about the target (negative
+   near is valid for ortho, zero visual cost), perspective narrows its fov until the
+   size-matched distance VIEWH/tan(fov/2) clears the bound. */
+const CAMDIST = 10, VIEWH = 5, PERSP_FOV_MAX = 12, PERSP_FAR = 20000;
+const orthoCam = new THREE.OrthographicCamera(-1, 1, 1, -1, -100, 100);
+const perspCam = new THREE.PerspectiveCamera(PERSP_FOV_MAX, 1, 0.1, PERSP_FAR);
+let camera = orthoCam;
+for (const c of [orthoCam, perspCam]) c.position.set(0, 0, CAMDIST);
+function makeControls(cam){
+  const c = new OrbitControls(cam, renderer.domElement);
+  c.enableDamping = true;
+  // keep every reachable camera state inside the far plane (review 07/09 round 2:
+  // an unbounded ortho zoom-out carried through the swap, or a raw perspective
+  // dolly-out, silently pushed the whole scene past far and blanked the stage)
+  c.maxDistance = 9000;
+  // must satisfy minZoom ≤ VIEWH/(maxDistance·tan(fovMax/2)) = 0.0053, else the
+  // ortho-entering swap assigns a zoom below the floor and r160 OrbitControls
+  // re-clamps it EVERY update() — the view would snap ~2× one frame after the
+  // toggle and the carried dolly state would be lost (round 3)
+  c.minZoom = 0.005;
+  return c;
+}
+let controls = makeControls(camera);
+function swingBound(){
+  // 3.5·hypot = 7·r₀: 6·r₀ centre translation + the corner's own half-diagonal r₀.
+  // + CARD_H slack: covers slab thickness (τ ≤ 0.6·CARD_H, measured +0.015 at the
+  // extremal pose) and the axis-vis lines
+  return 3.5*Math.hypot(SUBJECT_EXT.w, SUBJECT_EXT.h) + CARD_H;
+}
+function updateCameraBounds(){
+  const R = swingBound();
+  orthoCam.near = -(R + CAMDIST); orthoCam.far = R + CAMDIST; // target ± R, both signs
+  orthoCam.updateProjectionMatrix();
+  const oldFov = perspCam.fov;
+  perspCam.fov = Math.min(PERSP_FOV_MAX,
+    2*THREE.MathUtils.radToDeg(Math.atan(VIEWH / (R + 1))));
+  perspCam.updateProjectionMatrix();
+  if (camera === perspCam && Math.abs(perspCam.fov - oldFov) > 1e-9){
+    // preserve the view direction and relative dolly, rescale for the new fov so the
+    // apparent size is unchanged and the camera still sits beyond the swing bound.
+    // Clamp to the controls' dolly stop: otherwise OrbitControls would yank the
+    // camera back next update() while the narrowed fov stayed — a ~2× size jump
+    // one frame later instead of a deliberate same-frame change (round 3)
+    const ratio = Math.tan(THREE.MathUtils.degToRad(oldFov/2)) /
+                  Math.tan(THREE.MathUtils.degToRad(perspCam.fov/2));
+    const off = camera.position.sub(controls.target).multiplyScalar(ratio);
+    if (off.length() > controls.maxDistance) off.setLength(controls.maxDistance);
+    camera.position.copy(controls.target).add(off);
+  }
+}
+
+function resize(){
+  if (CAPTURING){ RESIZE_PENDING = true; return; } // buffer size must not change mid-gif
+  renderer.setPixelRatio(window.devicePixelRatio);
+  const w = stage.clientWidth, h = stage.clientHeight;
+  renderer.setSize(w, h);
+  const asp = w/h;
+  orthoCam.left = -VIEWH*asp; orthoCam.right = VIEWH*asp;
+  orthoCam.top = VIEWH; orthoCam.bottom = -VIEWH;
+  orthoCam.updateProjectionMatrix();
+  perspCam.aspect = asp;
+  perspCam.updateProjectionMatrix();
+}
+window.addEventListener('resize', resize);
+
+/* lights: ONLY the beam objects respond (MeshLambert); the card stays MeshBasic so
+   the dancer condition (no depth cues) is untouched. A fixed key light separates two
+   cube-face families; the 0.45 ambient floor is LOAD-BEARING for the third — its
+   rotated normal is edge-on to the key (dot ≈ −0.04), so without the ambient it would
+   render black. Verified levels at the illusion view: 1.41 / 1.73 / 0.45. */
+scene.add(new THREE.AmbientLight(0xffffff, 0.45));
+const keyLight = new THREE.DirectionalLight(0xffffff, 1.6);
+keyLight.position.set(2.5, 4, 6);
+scene.add(keyLight);
+
+/* ---------- the card ----------
+   Base form: a double-sided unlit plane — DoubleSide means the back face shows the
+   mirrored texture, so the flip's destination state is physically present.
+   Two upgrades (07/09): a LOADABLE BACK IMAGE turns it into a true two-faced card
+   (back plane rotated 180° about y, so its image reads unmirrored when it faces you,
+   exactly like a physical card), and a THICKNESS slider extrudes it into a slab whose
+   four walls are the image's border pixels stacked through the depth — the user's
+   "stack of whatever color the last pixel is". */
+let IMG = null, IMG2 = null, SIL = null, mesh = null;
+const CARD_H = 6; // world height of the card; width follows the image aspect
+let SUBJECT_EXT = {w: CARD_H, h: CARD_H}; // in-plane extents used by axisSpec
+function makeDemo(){
+  const c = document.createElement('canvas'); c.width = 480; c.height = 320;
+  const x = c.getContext('2d');
+  const g = x.createLinearGradient(0,0,480,0);
+  g.addColorStop(0,'#2F0542'); g.addColorStop(1,'#485FC7');
+  x.fillStyle = g; x.fillRect(0,0,480,320);
+  x.fillStyle = '#009E86';
+  x.font = 'bold 120px Courier New'; x.fillText('R', 40, 200);
+  x.fillStyle = '#FFC845';
+  x.beginPath(); x.moveTo(250,60); x.lineTo(430,160); x.lineTo(250,260); x.closePath(); x.fill();
+  x.fillStyle = '#E22211';
+  for (let i=0;i<5;i++) x.fillRect(260+i*30, 280, 18, 24);
+  return c;
+}
+function makeDemoBack(){ // a CHIRAL back, distinct from the front's mirror
+  const c = document.createElement('canvas'); c.width = 480; c.height = 320;
+  const x = c.getContext('2d');
+  const g = x.createLinearGradient(0,0,0,320);
+  g.addColorStop(0,'#0b3a36'); g.addColorStop(1,'#123a63');
+  x.fillStyle = g; x.fillRect(0,0,480,320);
+  x.fillStyle = '#FFC845';
+  x.font = 'bold 120px Courier New'; x.save();
+  x.translate(440, 200); x.scale(-1, 1); x.fillText('R', 0, 0); x.restore(); // a real Я
+  x.strokeStyle = '#E22211'; x.lineWidth = 14;
+  x.beginPath(); x.arc(150, 160, 90, 0.4, 4.9); x.stroke(); // open ring, chiral gap
+  x.fillStyle = '#B44BF0';
+  for (let i=0;i<4;i++) x.fillRect(30+i*24, 30+i*16, 16, 16); // diagonal staircase
+  return c;
+}
+function rebuildSil(){ // same silhouette rule as card_flip (alpha- or luminance-cut)
+  const iw = IMG.width || IMG.naturalWidth, ih = IMG.height || IMG.naturalHeight;
+  const c = document.createElement('canvas'); c.width = iw; c.height = ih;
+  const x = c.getContext('2d');
+  x.drawImage(IMG, 0, 0);
+  const d = x.getImageData(0, 0, iw, ih), px = d.data;
+  let transCount = 0;
+  for (let i=3; i<px.length; i+=4) if (px[i] < 128) transCount++;
+  const hasAlpha = transCount > (px.length/4) * 0.005;
+  const col = $('silCol').value;
+  const cr = parseInt(col.slice(1,3),16), cg = parseInt(col.slice(3,5),16), cb = parseInt(col.slice(5,7),16);
+  const thr = parseInt($('silT').value)/100 * 255;
+  for (let i=0; i<px.length; i+=4){
+    const solid = hasAlpha ? px[i+3] >= 128
+      : (0.2126*px[i] + 0.7152*px[i+1] + 0.0722*px[i+2]) < thr;
+    if (solid){ px[i]=cr; px[i+1]=cg; px[i+2]=cb; px[i+3]=255; }
+    else px[i+3] = 0;
+  }
+  x.putImageData(d, 0, 0);
+  SIL = c;
+}
+function disposeSubject(){
+  if (!mesh) return;
+  scene.remove(mesh);
+  mesh.traverse(n => {
+    if (!n.isMesh) return;
+    n.geometry.dispose();
+    const mats = Array.isArray(n.material) ? n.material : [n.material]; // slab = 6 mats
+    for (const m of mats){ if (m.map) m.map.dispose(); m.dispose(); }
+  });
+  mesh = null;
+}
+function texOf(src, mirrorX){
+  const t = new THREE.Texture(src);
+  t.needsUpdate = true;
+  t.colorSpace = THREE.SRGBColorSpace;
+  if (mirrorX){ t.wrapS = THREE.RepeatWrapping; t.repeat.x = -1; t.offset.x = 1; }
+  return t;
+}
+function edgeStrip(src, which){ // 1-pixel border strip: the wall's whole texture
+  const iw = src.width || src.naturalWidth, ih = src.height || src.naturalHeight;
+  const c = document.createElement('canvas');
+  const x = (c.width = which==='left'||which==='right' ? 1 : iw,
+             c.height = which==='left'||which==='right' ? ih : 1,
+             c.getContext('2d'));
+  if (which === 'left')       x.drawImage(src, 0,    0,    1,  ih, 0, 0, 1,  ih);
+  else if (which === 'right') x.drawImage(src, iw-1, 0,    1,  ih, 0, 0, 1,  ih);
+  else if (which === 'top')   x.drawImage(src, 0,    0,    iw, 1,  0, 0, iw, 1);
+  else                        x.drawImage(src, 0,    ih-1, iw, 1,  0, 0, iw, 1);
+  return c;
+}
+function cropTo(src, aspect){ // centre-crop (not letterbox: bars would alphaTest away)
+  const sw = src.width || src.naturalWidth, sh = src.height || src.naturalHeight;
+  if (Math.abs(sw/sh - aspect) < 1e-3) return src;
+  let cw = sw, ch = sh;
+  if (sw/sh > aspect) cw = Math.round(sh*aspect); else ch = Math.round(sw/aspect);
+  const c = document.createElement('canvas'); c.width = cw; c.height = ch;
+  c.getContext('2d').drawImage(src, (sw-cw)/2, (sh-ch)/2, cw, ch, 0, 0, cw, ch);
+  return c;
+}
+function rebuildCard(){
+  disposeSubject();
+  const sil = $('silOn').checked;
+  const src = sil ? (SIL || (rebuildSil(), SIL)) : IMG;
+  const iw = src.width || src.naturalWidth, ih = src.height || src.naturalHeight;
+  const w = CARD_H * iw / ih;
+  const thick = CARD_H * parseInt($('thick').value) / 100;
+  const opts = {transparent: true, alphaTest: 0.05};
+  // silhouette mode keeps both faces the same cutout: silhouettes are about shape,
+  // and a two-image silhouette would leak which face you're seeing — cue, not shape.
+  // A back image of a different aspect is centre-cropped to the front's (both faces
+  // of a physical card share one rect; stretching would silently distort it).
+  const back = (!sil && IMG2) ? cropTo(IMG2, iw/ih) : null;
+  if (IMG2) $('backName').textContent =
+    ($('backName').dataset.base || '') + (back && back !== IMG2 ? ' — centre-cropped to front aspect' : '');
+  if (!thick && !back){
+    // the original card: one double-sided plane — the back face IS the mirrored image
+    mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, CARD_H),
+      new THREE.MeshBasicMaterial({map: texOf(src), side: THREE.DoubleSide, ...opts}));
+  } else if (!thick){
+    // true two-faced card: two single-sided planes back to back; the back plane is
+    // rotated 180° about y so its image reads UNMIRRORED when it faces the viewer
+    // (a physical card's behavior — unlike the mirror the DoubleSide trick shows)
+    mesh = new THREE.Group();
+    const f = new THREE.Mesh(new THREE.PlaneGeometry(w, CARD_H),
+      new THREE.MeshBasicMaterial({map: texOf(src), ...opts}));
+    const b = new THREE.Mesh(new THREE.PlaneGeometry(w, CARD_H),
+      new THREE.MeshBasicMaterial({map: texOf(back), ...opts}));
+    b.rotation.y = Math.PI;
+    mesh.add(f, b);
+  } else {
+    // slab: BoxGeometry material order +x,−x,+y,−y,+z,−z. The four walls stretch the
+    // image's border pixels through the depth (edge-clamp extrusion). Without a back
+    // image the −z face shows the MIRRORED front, matching the flat card's DoubleSide.
+    // In silhouette mode the walls are SOLID color: the cutout's border pixels are
+    // alpha-0, and alphaTest would discard every wall fragment — leaving a floating
+    // offset sheet whose lateral shift is ODD in θ, which would let an asymmetric
+    // silhouette reveal its spin direction (review 07/09). Solid walls keep the slab
+    // outline w|cosθ|+τ|sinθ| even in θ, preserving the dancer ambiguity.
+    const wall = which => sil
+      ? new THREE.MeshBasicMaterial({color: new THREE.Color($('silCol').value)})
+      : new THREE.MeshBasicMaterial({map: texOf(edgeStrip(src, which)), ...opts});
+    mesh = new THREE.Mesh(new THREE.BoxGeometry(w, CARD_H, thick), [
+      wall('right'), wall('left'), wall('top'), wall('bottom'),
+      new THREE.MeshBasicMaterial({map: texOf(src), ...opts}),
+      new THREE.MeshBasicMaterial({map: texOf(back || src, !back), ...opts}),
+    ]);
+  }
+  mesh.matrixAutoUpdate = false; // we hand it the composed axis matrix each frame
+  SUBJECT_EXT = {w, h: CARD_H};
+  scene.add(mesh);
+  updateCameraBounds();
+  rebuildAxes();
+}
+IMG = makeDemo();
+
+/* ---------- REAL 3D beam objects (spin the object, not its image) ----------
+   The cell lists are hex_beam's exact constructions: open tribar (gap (L−1)(1,1,1)),
+   false-joint hex ring, and the fused double hex. Each straight beam becomes ONE
+   stretched box. The whole object is pre-rotated so (1,1,1) → +z: the fixed camera
+   then looks straight down the magic direction, so θ=0 IS the illusion, and a 180°
+   spin about a vertical centre axis rides through the reveal to the −(1,1,1) view —
+   the mirror winding. Rotating the camera instead would be equivalent (only the
+   relative orientation reaches the projection); rotating the object keeps the whole
+   axis/gif machinery unchanged. */
+const OBJ_PALETTE = [0xE22211, 0x485FC7, 0xFFC845, 0x009E86, 0xB44BF0, 0xFF7A00, 0x25C4E8, 0xE84393];
+const OBJ_L = 5;
+function beamCells(shape){
+  const L = OBJ_L, E = [[1,0,0],[0,1,0],[0,0,1]];
+  const add = (p,e,t)=>[p[0]+t*e[0], p[1]+t*e[1], p[2]+t*e[2]];
+  const beams = [];
+  if (shape === 'tribar'){
+    const A=[],B=[],C=[], o=[0,0,0];
+    for (let t=0;t<L;t++) A.push(add(o,E[0],t));
+    const cB = add(o,E[0],L-1);
+    for (let t=1;t<L;t++) B.push(add(cB,E[1],t));
+    const cC = add(cB,E[1],L-1);
+    for (let t=1;t<L;t++) C.push(add(cC,E[2],t));
+    beams.push(A,B,C);
+  } else {
+    const ring = (start, dirs, lens, inc) => {
+      let p = start.slice();
+      dirs.forEach((di,i) => {
+        const e = E[Math.abs(di)-1].map(x => x*Math.sign(di));
+        const cells = (i===0 && inc) ? [p.slice()] : [];
+        for (let t=0;t<lens[i];t++){ p = add(p,e,1); cells.push(p.slice()); }
+        beams.push(cells);
+      });
+    };
+    ring([0,0,0], [1,-3,2,-1,3,-2], [L-1,L+1,L,L,L,L], true);
+    if (shape === 'dblhex') ring([0,0,0], [3,-2,1,-3,2], [L+1,L,L,L,L], false);
+  }
+  return beams;
+}
+function rebuildObject(shape){
+  disposeSubject();
+  const beams = beamCells(shape);
+  const inner = new THREE.Group();
+  let minV = [Infinity,Infinity,Infinity], maxV = [-Infinity,-Infinity,-Infinity];
+  const silhouette = $('silOn').checked;
+  const silColor = new THREE.Color($('silCol').value);
+  beams.forEach((cells, bi) => {
+    const a = cells[0], b = cells[cells.length-1];
+    const size = [Math.abs(b[0]-a[0])+1, Math.abs(b[1]-a[1])+1, Math.abs(b[2]-a[2])+1];
+    const ctr = [(a[0]+b[0])/2+0.5, (a[1]+b[1])/2+0.5, (a[2]+b[2])/2+0.5];
+    // silhouette mode: single flat unlit color — the spinning-dancer condition for
+    // a genuine 3D volume (unlike the flat card, its outline CHANGES through the
+    // turn; the direction stays undecidable because silhouettes carry no depth sign)
+    const m = new THREE.Mesh(
+      new THREE.BoxGeometry(size[0], size[1], size[2]),
+      silhouette
+        ? new THREE.MeshBasicMaterial({color: silColor})
+        : new THREE.MeshLambertMaterial({color: OBJ_PALETTE[bi % OBJ_PALETTE.length], flatShading: true}));
+    m.position.set(ctr[0], ctr[1], ctr[2]);
+    inner.add(m);
+    for (let k=0;k<3;k++){
+      minV[k] = Math.min(minV[k], ctr[k]-size[k]/2);
+      maxV[k] = Math.max(maxV[k], ctr[k]+size[k]/2);
+    }
+  });
+  const c = [(minV[0]+maxV[0])/2, (minV[1]+maxV[1])/2, (minV[2]+maxV[2])/2];
+  for (const m of inner.children) m.position.sub(new THREE.Vector3(c[0], c[1], c[2]));
+  // pre-rotate: magic direction (1,1,1) → +z (toward the camera)
+  const pre = new THREE.Group();
+  pre.add(inner);
+  pre.quaternion.setFromUnitVectors(new THREE.Vector3(1,1,1).normalize(), new THREE.Vector3(0,0,1));
+  // scale to the card's stage size
+  const diam = Math.hypot(maxV[0]-minV[0], maxV[1]-minV[1], maxV[2]-minV[2]);
+  const s = 7.5 / diam;
+  pre.scale.setScalar(s);
+  mesh = new THREE.Group();
+  mesh.add(pre);
+  mesh.matrixAutoUpdate = false;
+  scene.add(mesh);
+  // axis position ±1 must be tangent to the FRONT-VIEW footprint, so measure the
+  // world AABB after the pre-rotation, fit its larger screen dimension to the card's
+  // stage size, and recentre it on the origin (the 3D centroid maps to 0, but a
+  // chiral object's rotated AABB need not be symmetric)
+  mesh.updateMatrixWorld(true);
+  const box = new THREE.Box3().setFromObject(mesh);
+  const bc = box.getCenter(new THREE.Vector3());
+  const w0 = box.max.x - box.min.x, h0 = box.max.y - box.min.y;
+  const fit = CARD_H / Math.max(w0, h0);
+  pre.scale.multiplyScalar(fit);
+  pre.position.copy(bc).multiplyScalar(-fit); // scale acts about pre's origin
+  SUBJECT_EXT = {w: w0*fit, h: h0*fit};
+  updateCameraBounds();
+  rebuildAxes();
+}
+function rebuildSubject(){
+  if (UI.shape === 'card') rebuildCard();
+  else rebuildObject(UI.shape);
+}
+
+/* ---------- the spin axes (up to three) ----------
+   An axis is an in-plane line: direction from a tilt angle (0° = vertical,
+   ±90° = horizontal), position offset along the in-plane perpendicular, scaled so
+   ±1 is exactly tangent to the card edge (the hinge case). Rotation about an
+   off-origin axis is the conjugate T(p)·R·T(−p); the enabled axes compose as
+   M = M_C · M_B · M_A, ALL FIXED IN THE WORLD (a tumble, not gimbal nesting). */
+function axisSpec(which){
+  const tilt = parseInt($('tilt'+which).value) * Math.PI/180;
+  const off = parseInt($('off'+which).value) / 100;
+  const dir = new THREE.Vector3(Math.sin(tilt), Math.cos(tilt), 0);
+  const perp = new THREE.Vector3(dir.y, -dir.x, 0);
+  // support function of the subject's screen-plane bounding rect: offset ±1 ⇒ edge
+  // (exact hinge for the card; for beam objects the rect is the front-view AABB)
+  const ext = Math.abs(perp.x)*SUBJECT_EXT.w/2 + Math.abs(perp.y)*SUBJECT_EXT.h/2;
+  const p = perp.clone().multiplyScalar(off * ext);
+  return {dir, p};
+}
+function axisMatrix(which, angleDeg, spec){
+  const {dir, p} = spec || axisSpec(which); // spec: frozen snapshot used by exports
+  const q = new THREE.Quaternion().setFromAxisAngle(dir, angleDeg * Math.PI/180);
+  const R = new THREE.Matrix4().makeRotationFromQuaternion(q);
+  return new THREE.Matrix4().makeTranslation(p.x, p.y, p.z)
+    .multiply(R)
+    .multiply(new THREE.Matrix4().makeTranslation(-p.x, -p.y, -p.z));
+}
+const UI = { angA: 0, angB: 0, angC: 0, playing: false, shape: 'card' };
+function applyPose(ov){ // ov = {axA, axB, axC, dual, triple}: capture-time snapshot so
+  const dual = ov ? ov.dual : $('onB').checked; // mid-capture moves cannot corrupt frames
+  const triple = ov ? ov.triple : $('onC').checked;
+  let m = axisMatrix('A', UI.angA, ov && ov.axA);
+  if (dual) m = axisMatrix('B', UI.angB, ov && ov.axB).multiply(m);
+  if (triple) m = axisMatrix('C', UI.angC, ov && ov.axC).multiply(m);
+  mesh.matrix.copy(m);
+}
+
+/* axis visualization: view-only lines (excluded from every export) */
+const AXVIS = new THREE.Group();
+scene.add(AXVIS);
+function axisLine(which, color){
+  const {dir, p} = axisSpec(which);
+  const L = 9;
+  const geo = new THREE.BufferGeometry().setFromPoints([
+    p.clone().addScaledVector(dir, -L), p.clone().addScaledVector(dir, L)]);
+  const line = new THREE.Line(geo, new THREE.LineBasicMaterial({color}));
+  const dot = new THREE.Mesh(new THREE.SphereGeometry(0.09, 12, 8),
+    new THREE.MeshBasicMaterial({color}));
+  dot.position.copy(p);
+  const g = new THREE.Group(); g.add(line, dot);
+  return g;
+}
+function rebuildAxes(){
+  for (const c of [...AXVIS.children]){
+    AXVIS.remove(c);
+    c.traverse(n => { if (n.geometry) n.geometry.dispose(); if (n.material) n.material.dispose(); });
+  }
+  AXVIS.add(axisLine('A', 0x009E86));
+  if ($('onB').checked) AXVIS.add(axisLine('B', 0xB44BF0));
+  if ($('onC').checked) AXVIS.add(axisLine('C', 0xFFC845));
+  AXVIS.visible = $('showAxes').checked;
+}
+
+/* ---------- animation loop ---------- */
+let lastT = 0, CAPTURING = false, RESIZE_PENDING = false;
+let PENDING_PLAY = null; // last mid-capture play/stop click (null = none): last click wins
+let PENDING_APPLY = [];  // image decodes landing mid-capture: deferred, not dropped
+function loop(t){
+  requestAnimationFrame(loop);
+  if (CAPTURING){ lastT = t; return; } // capture owns the renderer: no flicker-fighting
+  if (UI.playing && lastT){
+    const dt = (t - lastT)/1000;
+    UI.angA = (UI.angA + parseInt($('spdA').value)*dt % 360 + 360) % 360;
+    if ($('onB').checked) UI.angB = (UI.angB + parseInt($('spdB').value)*dt % 360 + 360) % 360;
+    if ($('onC').checked) UI.angC = (UI.angC + parseInt($('spdC').value)*dt % 360 + 360) % 360;
+    $('angA').value = UI.angA; $('vAngA').innerHTML = UI.angA.toFixed(0)+'&deg;';
+    $('angB').value = UI.angB; $('vAngB').innerHTML = UI.angB.toFixed(0)+'&deg;';
+    $('angC').value = UI.angC; $('vAngC').innerHTML = UI.angC.toFixed(0)+'&deg;';
+    updateReadout();
+  }
+  lastT = t;
+  applyPose();
+  controls.update();
+  renderer.render(scene, camera);
+}
+function enabledSpeeds(){
+  const spds = [Math.abs(parseInt($('spdA').value))];
+  if ($('onB').checked) spds.push(Math.abs(parseInt($('spdB').value)));
+  if ($('onC').checked) spds.push(Math.abs(parseInt($('spdC').value)));
+  return spds;
+}
+const SUBJ_NAMES = {
+  card: 'image card',
+  tribar: 'open tribar &middot; gap (L&minus;1)(1,1,1), hidden down the view axis',
+  hexring: 'hex ring &middot; false joint: end&minus;start = +E<sub>1</sub> &minus; (1,1,1)',
+  dblhex: 'double hex &middot; shared beam + false joints',
+};
+function updateReadout(){
+  const dual = $('onB').checked, triple = $('onC').checked, nAx = 1 + dual + triple;
+  const gcd = (x,y)=>y?gcd(y,x%y):x;
+  const nz = enabledSpeeds().filter(v => v > 0);
+  const T = nz.length ? 360/nz.reduce(gcd) : 0;
+  $('readout').innerHTML =
+    '<span class="k">&theta;<sub>A</sub></span> <span class="a">'+UI.angA.toFixed(0)+'&deg;</span> '+
+    (dual ? '<span class="k">&theta;<sub>B</sub></span> <span class="a">'+UI.angB.toFixed(0)+'&deg;</span> ' : '')+
+    (triple ? '<span class="k">&theta;<sub>C</sub></span> <span class="a">'+UI.angC.toFixed(0)+'&deg;</span> ' : '')+
+    '<span class="k">'+(nAx > 1 ? nAx+'-axis tumble' : 'spin')+'</span><br>'+
+    '<span class="k">subject</span> <span class="a">'+SUBJ_NAMES[UI.shape]+'</span><br>'+
+    '<span class="k">loop period</span> <span class="a">'+(T ? T.toFixed(1)+'s' : '&mdash;')+'</span> '+
+    '<span class="k">'+(nAx > 1 ? '(rational speeds loop; incommensurate = quasi-periodic)' : '')+'</span>';
+}
+
+/* ---------- GIF89a encoder (canonical, verified copy lives in card_flip_MIRROR.html;
+   this copy is comment-stripped — compare comment-stripped text for drift) ---------- */
+function encodeGIF(frames, w, h, delayCs, transparent){
+  const colorIdx = new Map(); let exact = true;
+  for (const f of frames){
+    for (let i=0; i<f.length && exact; i+=4){
+      if (transparent && f[i+3] < 128) continue;
+      const key = (f[i]<<16)|(f[i+1]<<8)|f[i+2];
+      if (!colorIdx.has(key)){
+        if (colorIdx.size >= (transparent ? 255 : 256)){ exact = false; break; }
+        colorIdx.set(key, colorIdx.size);
+      }
+    }
+    if (!exact) break;
+  }
+  let palette, indexOf;
+  if (exact){
+    palette = [...colorIdx.keys()];
+    indexOf = (r,g,b) => colorIdx.get((r<<16)|(g<<8)|b);
+  } else {
+    palette = [];
+    for (let r=0;r<6;r++) for (let g=0;g<7;g++) for (let b=0;b<6;b++)
+      palette.push((Math.round(r*51)<<16)|(Math.round(g*42.5)<<8)|Math.round(b*51));
+    indexOf = (r,g,b) => {
+      const ri = Math.min(5, Math.round(r/51)), gi = Math.min(6, Math.round(g/42.5)), bi = Math.min(5, Math.round(b/51));
+      return ri*42 + gi*6 + bi;
+    };
+  }
+  const transIdx = transparent ? palette.length : -1;
+  if (transparent) palette.push(0);
+  let pbits = 2;
+  while ((1 << pbits) < palette.length) pbits++;
+  const tableSize = 1 << pbits;
+  const out = [];
+  const u16 = v => { out.push(v & 255, (v >> 8) & 255); };
+  for (const ch of 'GIF89a') out.push(ch.charCodeAt(0));
+  u16(w); u16(h);
+  out.push(0x80 | ((pbits-1) << 4) | (pbits-1), transparent ? transIdx : 0, 0);
+  for (let i=0;i<tableSize;i++){
+    const c = palette[i] || 0;
+    out.push((c>>16)&255, (c>>8)&255, c&255);
+  }
+  out.push(0x21, 0xFF, 0x0B);
+  for (const ch of 'NETSCAPE2.0') out.push(ch.charCodeAt(0));
+  out.push(3, 1, 0, 0, 0);
+  const minCode = Math.max(2, pbits);
+  for (const f of frames){
+    const idx = new Uint8Array(w*h);
+    for (let p=0, i=0; p<idx.length; p++, i+=4)
+      idx[p] = (transparent && f[i+3] < 128) ? transIdx : indexOf(f[i], f[i+1], f[i+2]);
+    out.push(0x21, 0xF9, 4, ((transparent?2:1) << 2) | (transparent?1:0));
+    u16(delayCs); out.push(transparent ? transIdx : 0, 0);
+    out.push(0x2C); u16(0); u16(0); u16(w); u16(h); out.push(0);
+    out.push(minCode);
+    const bytes = [];
+    let acc = 0, accBits = 0;
+    const emit = (code, size) => {
+      acc |= code << accBits; accBits += size;
+      while (accBits >= 8){ bytes.push(acc & 255); acc >>= 8; accBits -= 8; }
+    };
+    const CLEAR = 1 << minCode, EOI = CLEAR + 1;
+    let dict, codeSize, next;
+    const reset = () => { dict = new Map(); codeSize = minCode + 1; next = EOI + 1; };
+    reset();
+    emit(CLEAR, codeSize);
+    let sKey = String.fromCharCode(idx[0]);
+    for (let p=1; p<idx.length; p++){
+      const c = String.fromCharCode(idx[p]);
+      const k2 = sKey + c;
+      if (dict.has(k2)) sKey = k2;
+      else {
+        emit(sKey.length === 1 ? sKey.charCodeAt(0) : dict.get(sKey), codeSize);
+        dict.set(k2, next++);
+        if (next > (1 << codeSize) && codeSize < 12) codeSize++;
+        if (next === 4096){ emit(CLEAR, codeSize); reset(); }
+        sKey = c;
+      }
+    }
+    emit(sKey.length === 1 ? sKey.charCodeAt(0) : dict.get(sKey), codeSize);
+    emit(EOI, codeSize);
+    if (accBits > 0) bytes.push(acc & 255);
+    for (let i=0; i<bytes.length; i+=255){
+      const n = Math.min(255, bytes.length - i);
+      out.push(n);
+      for (let j=0; j<n; j++) out.push(bytes[i+j]);
+    }
+    out.push(0);
+  }
+  out.push(0x3B);
+  return new Uint8Array(out);
+}
+
+/* ---------- exports: axes hidden, camera left as posed (press "front view" first for
+   the canonical illusion framing), optional alpha clear ---------- */
+function renderFrameFor(exportW, exportH, trans){
+  // draw the renderer canvas into a 2D canvas for pixel readback at export size
+  const c = document.createElement('canvas'); c.width = exportW; c.height = exportH;
+  const g = c.getContext('2d', {willReadFrequently: true});
+  return {c, g};
+}
+function exportPose(trans, ov){
+  AXVIS.visible = false;
+  // assert the clear color UNCONDITIONALLY: every frame must carry its own correct
+  // background, whatever touched the renderer between frames (review 07/09)
+  renderer.setClearColor(trans ? 0x000000 : 0x161616, trans ? 0 : 1);
+  applyPose(ov);
+  renderer.render(scene, camera);
+}
+function restorePose(){
+  renderer.setClearColor(0x161616, 1);
+  AXVIS.visible = $('showAxes').checked;
+  renderer.render(scene, camera);
+}
+$('bPNG').onclick = () => {
+  if (CAPTURING) return; // same guard as every other control (review 07/09)
+  const trans = $('gifTrans').checked;
+  exportPose(trans);
+  renderer.domElement.toBlob(b => {
+    if (!b){ alert('Export failed.'); return; }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(b);
+    a.download = 'card_spin3d'+(UI.shape !== 'card' ? '_'+UI.shape : '')+'_frame.png';
+    document.body.appendChild(a); a.click();
+    setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+  }, 'image/png');
+  // toBlob copies the bitmap synchronously (encoding runs in parallel), so restoring
+  // HERE — not in the async callback — means no rAF tick ever paints the export state
+  // (the axes-gone / transparent-background blink the review measured)
+  restorePose();
+};
+async function captureGIF(){
+  if (CAPTURING) return;
+  const btn = $('bGIF');
+  const saved = {angA: UI.angA, angB: UI.angB, angC: UI.angC, playing: UI.playing};
+  CAPTURING = true; btn.disabled = true; UI.playing = false; PENDING_PLAY = null;
+  controls.enabled = false; // camera must hold still for the loop seam to close
+  $('gifStatus').textContent = 'capturing…';
+  try {
+    const trans = $('gifTrans').checked;
+    const dual = $('onB').checked, triple = $('onC').checked;
+    const sil = $('silOn').checked; // snapshot: the filename must describe the FRAMES
+    // freeze axis geometry: mid-capture slider moves must not change the pose source
+    const ov = {axA: axisSpec('A'), axB: axisSpec('B'), axC: axisSpec('C'), dual, triple};
+    const gcd = (x,y)=>y?gcd(y,x%y):x;
+    const nz = enabledSpeeds().filter(v => v > 0);
+    if (!nz.length) throw new Error('all enabled speeds are 0');
+    let T = 360/nz.reduce(gcd), note = '';
+    if (T > 15){ T = 15; note = ' (period > 15s: gif truncated, will not loop seamlessly)'; }
+    const F = Math.max(24, Math.min(150, Math.round(T*12)));
+    const delayCs = Math.max(2, Math.round(T*100/F));
+    const maxW = 560;
+    const rw = renderer.domElement.width, rh = renderer.domElement.height;
+    const sc = Math.min(1, maxW/rw);
+    const w = Math.round(rw*sc), h = Math.round(rh*sc);
+    const {c, g} = renderFrameFor(w, h, trans);
+    const sA = parseInt($('spdA').value), sB = parseInt($('spdB').value), sC = parseInt($('spdC').value);
+    const frames = [];
+    for (let fi=0; fi<F; fi++){
+      const t = T*fi/F;
+      UI.angA = (saved.angA + sA*t % 360 + 360) % 360;
+      if (dual) UI.angB = (saved.angB + sB*t % 360 + 360) % 360;
+      if (triple) UI.angC = (saved.angC + sC*t % 360 + 360) % 360;
+      exportPose(trans, ov);
+      g.clearRect(0,0,w,h);
+      g.drawImage(renderer.domElement, 0, 0, w, h);
+      frames.push(g.getImageData(0,0,w,h).data);
+      if ((fi & 7) === 7){ $('gifStatus').textContent = 'capturing… '+(fi+1)+'/'+F; await new Promise(r=>setTimeout(r)); }
+    }
+    $('gifStatus').textContent = 'encoding…';
+    await new Promise(r=>setTimeout(r));
+    const bytes = encodeGIF(frames, w, h, delayCs, trans);
+    const blob = new Blob([bytes], {type:'image/gif'});
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'card_spin3d'+(UI.shape !== 'card' ? '_'+UI.shape : '')+
+      (triple ? '_tri' : dual ? '_dual' : '')+(sil?'_sil':'')+'.gif';
+    document.body.appendChild(link); link.click();
+    setTimeout(()=>{ URL.revokeObjectURL(link.href); link.remove(); }, 2000);
+    // report the ENCODED duration (F·delay), not the mathematical period — the
+    // centisecond rounding can differ by a few percent
+    $('gifStatus').textContent = 'gif saved ('+(bytes.length/1024).toFixed(0)+' KB, '+F+
+      ' frames, '+(F*delayCs/100).toFixed(2)+'s loop)'+note;
+  } catch (err){
+    $('gifStatus').textContent = 'gif export failed: '+err.message;
+  } finally {
+    CAPTURING = false;
+    controls.enabled = true;
+    if (RESIZE_PENDING){ RESIZE_PENDING = false; resize(); }
+    UI.angA = saved.angA; UI.angB = saved.angB; UI.angC = saved.angC;
+    UI.playing = PENDING_PLAY === null ? saved.playing : PENDING_PLAY; // last click wins
+    $('angA').value = UI.angA; $('angB').value = UI.angB; $('angC').value = UI.angC;
+    // re-sync everything a mid-capture control change touched: the frames used the
+    // frozen snapshot but the DOM kept moving (review 07/09) — rebuild subject
+    // (covers sil toggles; ends in rebuildAxes) + readout, restore the view, THEN
+    // flush deferred image loads: their alerts must pop over a restored viewport,
+    // and a successful apply repaints on the next rAF tick anyway
+    SIL = null; rebuildSubject(); updateReadout();
+    restorePose();
+    const q = PENDING_APPLY; PENDING_APPLY = [];
+    for (const p of q) p();
+    btn.disabled = false;
+  }
+}
+$('bGIF').onclick = () => { captureGIF(); };
+
+/* ---------- wiring ---------- */
+function setShape(s){
+  UI.shape = s;
+  for (const b of document.querySelectorAll('#shapeBtns .pbtn, #shapeBtns2 .pbtn'))
+    b.classList.toggle('active', b.dataset.shape === s);
+  rebuildSubject(); updateReadout();
+}
+for (const gid of ['shapeBtns','shapeBtns2'])
+  $(gid).addEventListener('click', e => {
+    const b = e.target.closest('.pbtn'); if (!b || CAPTURING) return;
+    setShape(b.dataset.shape);
+  });
+function loadImageFile(f, applyIm){
+  const rd = new FileReader();
+  rd.onload = () => {
+    const im = new Image();
+    im.onload = () => {
+      const run = () => {
+        if (!im.naturalWidth || !im.naturalHeight){ alert('"'+f.name+'" reports no intrinsic size.'); return; }
+        applyIm(im);
+      };
+      // a decode landing mid-capture is DEFERRED to capture end, not dropped —
+      // rebuilding the subject mid-gif would corrupt frames (review 07/09); error
+      // alerts get the same deferral so no modal ever blocks the capture's finally
+      if (CAPTURING) PENDING_APPLY.push(run);
+      else run();
+    };
+    im.onerror = () => {
+      const run = () => alert('Could not decode "'+f.name+'".');
+      if (CAPTURING) PENDING_APPLY.push(run); else run();
+    };
+    im.src = rd.result;
+  };
+  rd.onerror = () => {
+    const run = () => alert('Could not read "'+f.name+'".');
+    if (CAPTURING) PENDING_APPLY.push(run); else run();
+  };
+  rd.readAsDataURL(f);
+}
+$('bLoad').onclick = () => { if (!CAPTURING) $('fImg').click(); };
+$('fImg').addEventListener('change', e => {
+  const f = e.target.files && e.target.files[0];
+  e.target.value = '';
+  if (!f) return;
+  loadImageFile(f, im => {
+    IMG = im; SIL = null;
+    $('imgName').textContent = f.name+' ('+im.naturalWidth+'×'+im.naturalHeight+')';
+    setShape('card'); // loading an image means: show it
+  });
+});
+$('bDemo').onclick = () => { if (CAPTURING) return; IMG = makeDemo(); SIL = null; $('imgName').textContent = 'demo pattern'; setShape('card'); };
+$('bLoad2').onclick = () => { if (!CAPTURING) $('fImg2').click(); };
+$('fImg2').addEventListener('change', e => {
+  const f = e.target.files && e.target.files[0];
+  e.target.value = '';
+  if (!f) return;
+  loadImageFile(f, im => {
+    IMG2 = im;
+    $('backName').dataset.base = f.name+' ('+im.naturalWidth+'×'+im.naturalHeight+')';
+    setShape('card'); // rebuildCard writes the label (adding a crop note if needed)
+  });
+});
+$('bDemo2').onclick = () => { if (CAPTURING) return; IMG2 = makeDemoBack(); $('backName').dataset.base = 'demo back (chiral)'; setShape('card'); };
+$('bClear2').onclick = () => { if (CAPTURING) return; IMG2 = null; $('backName').textContent = 'none — back = mirrored front'; if (UI.shape === 'card') rebuildSubject(); };
+$('thick').addEventListener('input', () => {
+  $('vThick').textContent = $('thick').value+'%';
+  if (CAPTURING || UI.shape !== 'card') return;
+  const t = CARD_H * parseInt($('thick').value) / 100;
+  // drag fast path: while the mesh is already the 6-material slab, only the geometry
+  // depends on τ — swapping it avoids re-uploading full-resolution textures on every
+  // input tick (multi-second stalls with large photos; review 07/09). Only the
+  // 0 ↔ slab path transitions pay a full rebuild.
+  if (t > 0 && mesh && mesh.isMesh && Array.isArray(mesh.material)){
+    mesh.geometry.dispose();
+    mesh.geometry = new THREE.BoxGeometry(SUBJECT_EXT.w, CARD_H, t);
+  } else rebuildSubject();
+});
+for (const id of ['silOn','silCol','silT'])
+  $(id).addEventListener('input', () => { if (CAPTURING) return; SIL = null; rebuildSubject(); });
+$('silT').addEventListener('input', () => { $('vSilT').textContent = $('silT').value+'%'; });
+const fmt = {
+  tiltA: v=>v+'°', tiltB: v=>v+'°', tiltC: v=>v+'°',
+  offA: v=>(v/100).toFixed(2), offB: v=>(v/100).toFixed(2), offC: v=>(v/100).toFixed(2),
+  spdA: v=>v+'°/s', spdB: v=>v+'°/s', spdC: v=>v+'°/s',
+};
+for (const id of ['tiltA','offA','tiltB','offB','tiltC','offC','spdA','spdB','spdC'])
+  $(id).addEventListener('input', () => {
+    $('v'+id.charAt(0).toUpperCase()+id.slice(1)).textContent = fmt[id]($(id).value);
+    if (!CAPTURING){ rebuildAxes(); updateReadout(); }
+  });
+for (const which of ['A','B','C'])
+  $('ang'+which).addEventListener('input', () => {
+    if (CAPTURING) return;
+    UI['ang'+which] = parseFloat($('ang'+which).value);
+    $('vAng'+which).innerHTML = UI['ang'+which].toFixed(0)+'&deg;';
+    updateReadout();
+  });
+for (const id of ['onB','onC'])
+  $(id).addEventListener('input', () => { if (!CAPTURING){ rebuildAxes(); updateReadout(); } });
+$('showAxes').addEventListener('input', () => { AXVIS.visible = $('showAxes').checked; });
+$('orthoCam').addEventListener('input', () => {
+  if (CAPTURING){ $('orthoCam').checked = camera === orthoCam; return; }
+  const pos = camera.position.clone(), tgt = controls.target.clone();
+  camera = $('orthoCam').checked ? orthoCam : perspCam;
+  /* match apparent size across the swap, zoom-aware (review 07/09): OrbitControls
+     dollies an ORTHO camera by changing camera.zoom (not position), so the ortho
+     view's effective half-height is VIEWH/zoom — the perspective camera must sit at
+     (VIEWH/zoom)/tan(fov/2). Entering ortho, the perspective dolly distance is
+     carried INTO orthoCam.zoom, so both directions preserve apparent size exactly. */
+  const dir = pos.clone().sub(tgt);
+  const dist = dir.length() || CAMDIST;
+  if (dir.lengthSq() < 1e-9) dir.set(0, 0, 1);
+  const tanHalf = Math.tan(THREE.MathUtils.degToRad(perspCam.fov/2));
+  if (camera === perspCam){
+    // clamp: an extreme ortho zoom-out must not carry the camera past the far plane
+    dir.setLength(Math.min(9000, (VIEWH / orthoCam.zoom) / tanHalf));
+  } else {
+    orthoCam.zoom = VIEWH / (dist * tanHalf);
+    orthoCam.updateProjectionMatrix();
+    dir.setLength(CAMDIST);
+  }
+  camera.position.copy(tgt).add(dir);
+  controls.dispose();
+  controls = makeControls(camera);
+  controls.target.copy(tgt);
+  resize();
+});
+$('presetA').addEventListener('click', e => {
+  const b = e.target.closest('.pbtn'); if (!b || CAPTURING) return;
+  const p = b.dataset.p;
+  const set = (tilt, off) => {
+    $('tiltA').value = tilt; $('offA').value = off;
+    $('vTiltA').textContent = tilt+'°'; $('vOffA').textContent = (off/100).toFixed(2);
+  };
+  if (p === 'center') set(0, 0);
+  else if (p === 'left') set(0, -100);
+  else if (p === 'right') set(0, 100);
+  else if (p === 'top') set(90, -100);    // tilt 90: perp = (0,−1), so −1 is +y = screen top
+  else if (p === 'bottom') set(90, 100);
+  rebuildAxes(); updateReadout();
+});
+// transport clicks mid-capture are RECORDED and honored at the capture's state
+// restore (last click wins) — a bare CAPTURING guard would silently discard them
+$('bPlay').onclick = () => { if (CAPTURING) PENDING_PLAY = true; else UI.playing = true; };
+$('bStop').onclick = () => { UI.playing = false; if (CAPTURING) PENDING_PLAY = false; };
+$('bFront').onclick = () => {
+  if (CAPTURING) return;
+  camera.zoom = 1; // ortho scroll-dolly lives in zoom — "front view" resets framing too
+  camera.position.set(0, 0, camera === perspCam
+    ? VIEWH / Math.tan(THREE.MathUtils.degToRad(perspCam.fov/2)) : CAMDIST);
+  controls.target.set(0, 0, 0);
+  camera.updateProjectionMatrix();
+};
+
+rebuildSubject();
+resize();
+updateReadout();
+requestAnimationFrame(loop);
+
+// console/debug handle (module scope is otherwise sealed)
+window.__cs3d = { UI, THREE, applyPose, axisMatrix, axisSpec, encodeGIF, AXVIS,
+  beamCells, setShape, rebuildSubject,
+  get mesh(){ return mesh; }, get camera(){ return camera; },
+  get ext(){ return SUBJECT_EXT; } };
+</script>
+</body>
+</html>
