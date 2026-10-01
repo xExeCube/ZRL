@@ -1,0 +1,60 @@
+=== A. energy drift over 20000 steps (Co = 0.95 Co_max), and the CFL radius ===
+  sq5 P    : max |E-E0|/E0 = 1.2e-15   sym err 0e+00   lam_max/lam_inf = 0.9994 (scene), 0.9763 (random 15%)
+  sq5 Pcb  : max |E-E0|/E0 = 1.2e-15   sym err 0e+00   lam_max/lam_inf = 0.9994 (scene), 0.9763 (random 15%)
+  sq5 R0nb : max |E-E0|/E0 = 1.9e-15   sym err 0e+00   lam_max/lam_inf = 0.9994 (scene), 0.9713 (random 15%)
+  sq5 R0   : max |E-E0|/E0 = 1.9e-15   sym err 0e+00   lam_max/lam_inf = 0.9994 (scene), 0.9713 (random 15%)
+  sq5 R1   : max |E-E0|/E0 = 1.9e-15   sym err 0e+00   lam_max/lam_inf = 0.9994 (scene), 0.9713 (random 15%)
+  sq5 mixed: max |E-E0|/E0 = 1.8e-15   sym err 0e+00   lam_max/lam_inf = 0.9994 (scene), 0.9763 (random 15%)
+  sq9 P    : max |E-E0|/E0 = 1.8e-14   sym err 0e+00   lam_max/lam_inf = 0.9997 (scene), 0.9874 (random 15%)
+  sq9 Pcb  : max |E-E0|/E0 = 1.9e-14   sym err 0e+00   lam_max/lam_inf = 0.9997 (scene), 0.9874 (random 15%)
+  sq9 R0nb : max |E-E0|/E0 = 1.7e-14   sym err 0e+00   lam_max/lam_inf = 0.9997 (scene), 0.9825 (random 15%)
+  sq9 R0   : max |E-E0|/E0 = 1.9e-14   sym err 0e+00   lam_max/lam_inf = 0.9997 (scene), 0.9825 (random 15%)
+  sq9 R1   : max |E-E0|/E0 = 1.7e-14   sym err 0e+00   lam_max/lam_inf = 0.9997 (scene), 0.9826 (random 15%)
+  sq9 mixed: max |E-E0|/E0 = 1.9e-14   sym err 0e+00   lam_max/lam_inf = 0.9997 (scene), 0.9874 (random 15%)
+  tri P    : max |E-E0|/E0 = 1.4e-14   sym err 0e+00   lam_max/lam_inf = 0.9996 (scene), 0.9898 (random 15%)
+  tri Pcb  : max |E-E0|/E0 = 1.6e-14   sym err 0e+00   lam_max/lam_inf = 0.9995 (scene), 0.9878 (random 15%)
+  tri R0nb : max |E-E0|/E0 = 1.2e-14   sym err 0e+00   lam_max/lam_inf = 0.9995 (scene), 0.9749 (random 15%)
+  tri R0   : max |E-E0|/E0 = 1.4e-14   sym err 0e+00   lam_max/lam_inf = 0.9995 (scene), 0.9748 (random 15%)
+  tri R1   : max |E-E0|/E0 = 1.2e-14   sym err 0e+00   lam_max/lam_inf = 0.9995 (scene), 0.9750 (random 15%)
+  tri mixed: max |E-E0|/E0 = 1.6e-14   sym err 0e+00   lam_max/lam_inf = 0.9995 (scene), 0.9877 (random 15%)
+  [34 s]
+
+=== B. leak through one-cell walls: max over 500 steps of sum_B u^2 / sum u^2 ===
+   ("0" = exactly zero: no link crosses the wall)
+  sq5 straight i = 40           : P        0  Pcb        0  R0nb        0  R0        0  R1        0
+  sq5 array diagonal i = j      : P        0  Pcb        0  R0nb        0  R0        0  R1        0
+  sq5 anti-diagonal i + j = n-1 : P        0  Pcb        0  R0nb        0  R0        0  R1        0
+  sq9 straight i = 40           : P        0  Pcb        0  R0nb        0  R0        0  R1        0
+  sq9 array diagonal i = j      : P 2.28e-02  Pcb        0  R0nb 7.57e-01  R0        0  R1        0
+  sq9 anti-diagonal i + j = n-1 : P 2.28e-02  Pcb        0  R0nb 7.57e-01  R0        0  R1        0
+  tri straight i = 40           : P        0  Pcb        0  R0nb        0  R0        0  R1        0
+  tri array diagonal i = j      : P 1.74e-01  Pcb        0  R0nb 7.53e-01  R0        0  R1        0
+  tri anti-diagonal i + j = n-1 : P        0  Pcb        0  R0nb        0  R0        0  R1        0
+
+   brush-rasterised straight lines through the centre, radius r (physical cells):
+   worst leak over angles 0,5,...,90 (tri: 0..60 covers every direction by symmetry, 0..90 run)
+  sq5 P   : r=0.5:           0  r=0.6:           0  r=0.71:           0  r=0.8:           0  r=1.0:           0
+  sq5 Pcb : r=0.5:           0  r=0.6:           0  r=0.71:           0  r=0.8:           0  r=1.0:           0
+  sq5 R0nb: r=0.5:           0  r=0.6:           0  r=0.71:           0  r=0.8:           0  r=1.0:           0
+  sq5 R0  : r=0.5:           0  r=0.6:           0  r=0.71:           0  r=0.8:           0  r=1.0:           0
+  sq9 P   : r=0.5:  9.2e-03@45  r=0.6:  9.2e-03@45  r=0.71:           0  r=0.8:           0  r=1.0:           0
+  sq9 Pcb : r=0.5:           0  r=0.6:           0  r=0.71:           0  r=0.8:           0  r=1.0:           0
+  sq9 R0nb: r=0.5:  7.1e-01@45  r=0.6:  7.1e-01@45  r=0.71:           0  r=0.8:           0  r=1.0:           0
+  sq9 R0  : r=0.5:           0  r=0.6:           0  r=0.71:           0  r=0.8:           0  r=1.0:           0
+  tri P   : r=0.5:           0  r=0.6:           0  r=0.71:           0  r=0.8:           0  r=1.0:           0
+  tri Pcb : r=0.5:           0  r=0.6:           0  r=0.71:           0  r=0.8:           0  r=1.0:           0
+  tri R0nb: r=0.5:           0  r=0.6:           0  r=0.71:           0  r=0.8:           0  r=1.0:           0
+  tri R0  : r=0.5:           0  r=0.6:           0  r=0.71:           0  r=0.8:           0  r=1.0:           0
+  [66 s]
+
+=== C. enclosed cavities: zero modes = connected components with no pinned link ===
+  sq5 P   : 2 components (sizes [np.int64(8512), np.int64(36)]), 0 with a zero mode
+  sq5 R0  : 2 components (sizes [np.int64(8512), np.int64(36)]), 2 with a zero mode
+  sq5 R0nb: 2 components (sizes [np.int64(8512), np.int64(36)]), 2 with a zero mode
+  sq9 P   : 2 components (sizes [np.int64(8512), np.int64(36)]), 0 with a zero mode
+  sq9 R0  : 2 components (sizes [np.int64(8512), np.int64(36)]), 2 with a zero mode
+  sq9 R0nb: 2 components (sizes [np.int64(8512), np.int64(36)]), 2 with a zero mode
+  tri P   : 2 components (sizes [np.int64(8512), np.int64(36)]), 0 with a zero mode
+  tri R0  : 2 components (sizes [np.int64(8512), np.int64(36)]), 2 with a zero mode
+  tri R0nb: 2 components (sizes [np.int64(8512), np.int64(36)]), 2 with a zero mode
+  [66 s]

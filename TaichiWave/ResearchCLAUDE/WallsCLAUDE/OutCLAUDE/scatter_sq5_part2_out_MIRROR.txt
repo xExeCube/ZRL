@@ -1,0 +1,23 @@
+
+=== 2. sq5: 11x11 square rotated by ang (incident 0) vs axis square (incident -ang) ===
+   the two scenes are the same physical scene rotated; differences = staircase + lattice anisotropy.
+   pattern diff = || pat_B(phi) - pat_A(phi - ang) ||_1 / || pat_A ||_1 over 72 bins of 5 deg
+  lam=8: equal-area disc, continuum: D 29.08  N 20.60
+  lam=  8 rot   30 P  : sigma axis   28.227  rotated   29.175  (ratio 1.0336)  pattern diff 0.164   cells axis 121 rotated 121
+  lam=  8 rot   30 R0 : sigma axis   29.111  rotated   36.511  (ratio 1.2542)  pattern diff 0.279   cells axis 121 rotated 121
+  lam=  8 rot   30 P   DISC reference: sigma inc -30   27.321  inc 0   28.102  (ratio 1.0286)  pattern diff 0.218   cells 121
+  lam=  8 rot   30 R0  DISC reference: sigma inc -30   27.570  inc 0   34.313  (ratio 1.2446)  pattern diff 0.573   cells 121
+  lam=  8 rot   45 P  : sigma axis   28.108  rotated   28.230  (ratio 1.0043)  pattern diff 0.176   cells axis 121 rotated 113
+  lam=  8 rot   45 R0 : sigma axis   32.735  rotated   43.536  (ratio 1.3300)  pattern diff 0.252   cells axis 121 rotated 113
+  lam=  8 rot   45 P   DISC reference: sigma inc -45   27.101  inc 0   28.102  (ratio 1.0369)  pattern diff 0.237   cells 121
+  lam=  8 rot   45 R0  DISC reference: sigma inc -45   28.033  inc 0   34.313  (ratio 1.2240)  pattern diff 0.477   cells 121
+  lam=16: equal-area disc, continuum: D 31.52  N 17.81
+  lam= 16 rot   30 P  : sigma axis   30.045  rotated   31.061  (ratio 1.0338)  pattern diff 0.044   cells axis 121 rotated 121
+  lam= 16 rot   30 R0 : sigma axis   21.736  rotated   27.244  (ratio 1.2534)  pattern diff 0.264   cells axis 121 rotated 121
+  lam= 16 rot   30 P   DISC reference: sigma inc -30   29.921  inc 0   30.121  (ratio 1.0067)  pattern diff 0.085   cells 121
+  lam= 16 rot   30 R0  DISC reference: sigma inc -30   21.332  inc 0   21.255  (ratio 0.9964)  pattern diff 0.225   cells 121
+  lam= 16 rot   45 P  : sigma axis   29.719  rotated   29.731  (ratio 1.0004)  pattern diff 0.037   cells axis 121 rotated 113
+  lam= 16 rot   45 R0 : sigma axis   21.130  rotated   26.386  (ratio 1.2487)  pattern diff 0.243   cells axis 121 rotated 113
+  lam= 16 rot   45 P   DISC reference: sigma inc -45   29.928  inc 0   30.121  (ratio 1.0064)  pattern diff 0.099   cells 121
+  lam= 16 rot   45 R0  DISC reference: sigma inc -45   21.497  inc 0   21.255  (ratio 0.9888)  pattern diff 0.228   cells 121
+  [206 s]

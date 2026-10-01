@@ -1,0 +1,47 @@
+=== 1. sq9: scattering width sigma (physical cells) vs wavelength, Co = 0.5 ===
+   disc refs: same-area disc, continuum Dirichlet (D) and Neumann (N); edge = energy fraction near the box edge (must be ~0)
+    [lam=4: n=243, 230 steps, 8 s]
+    [lam=6: n=307, 266 steps, 17 s]
+    [lam=8: n=371, 321 steps, 26 s]
+    [lam=12: n=499, 441 steps, 55 s]
+    [lam=16: n=627, 566 steps, 98 s]
+    [lam=24: n=883, 819 steps, 224 s]
+    [lam=32: n=1139, 1074 steps, 347 s]
+  obstacle cell (area 1.000, equal-area disc radius 0.564):
+    lam=  4 ka=0.886: P   1.43654  R0   1.70495  R1   1.70495   | disc D   3.4219  N   1.03924   P/R0 =      0.8
+    lam=  6 ka=0.591: P   1.58890  R0   0.95954  R1   0.95954   | disc D   3.7605  N   0.58520   P/R0 =      1.7
+    lam=  8 ka=0.443: P   1.75339  R0   0.51883  R1   0.51883   | disc D   4.0540  N   0.30437   P/R0 =      3.4
+    lam= 12 ka=0.295: P   2.06035  R0   0.17386  R1   0.17386   | disc D   4.5567  N   0.10160   P/R0 =     11.9
+    lam= 16 ka=0.222: P   2.34027  R0   0.07496  R1   0.07496   | disc D   4.9924  N   0.04424   P/R0 =     31.2
+    lam= 24 ka=0.148: P   2.84492  R0   0.02231  R1   0.02231   | disc D   5.7553  N   0.01334   P/R0 =    127.5
+    lam= 32 ka=0.111: P   3.30056  R0   0.00939  R1   0.00939   | disc D   6.4333  N   0.00566   P/R0 =    351.4
+      P: sigma ~ lam^--0.50 between lam 16 and 32
+      R0: sigma ~ lam^-3.00 between lam 16 and 32
+      R1: sigma ~ lam^-3.00 between lam 16 and 32
+  obstacle block3 (area 9.000, equal-area disc radius 1.693):
+    lam=  4 ka=2.659: P   6.75843  R0   6.94066  R1   6.67673   | disc D   8.4958  N   4.99058   P/R0 =      1.0
+    lam=  6 ka=1.772: P   7.08054  R0   7.81666  R1   7.54247   | disc D   9.0149  N   4.41483   P/R0 =      0.9
+    lam=  8 ka=1.329: P   7.43876  R0   6.41723  R1   6.02079   | disc D   9.4711  N   3.82787   P/R0 =      1.2
+    lam= 12 ka=0.886: P   8.12955  R0   4.04057  R1   3.71043   | disc D  10.2658  N   3.11771   P/R0 =      2.0
+    lam= 16 ka=0.665: P   8.74866  R0   2.95492  R1   2.66257   | disc D  10.9607  N   2.17758   P/R0 =      3.0
+    lam= 24 ka=0.443: P   9.81114  R0   1.30755  R1   1.16569   | disc D  12.1620  N   0.91310   P/R0 =      7.5
+    lam= 32 ka=0.332: P  10.72553  R0   0.61174  R1   0.54614   | disc D  13.1959  N   0.42447   P/R0 =     17.5
+      P: sigma ~ lam^--0.29 between lam 16 and 32
+      R0: sigma ~ lam^-2.27 between lam 16 and 32
+      R1: sigma ~ lam^-2.29 between lam 16 and 32
+
+[30/09 SUPERSEDED: in this first part 2 the axis square rasterised to 121 cells and the rotated one to 145 (strict |x| < 6); see scatter_sq9_part2_out_MIRROR.txt]
+=== 2. sq9: 12x12 square rotated 30 deg (incident 0) vs axis square (incident -30 deg) ===
+   the two scenes are the same physical scene rotated; differences = staircase + lattice anisotropy.
+   pattern diff = || pat_B(phi) - pat_A(phi - 30) ||_1 / || pat_A ||_1 over 36 bins of 10 deg
+  lam=  8 P  : sigma axis   28.139  rotated   31.998  (ratio 1.1371)  pattern diff 0.205   forward-bin share 0.152   | equal-area disc D 31.46 N 22.74
+  lam=  8 R0 : sigma axis   31.155  rotated   38.884  (ratio 1.2481)  pattern diff 0.357   forward-bin share 0.185   | equal-area disc D 31.46 N 22.74
+  lam=  8 R1 : sigma axis   28.087  rotated   38.645  (ratio 1.3759)  pattern diff 0.464   forward-bin share 0.183   | equal-area disc D 31.46 N 22.74
+  lam=  8 P   DISC reference: sigma inc -30   29.756  inc 0   29.954  (ratio 1.0066)  pattern diff 0.157
+  lam=  8 R0  DISC reference: sigma inc -30   29.604  inc 0   26.700  (ratio 0.9019)  pattern diff 0.265
+  lam= 16 P  : sigma axis   30.004  rotated   33.735  (ratio 1.1243)  pattern diff 0.158   forward-bin share 0.098   | equal-area disc D 33.98 N 19.96
+  lam= 16 R0 : sigma axis   23.112  rotated   31.656  (ratio 1.3697)  pattern diff 0.407   forward-bin share 0.113   | equal-area disc D 33.98 N 19.96
+  lam= 16 R1 : sigma axis   21.277  rotated   31.118  (ratio 1.4625)  pattern diff 0.495   forward-bin share 0.111   | equal-area disc D 33.98 N 19.96
+  lam= 16 P   DISC reference: sigma inc -30   32.148  inc 0   32.501  (ratio 1.0110)  pattern diff 0.082
+  lam= 16 R0  DISC reference: sigma inc -30   22.930  inc 0   23.192  (ratio 1.0114)  pattern diff 0.190
+  [876 s]

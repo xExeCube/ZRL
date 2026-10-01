@@ -1,0 +1,48 @@
+gpu_cost_MIRROR.py, RTX 5070 Ti, CUDA, K = 8 steps per launch, L = 20, 30/09/2026.
+Interleaved timing (7 rounds, best round per variant). Run-to-run noise of this machine with other
+agents active: about +-15 % (e.g. 'cpml' 0.87x and 'rule' 0.83x of plain at N=4097 f64 below are noise).
+'compile' = first launch; 'rule' compiled cold in 60.4 s on the first 29/09-code run, 48.7 s / 37.4 s
+after the signature changed (Taichi's offline cache hides it afterwards).
+
+python gpu_cost_MIRROR.py --arch cuda --N 1025 4097 --reps 7          (f64)
+N= 1025 plain       168.2 us/step  (x1.00 of plain)  compile 1.5s  finite=True
+N= 1025 mur1        175.0 us/step  (x1.04 of plain)  compile 2.7s  finite=True
+N= 1025 rule        190.2 us/step  (x1.13 of plain)  compile 48.7s  finite=True
+N= 1025 sp_arr      180.9 us/step  (x1.08 of plain)  compile 2.4s  finite=True
+N= 1025 sp_code     164.0 us/step  (x0.97 of plain)  compile 1.6s  finite=True
+N= 1025 sp_rect     165.5 us/step  (x0.98 of plain)  compile 3.4s  finite=True
+N= 1025 cpml        186.4 us/step  (x1.11 of plain)  compile 4.5s  finite=True
+N= 1025 sp_ctr      162.1 us/step  (x0.96 of plain)  compile 1.5s  finite=True
+N= 1025 sp_ctr_mul    160.6 us/step  (x0.95 of plain)  compile 1.5s  finite=True
+N= 4097 plain       942.5 us/step  (x1.00 of plain)  compile 0.0s  finite=True
+N= 4097 mur1        943.3 us/step  (x1.00 of plain)  compile 0.0s  finite=True
+N= 4097 rule        783.1 us/step  (x0.83 of plain)  compile 0.0s  finite=True
+N= 4097 sp_arr     1031.0 us/step  (x1.09 of plain)  compile 0.0s  finite=True
+N= 4097 sp_code     937.1 us/step  (x0.99 of plain)  compile 0.0s  finite=True
+N= 4097 sp_rect     966.9 us/step  (x1.03 of plain)  compile 0.0s  finite=True
+N= 4097 cpml        822.4 us/step  (x0.87 of plain)  compile 0.0s  finite=True
+N= 4097 sp_ctr     2078.1 us/step  (x2.20 of plain)  compile 0.0s  finite=True
+N= 4097 sp_ctr_mul    939.7 us/step  (x1.00 of plain)  compile 0.0s  finite=True
+(an earlier interleaved f64 run of the same code minus sp_ctr_mul: plain 161/844, mur1 191/950,
+ rule 180/953, sp_arr 142/1171, sp_code 152/959, sp_rect 148/985, cpml 187/989, sp_ctr 160/1729 us
+ at N = 1025/4097 -- sp_ctr x2.05 at 4097 again: the f64 divide, reproducible)
+
+python gpu_cost_MIRROR.py --arch cuda --f32 --N 1025 4097 --reps 7    (f32)
+N= 1025 plain       145.1 us/step  (x1.00 of plain)  compile 1.4s  finite=True
+N= 1025 mur1        177.9 us/step  (x1.23 of plain)  compile 2.3s  finite=True
+N= 1025 rule        176.0 us/step  (x1.21 of plain)  compile 37.4s  finite=True
+N= 1025 sp_arr      146.7 us/step  (x1.01 of plain)  compile 1.3s  finite=True
+N= 1025 sp_code     147.2 us/step  (x1.01 of plain)  compile 1.3s  finite=True
+N= 1025 sp_rect     140.8 us/step  (x0.97 of plain)  compile 1.6s  finite=True
+N= 1025 cpml        172.2 us/step  (x1.19 of plain)  compile 4.0s  finite=True
+N= 1025 sp_ctr      151.6 us/step  (x1.04 of plain)  compile 1.4s  finite=True
+N= 1025 sp_ctr_mul    154.6 us/step  (x1.07 of plain)  compile 1.4s  finite=True
+N= 4097 plain       464.4 us/step  (x1.00 of plain)  compile 0.0s  finite=True
+N= 4097 mur1        419.4 us/step  (x0.90 of plain)  compile 0.0s  finite=True
+N= 4097 rule        474.1 us/step  (x1.02 of plain)  compile 0.0s  finite=True
+N= 4097 sp_arr      537.5 us/step  (x1.16 of plain)  compile 0.0s  finite=True
+N= 4097 sp_code     424.8 us/step  (x0.91 of plain)  compile 0.0s  finite=True
+N= 4097 sp_rect     466.1 us/step  (x1.00 of plain)  compile 0.0s  finite=True
+N= 4097 cpml        513.8 us/step  (x1.11 of plain)  compile 0.0s  finite=True
+N= 4097 sp_ctr      465.4 us/step  (x1.00 of plain)  compile 0.0s  finite=True
+N= 4097 sp_ctr_mul    467.0 us/step  (x1.01 of plain)  compile 0.0s  finite=True

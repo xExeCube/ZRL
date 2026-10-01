@@ -1,0 +1,27 @@
+
+=== 2. tri: 11x11 square rotated by ang (incident 0) vs axis square (incident -ang) ===
+   the two scenes are the same physical scene rotated; differences = staircase + lattice anisotropy.
+   pattern diff = || pat_B(phi) - pat_A(phi - ang) ||_1 / || pat_A ||_1 over 72 bins of 5 deg
+  lam=8: equal-area disc, continuum: D 29.08  N 20.60
+  lam=  8 rot   30 P  : sigma axis   28.754  rotated   28.224  (ratio 0.9816)  pattern diff 0.058   cells axis 137 rotated 137
+  lam=  8 rot   30 R0 : sigma axis   31.476  rotated   34.644  (ratio 1.1007)  pattern diff 0.192   cells axis 137 rotated 137
+  lam=  8 rot   30 R1 : sigma axis   29.726  rotated   32.701  (ratio 1.1001)  pattern diff 0.216   cells axis 137 rotated 137
+  lam=  8 rot   30 P   DISC reference: sigma inc -30   27.593  inc 0   27.517  (ratio 0.9973)  pattern diff 0.130   cells 139
+  lam=  8 rot   30 R0  DISC reference: sigma inc -30   31.432  inc 0   29.529  (ratio 0.9395)  pattern diff 0.173   cells 139
+  lam=  8 rot   45 P  : sigma axis   28.511  rotated   28.131  (ratio 0.9867)  pattern diff 0.105   cells axis 137 rotated 139
+  lam=  8 rot   45 R0 : sigma axis   39.156  rotated   39.337  (ratio 1.0046)  pattern diff 0.153   cells axis 137 rotated 139
+  lam=  8 rot   45 R1 : sigma axis   36.161  rotated   36.583  (ratio 1.0117)  pattern diff 0.166   cells axis 137 rotated 139
+  lam=  8 rot   45 P   DISC reference: sigma inc -45   27.536  inc 0   27.517  (ratio 0.9993)  pattern diff 0.101   cells 139
+  lam=  8 rot   45 R0  DISC reference: sigma inc -45   31.555  inc 0   29.529  (ratio 0.9358)  pattern diff 0.365   cells 139
+  lam=16: equal-area disc, continuum: D 31.52  N 17.81
+  lam= 16 rot   30 P  : sigma axis   30.554  rotated   30.101  (ratio 0.9852)  pattern diff 0.043   cells axis 137 rotated 137
+  lam= 16 rot   30 R0 : sigma axis   24.869  rotated   23.398  (ratio 0.9409)  pattern diff 0.136   cells axis 137 rotated 137
+  lam= 16 rot   30 R1 : sigma axis   23.537  rotated   22.136  (ratio 0.9405)  pattern diff 0.137   cells axis 137 rotated 137
+  lam= 16 rot   30 P   DISC reference: sigma inc -30   29.972  inc 0   30.006  (ratio 1.0012)  pattern diff 0.018   cells 139
+  lam= 16 rot   30 R0  DISC reference: sigma inc -30   20.497  inc 0   21.580  (ratio 1.0529)  pattern diff 0.185   cells 139
+  lam= 16 rot   45 P  : sigma axis   30.018  rotated   29.854  (ratio 0.9945)  pattern diff 0.038   cells axis 137 rotated 139
+  lam= 16 rot   45 R0 : sigma axis   24.076  rotated   23.330  (ratio 0.9690)  pattern diff 0.091   cells axis 137 rotated 139
+  lam= 16 rot   45 R1 : sigma axis   22.448  rotated   21.858  (ratio 0.9737)  pattern diff 0.089   cells axis 137 rotated 139
+  lam= 16 rot   45 P   DISC reference: sigma inc -45   29.983  inc 0   30.006  (ratio 1.0008)  pattern diff 0.017   cells 139
+  lam= 16 rot   45 R0  DISC reference: sigma inc -45   21.034  inc 0   21.580  (ratio 1.0260)  pattern diff 0.131   cells 139
+  [314 s]

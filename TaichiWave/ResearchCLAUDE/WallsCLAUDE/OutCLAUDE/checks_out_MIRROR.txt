@@ -1,0 +1,28 @@
+PASS P == port stencil (sq5)  | max diff 1.8e-15
+PASS P == port stencil (sq9)  | max diff 3.6e-15
+PASS P == port stencil (tri)  | max diff 3.6e-15
+PASS symmetric sq5 P  | max |L-L^T| = 0.0e+00
+PASS symmetric sq5 Pcb  | max |L-L^T| = 0.0e+00
+PASS symmetric sq5 R0  | max |L-L^T| = 0.0e+00
+PASS symmetric sq5 R0nb  | max |L-L^T| = 0.0e+00
+PASS symmetric sq5 R1  | max |L-L^T| = 0.0e+00
+PASS symmetric sq9 P  | max |L-L^T| = 0.0e+00
+PASS symmetric sq9 Pcb  | max |L-L^T| = 0.0e+00
+PASS symmetric sq9 R0  | max |L-L^T| = 0.0e+00
+PASS symmetric sq9 R0nb  | max |L-L^T| = 0.0e+00
+PASS symmetric sq9 R1  | max |L-L^T| = 0.0e+00
+PASS symmetric tri P  | max |L-L^T| = 0.0e+00
+PASS symmetric tri Pcb  | max |L-L^T| = 0.0e+00
+PASS symmetric tri R0  | max |L-L^T| = 0.0e+00
+PASS symmetric tri R0nb  | max |L-L^T| = 0.0e+00
+PASS symmetric tri R1  | max |L-L^T| = 0.0e+00
+PASS R1 (sq9, rigid ring) == ghost-copy Neumann with corner u(1,1)  | max diff 3.6e-15
+     (R0 differs from the ghost ring by 1.34 on random data: link removal alone is NOT the mirror for sq9)
+     sq5 R0: boundary-row lap of x^2/2 = 1.0000, of (y-y_w)^2/2 = 1.0000 (interior 1.0000; exact 1)
+     sq5 R1: boundary-row lap of x^2/2 = 1.0000, of (y-y_w)^2/2 = 1.0000 (interior 1.0000; exact 1)
+     sq9 R0: boundary-row lap of x^2/2 = 0.8333, of (y-y_w)^2/2 = 1.0000 (interior 1.0000; exact 1)
+     sq9 R1: boundary-row lap of x^2/2 = 1.0000, of (y-y_w)^2/2 = 1.0000 (interior 1.0000; exact 1)
+     tri R0: boundary-row lap of x^2/2 = 0.8333, of (y-y_w)^2/2 = 1.0000 (interior 1.0000; exact 1)
+     tri R1: boundary-row lap of x^2/2 = 1.0000, of (y-y_w)^2/2 = 1.0000 (interior 1.0000; exact 1)
+
+FAILS: none

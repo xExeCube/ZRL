@@ -1,0 +1,44 @@
+{
+ "format": "zrl-membrane-solids",
+ "version": 1,
+ "plate_text": true,
+ "plate_screws": false,
+ "objects": [
+  {
+   "kind": "text",
+   "x": 0.5,
+   "y": 0.0,
+   "rot_deg": -10,
+   "w": 0.2,
+   "h": 0.1,
+   "r": 0.1,
+   "n": 6,
+   "text": "HI",
+   "height": 0.1,
+   "font": "bahnschrift.ttf",
+   "variation": "Bold Condensed",
+   "stretch": 1.0,
+   "anchor": "grid",
+   "enabled": true,
+   "tracking": 0.0,
+   "fit_w": 0.0,
+   "name": ""
+  }
+ ],
+ "strokes": [
+  {
+   "points": [
+    [
+     -0.9,
+     -0.2
+    ],
+    [
+     -0.7,
+     -0.35
+    ]
+   ],
+   "radius": 0.01171875,
+   "erase": false
+  }
+ ]
+}

@@ -1,0 +1,263 @@
+bulk 4th-order coefficients c4: {'sq5': np.float64(-0.0625), 'sq9': np.float64(-0.08333), 'tri': np.float64(-0.0625)}
+
+=== centre cell-centred ===
+  sq5 P:
+    R=   8: j01 err -2.75e-02  j11 err -2.79e-02  R_eff-R = +0.226
+    R=  11: j01 err -2.57e-02  j11 err -2.58e-02  R_eff-R = +0.290
+    R=  16: j01 err -1.69e-02  j11 err -1.69e-02  R_eff-R = +0.275
+    R=  23: j01 err -1.24e-02  j11 err -1.25e-02  R_eff-R = +0.289
+    R=  32: j01 err -9.69e-03  j11 err -9.70e-03  R_eff-R = +0.313
+    R=  45: j01 err -7.28e-03  j11 err -7.29e-03  R_eff-R = +0.330
+    R=  64: j01 err -5.02e-03  j11 err -5.02e-03  R_eff-R = +0.323
+    R=  90: j01 err -3.81e-03  j11 err -3.81e-03  R_eff-R = +0.344
+    R= 128: j01 err -2.45e-03  j11 err -2.45e-03  R_eff-R = +0.314
+      [4 s]
+  sq5 R0:
+    R=   8: j'11 err +6.87e-03  j'21 err -3.69e-03  j'02 err +1.57e-02  R_eff-R = -0.055
+    R=  11: j'11 err +2.33e-04  j'21 err -7.07e-03  j'02 err +7.58e-03  R_eff-R = -0.003
+    R=  16: j'11 err +5.29e-04  j'21 err -4.81e-03  j'02 err +6.51e-03  R_eff-R = -0.008
+    R=  23: j'11 err -7.78e-04  j'21 err -4.58e-03  j'02 err +3.68e-03  R_eff-R = +0.018
+    R=  32: j'11 err -1.57e-03  j'21 err -4.34e-03  j'02 err +1.74e-03  R_eff-R = +0.050
+    R=  45: j'11 err -1.42e-03  j'21 err -3.37e-03  j'02 err +9.67e-04  R_eff-R = +0.064
+    R=  64: j'11 err -9.98e-04  j'21 err -2.39e-03  j'02 err +7.24e-04  R_eff-R = +0.064
+    R=  90: j'11 err -9.68e-04  j'21 err -1.96e-03  j'02 err +2.67e-04  R_eff-R = +0.087
+    R= 128: j'11 err -4.62e-04  j'21 err -1.16e-03  j'02 err +4.15e-04  R_eff-R = +0.059
+      [8 s]
+  sq9 P:
+    R=   8: j01 err -3.09e-02  j11 err -3.13e-02  R_eff-R = +0.255
+    R=  11: j01 err -2.83e-02  j11 err -2.85e-02  R_eff-R = +0.320
+    R=  16: j01 err -1.88e-02  j11 err -1.89e-02  R_eff-R = +0.307
+    R=  23: j01 err -1.38e-02  j11 err -1.39e-02  R_eff-R = +0.323
+    R=  32: j01 err -1.07e-02  j11 err -1.07e-02  R_eff-R = +0.347
+    R=  45: j01 err -8.04e-03  j11 err -8.04e-03  R_eff-R = +0.365
+    R=  64: j01 err -5.56e-03  j11 err -5.56e-03  R_eff-R = +0.358
+    R=  90: j01 err -4.19e-03  j11 err -4.20e-03  R_eff-R = +0.379
+    R= 128: j01 err -2.72e-03  j11 err -2.72e-03  R_eff-R = +0.349
+      [14 s]
+  sq9 R0:
+    R=   8: j'11 err +3.94e-03  j'21 err -7.40e-03  j'02 err +1.50e-02  R_eff-R = -0.031
+    R=  11: j'11 err -1.29e-03  j'21 err -9.01e-03  j'02 err +7.33e-03  R_eff-R = +0.014
+    R=  16: j'11 err -3.78e-05  j'21 err -5.61e-03  j'02 err +6.43e-03  R_eff-R = +0.001
+    R=  23: j'11 err -1.06e-03  j'21 err -5.01e-03  j'02 err +3.65e-03  R_eff-R = +0.024
+    R=  32: j'11 err -1.73e-03  j'21 err -4.58e-03  j'02 err +1.73e-03  R_eff-R = +0.055
+    R=  45: j'11 err -1.47e-03  j'21 err -3.46e-03  j'02 err +9.64e-04  R_eff-R = +0.066
+    R=  64: j'11 err -1.03e-03  j'21 err -2.44e-03  j'02 err +7.23e-04  R_eff-R = +0.066
+    R=  90: j'11 err -9.83e-04  j'21 err -1.99e-03  j'02 err +2.66e-04  R_eff-R = +0.089
+    R= 128: j'11 err -4.69e-04  j'21 err -1.17e-03  j'02 err +4.14e-04  R_eff-R = +0.060
+      [20 s]
+  sq9 R1:
+    R=   8: j'11 err +9.93e-03  j'21 err +2.47e-03  j'02 err +1.59e-02  R_eff-R = -0.079
+    R=  11: j'11 err +2.52e-03  j'21 err -2.60e-03  j'02 err +7.61e-03  R_eff-R = -0.028
+    R=  16: j'11 err +2.21e-03  j'21 err -1.67e-03  j'02 err +6.50e-03  R_eff-R = -0.035
+    R=  23: j'11 err +4.00e-04  j'21 err -2.42e-03  j'02 err +3.67e-03  R_eff-R = -0.009
+    R=  32: j'11 err -7.25e-04  j'21 err -2.79e-03  j'02 err +1.74e-03  R_eff-R = +0.023
+    R=  45: j'11 err -8.02e-04  j'21 err -2.26e-03  j'02 err +9.66e-04  R_eff-R = +0.036
+    R=  64: j'11 err -5.66e-04  j'21 err -1.61e-03  j'02 err +7.24e-04  R_eff-R = +0.036
+    R=  90: j'11 err -6.60e-04  j'21 err -1.41e-03  j'02 err +2.67e-04  R_eff-R = +0.059
+    R= 128: j'11 err -2.46e-04  j'21 err -7.73e-04  j'02 err +4.15e-04  R_eff-R = +0.031
+      [25 s]
+  tri P:
+    R=   8: j01 err -5.42e-02  j11 err -5.46e-02  R_eff-R = +0.458
+    R=  11: j01 err -2.65e-02  j11 err -2.66e-02  R_eff-R = +0.300
+    R=  16: j01 err -2.21e-02  j11 err -2.21e-02  R_eff-R = +0.361
+    R=  23: j01 err -1.45e-02  j11 err -1.46e-02  R_eff-R = +0.339
+    R=  32: j01 err -8.75e-03  j11 err -8.76e-03  R_eff-R = +0.283
+    R=  45: j01 err -6.85e-03  j11 err -6.85e-03  R_eff-R = +0.310
+    R=  64: j01 err -5.15e-03  j11 err -5.15e-03  R_eff-R = +0.331
+    R=  90: j01 err -3.12e-03  j11 err -3.12e-03  R_eff-R = +0.282
+    R= 128: j01 err -2.57e-03  j11 err -2.57e-03  R_eff-R = +0.330
+      [31 s]
+  tri R0:
+    R=   8: j'11 err -2.97e-02  j'21 err -4.40e-02  j'02 err -1.66e-02  R_eff-R = +0.245
+    R=  11: j'11 err -2.40e-03  j'21 err -1.03e-02  j'02 err +6.37e-03  R_eff-R = +0.027
+    R=  16: j'11 err -6.87e-03  j'21 err -1.25e-02  j'02 err -4.08e-04  R_eff-R = +0.111
+    R=  23: j'11 err -3.41e-03  j'21 err -7.07e-03  j'02 err +9.58e-04  R_eff-R = +0.079
+    R=  32: j'11 err -4.38e-04  j'21 err -2.95e-03  j'02 err +2.61e-03  R_eff-R = +0.014
+    R=  45: j'11 err -8.84e-04  j'21 err -2.64e-03  j'02 err +1.26e-03  R_eff-R = +0.040
+    R=  64: j'11 err -1.02e-03  j'21 err -2.25e-03  j'02 err +5.20e-04  R_eff-R = +0.065
+    R=  90: j'11 err -1.66e-04  j'21 err -1.04e-03  j'02 err +9.27e-04  R_eff-R = +0.015
+    R= 128: j'11 err -5.33e-04  j'21 err -1.16e-03  j'02 err +2.48e-04  R_eff-R = +0.068
+      [37 s]
+  tri R1:
+    R=   8: j'11 err -2.48e-02  j'21 err -3.49e-02  j'02 err -1.62e-02  R_eff-R = +0.204
+    R=  11: j'11 err +1.64e-03  j'21 err -2.92e-03  j'02 err +6.46e-03  R_eff-R = -0.018
+    R=  16: j'11 err -4.28e-03  j'21 err -7.78e-03  j'02 err -3.72e-04  R_eff-R = +0.069
+    R=  23: j'11 err -1.63e-03  j'21 err -3.85e-03  j'02 err +9.69e-04  R_eff-R = +0.038
+    R=  32: j'11 err +9.34e-04  j'21 err -4.69e-04  j'02 err +2.62e-03  R_eff-R = -0.030
+    R=  45: j'11 err +5.81e-05  j'21 err -9.37e-04  j'02 err +1.27e-03  R_eff-R = -0.003
+    R=  64: j'11 err -3.66e-04  j'21 err -1.08e-03  j'02 err +5.21e-04  R_eff-R = +0.023
+    R=  90: j'11 err +2.89e-04  j'21 err -2.23e-04  j'02 err +9.27e-04  R_eff-R = -0.026
+    R= 128: j'11 err -2.15e-04  j'21 err -5.84e-04  j'02 err +2.48e-04  R_eff-R = +0.027
+      [41 s]
+
+=== centre offset (0.31, 0.17) ===
+  sq5 P:
+    R=   8: j01 err -4.59e-02  j11 err -4.62e-02  R_eff-R = +0.385
+    R=  11: j01 err -3.41e-02  j11 err -3.43e-02  R_eff-R = +0.389
+    R=  16: j01 err -2.32e-02  j11 err -2.33e-02  R_eff-R = +0.380
+    R=  23: j01 err -1.47e-02  j11 err -1.47e-02  R_eff-R = +0.343
+    R=  32: j01 err -1.14e-02  j11 err -1.14e-02  R_eff-R = +0.369
+    R=  45: j01 err -8.52e-03  j11 err -8.52e-03  R_eff-R = +0.387
+    R=  64: j01 err -5.71e-03  j11 err -5.71e-03  R_eff-R = +0.368
+    R=  90: j01 err -4.11e-03  j11 err -4.11e-03  R_eff-R = +0.371
+    R= 128: j01 err -2.91e-03  j11 err -2.91e-03  R_eff-R = +0.374
+      [44 s]
+  sq5 R0:
+    R=   8: j'11 err -1.86e-02  j'21 err -3.27e-02  j'02 err -7.34e-03  R_eff-R = +0.152
+    R=  11: j'11 err -1.40e-02  j'21 err -2.40e-02  j'02 err -3.89e-03  R_eff-R = +0.156
+    R=  16: j'11 err -8.76e-03  j'21 err -1.52e-02  j'02 err -1.62e-03  R_eff-R = +0.141
+    R=  23: j'11 err -4.38e-03  j'21 err -8.66e-03  j'02 err +7.04e-04  R_eff-R = +0.101
+    R=  32: j'11 err -3.83e-03  j'21 err -6.80e-03  j'02 err -2.00e-04  R_eff-R = +0.123
+    R=  45: j'11 err -3.08e-03  j'21 err -5.15e-03  j'02 err -5.09e-04  R_eff-R = +0.139
+    R=  64: j'11 err -1.84e-03  j'21 err -3.29e-03  j'02 err -5.24e-05  R_eff-R = +0.118
+    R=  90: j'11 err -1.33e-03  j'21 err -2.35e-03  j'02 err -6.47e-05  R_eff-R = +0.120
+    R= 128: j'11 err -9.51e-04  j'21 err -1.66e-03  j'02 err -6.12e-05  R_eff-R = +0.122
+      [47 s]
+  sq9 P:
+    R=   8: j01 err -5.02e-02  j11 err -5.05e-02  R_eff-R = +0.423
+    R=  11: j01 err -3.72e-02  j11 err -3.74e-02  R_eff-R = +0.425
+    R=  16: j01 err -2.54e-02  j11 err -2.54e-02  R_eff-R = +0.416
+    R=  23: j01 err -1.63e-02  j11 err -1.63e-02  R_eff-R = +0.380
+    R=  32: j01 err -1.25e-02  j11 err -1.25e-02  R_eff-R = +0.405
+    R=  45: j01 err -9.30e-03  j11 err -9.31e-03  R_eff-R = +0.423
+    R=  64: j01 err -6.27e-03  j11 err -6.27e-03  R_eff-R = +0.404
+    R=  90: j01 err -4.50e-03  j11 err -4.50e-03  R_eff-R = +0.407
+    R= 128: j01 err -3.19e-03  j11 err -3.19e-03  R_eff-R = +0.409
+      [52 s]
+  sq9 R0:
+    R=   8: j'11 err -1.84e-02  j'21 err -3.24e-02  j'02 err -7.56e-03  R_eff-R = +0.150
+    R=  11: j'11 err -1.39e-02  j'21 err -2.40e-02  j'02 err -4.04e-03  R_eff-R = +0.155
+    R=  16: j'11 err -8.70e-03  j'21 err -1.51e-02  j'02 err -1.68e-03  R_eff-R = +0.140
+    R=  23: j'11 err -4.28e-03  j'21 err -8.51e-03  j'02 err +6.85e-04  R_eff-R = +0.099
+    R=  32: j'11 err -3.80e-03  j'21 err -6.75e-03  j'02 err -2.08e-04  R_eff-R = +0.122
+    R=  45: j'11 err -3.06e-03  j'21 err -5.13e-03  j'02 err -5.12e-04  R_eff-R = +0.138
+    R=  64: j'11 err -1.83e-03  j'21 err -3.26e-03  j'02 err -5.34e-05  R_eff-R = +0.117
+    R=  90: j'11 err -1.33e-03  j'21 err -2.34e-03  j'02 err -6.50e-05  R_eff-R = +0.119
+    R= 128: j'11 err -9.47e-04  j'21 err -1.65e-03  j'02 err -6.13e-05  R_eff-R = +0.121
+      [57 s]
+  sq9 R1:
+    R=   8: j'11 err -1.46e-02  j'21 err -2.53e-02  j'02 err -6.83e-03  R_eff-R = +0.118
+    R=  11: j'11 err -1.12e-02  j'21 err -1.89e-02  j'02 err -3.88e-03  R_eff-R = +0.124
+    R=  16: j'11 err -6.88e-03  j'21 err -1.17e-02  j'02 err -1.63e-03  R_eff-R = +0.111
+    R=  23: j'11 err -3.07e-03  j'21 err -6.30e-03  j'02 err +6.95e-04  R_eff-R = +0.071
+    R=  32: j'11 err -2.92e-03  j'21 err -5.16e-03  j'02 err -2.04e-04  R_eff-R = +0.094
+    R=  45: j'11 err -2.44e-03  j'21 err -4.00e-03  j'02 err -5.11e-04  R_eff-R = +0.110
+    R=  64: j'11 err -1.40e-03  j'21 err -2.48e-03  j'02 err -5.29e-05  R_eff-R = +0.090
+    R=  90: j'11 err -1.02e-03  j'21 err -1.78e-03  j'02 err -6.49e-05  R_eff-R = +0.092
+    R= 128: j'11 err -7.30e-04  j'21 err -1.26e-03  j'02 err -6.13e-05  R_eff-R = +0.094
+      [62 s]
+  tri P:
+    R=   8: j01 err -4.08e-02  j11 err -4.11e-02  R_eff-R = +0.340
+    R=  11: j01 err -3.08e-02  j11 err -3.10e-02  R_eff-R = +0.350
+    R=  16: j01 err -2.15e-02  j11 err -2.16e-02  R_eff-R = +0.352
+    R=  23: j01 err -1.68e-02  j11 err -1.68e-02  R_eff-R = +0.392
+    R=  32: j01 err -1.10e-02  j11 err -1.10e-02  R_eff-R = +0.356
+    R=  45: j01 err -8.06e-03  j11 err -8.06e-03  R_eff-R = +0.366
+    R=  64: j01 err -5.51e-03  j11 err -5.51e-03  R_eff-R = +0.355
+    R=  90: j01 err -4.00e-03  j11 err -4.00e-03  R_eff-R = +0.361
+    R= 128: j01 err -2.75e-03  j11 err -2.75e-03  R_eff-R = +0.352
+      [68 s]
+  tri R0:
+    R=   8: j'11 err -1.17e-02  j'21 err -2.36e-02  j'02 err -8.50e-04  R_eff-R = +0.095
+    R=  11: j'11 err -8.79e-03  j'21 err -1.74e-02  j'02 err -4.42e-06  R_eff-R = +0.098
+    R=  16: j'11 err -6.37e-03  j'21 err -1.18e-02  j'02 err -2.39e-05  R_eff-R = +0.103
+    R=  23: j'11 err -5.75e-03  j'21 err -9.40e-03  j'02 err -1.42e-03  R_eff-R = +0.133
+    R=  32: j'11 err -3.15e-03  j'21 err -5.77e-03  j'02 err +4.01e-05  R_eff-R = +0.101
+    R=  45: j'11 err -2.42e-03  j'21 err -4.25e-03  j'02 err -1.58e-04  R_eff-R = +0.109
+    R=  64: j'11 err -1.54e-03  j'21 err -2.82e-03  j'02 err +5.08e-05  R_eff-R = +0.099
+    R=  90: j'11 err -1.15e-03  j'21 err -2.06e-03  j'02 err -2.69e-05  R_eff-R = +0.104
+    R= 128: j'11 err -7.35e-04  j'21 err -1.36e-03  j'02 err +5.42e-05  R_eff-R = +0.094
+      [73 s]
+  tri R1:
+    R=   8: j'11 err -6.17e-03  j'21 err -1.33e-02  j'02 err -1.93e-04  R_eff-R = +0.050
+    R=  11: j'11 err -4.73e-03  j'21 err -9.98e-03  j'02 err +1.84e-04  R_eff-R = +0.052
+    R=  16: j'11 err -3.74e-03  j'21 err -7.07e-03  j'02 err +2.64e-05  R_eff-R = +0.060
+    R=  23: j'11 err -3.91e-03  j'21 err -6.07e-03  j'02 err -1.41e-03  R_eff-R = +0.090
+    R=  32: j'11 err -1.88e-03  j'21 err -3.47e-03  j'02 err +4.52e-05  R_eff-R = +0.060
+    R=  45: j'11 err -1.52e-03  j'21 err -2.63e-03  j'02 err -1.56e-04  R_eff-R = +0.068
+    R=  64: j'11 err -9.15e-04  j'21 err -1.69e-03  j'02 err +5.13e-05  R_eff-R = +0.059
+    R=  90: j'11 err -7.07e-04  j'21 err -1.25e-03  j'02 err -2.67e-05  R_eff-R = +0.064
+    R= 128: j'11 err -4.20e-04  j'21 err -7.99e-04  j'02 err +5.43e-05  R_eff-R = +0.054
+      [78 s]
+
+=== convergence: fitted p (|err| ~ R^-p over R >= 16, per centre) and R*|err| at R = 16, 45, 128 ===
+  sq5 P   mode 1: cell-c: p 0.91 (one sign), R|err| 0.270 0.328 0.313   offset: p 0.98 (one sign), R|err| 0.371 0.383 0.372
+  sq5 P   mode 2: cell-c: p 0.91 (one sign), R|err| 0.271 0.328 0.313   offset: p 0.98 (one sign), R|err| 0.372 0.384 0.373
+  sq5 R0  mode 1: cell-c: p 0.05 (sign changes), R|err| 0.008 0.064 0.059   offset: p 1.01 (one sign), R|err| 0.140 0.138 0.122
+  sq5 R0  mode 2: cell-c: p 0.68 (one sign), R|err| 0.077 0.152 0.149   offset: p 1.03 (one sign), R|err| 0.242 0.232 0.213
+  sq9 P   mode 1: cell-c: p 0.92 (one sign), R|err| 0.302 0.362 0.348   offset: p 0.98 (one sign), R|err| 0.406 0.419 0.408
+  sq9 P   mode 2: cell-c: p 0.92 (one sign), R|err| 0.303 0.362 0.348   offset: p 0.98 (one sign), R|err| 0.407 0.419 0.408
+  sq9 R0  mode 1: cell-c: p -0.72 (one sign), R|err| 0.001 0.066 0.060   offset: p 1.01 (one sign), R|err| 0.139 0.138 0.121
+  sq9 R0  mode 2: cell-c: p 0.74 (one sign), R|err| 0.090 0.156 0.150   offset: p 1.03 (one sign), R|err| 0.241 0.231 0.212
+  sq9 R1  mode 1: cell-c: p 0.61 (sign changes), R|err| 0.035 0.036 0.031   offset: p 1.00 (one sign), R|err| 0.110 0.110 0.093
+  sq9 R1  mode 2: cell-c: p 0.41 (one sign), R|err| 0.027 0.102 0.099   offset: p 1.03 (one sign), R|err| 0.188 0.180 0.162
+  tri P   mode 1: cell-c: p 1.04 (one sign), R|err| 0.353 0.308 0.329   offset: p 1.01 (one sign), R|err| 0.344 0.363 0.351
+  tri P   mode 2: cell-c: p 1.04 (one sign), R|err| 0.354 0.308 0.329   offset: p 1.01 (one sign), R|err| 0.345 0.363 0.351
+  tri R0  mode 1: cell-c: p 1.33 (one sign), R|err| 0.110 0.040 0.068   offset: p 1.08 (one sign), R|err| 0.102 0.109 0.094
+  tri R0  mode 2: cell-c: p 1.16 (one sign), R|err| 0.200 0.119 0.148   offset: p 1.06 (one sign), R|err| 0.190 0.191 0.175
+  tri R1  mode 1: cell-c: p 1.38 (sign changes), R|err| 0.069 0.003 0.027   offset: p 1.11 (one sign), R|err| 0.060 0.068 0.054
+  tri R1  mode 2: cell-c: p 1.31 (one sign), R|err| 0.124 0.042 0.075   offset: p 1.08 (one sign), R|err| 0.113 0.118 0.102
+
+=== sq5 reference methods (cell-centred and offset centres) ===
+  centre offset (0.0, 0.0)
+    R=  8 RG: j'11 err +3.76e-02  j'21 err +4.17e-02  max|Im| low 0.0e+00  |lam|max/8 = 0.988  max|L-L^T| = 0.70
+    R=  8 CF Vmin= 0.0: j'11 err -3.40e-04  j'21 err -5.87e-04  j'02 err -6.47e-06  lam_max/8 = 4.04 (min V 8.7e-03)
+    R=  8 CF Vmin=0.25: j'11 err -1.73e-02  j'21 err -2.25e-02  j'02 err -1.43e-02  lam_max/8 = 1.03 (min V 8.7e-03)
+    R=  8 CF Vmin= 0.5: j'11 err -4.60e-02  j'21 err -6.18e-02  j'02 err -4.18e-02  lam_max/8 = 0.99 (min V 8.7e-03)
+    R=  8 GB th_min=0.001: j01 err +5.01e-04  j11 err +5.30e-04  lam_max/8 = 1.26
+    R=  8 GB th_min= 0.25: j01 err +4.41e-04  j11 err +4.70e-04  lam_max/8 = 1.25
+    R=  8 GB th_min=  0.5: j01 err -5.31e-03  j11 err -5.40e-03  lam_max/8 = 0.99
+    R= 16 RG: j'11 err +1.75e-02  j'21 err +1.98e-02  max|Im| low 0.0e+00  |lam|max/8 = 0.997  max|L-L^T| = 0.64
+    R= 16 CF Vmin= 0.0: j'11 err -1.64e-04  j'21 err -2.43e-04  j'02 err -6.70e-05  lam_max/8 = 10.33 (min V 1.7e-03)
+    R= 16 CF Vmin=0.25: j'11 err -7.03e-03  j'21 err -8.85e-03  j'02 err -5.12e-03  lam_max/8 = 1.02 (min V 1.7e-03)
+    R= 16 CF Vmin= 0.5: j'11 err -2.08e-02  j'21 err -2.63e-02  j'02 err -1.55e-02  lam_max/8 = 1.00 (min V 1.7e-03)
+    R= 16 GB th_min=0.001: j01 err +1.35e-04  j11 err +1.37e-04  lam_max/8 = 1.23
+    R= 16 GB th_min= 0.25: j01 err -1.43e-04  j11 err -1.41e-04  lam_max/8 = 1.19
+    R= 16 GB th_min=  0.5: j01 err -2.23e-03  j11 err -2.24e-03  lam_max/8 = 1.00
+    R= 32 RG: j'11 err +8.02e-03  j'21 err +9.11e-03  max|Im| low 0.0e+00  |lam|max/8 = 0.999  max|L-L^T| = 0.84
+    R= 32 CF Vmin= 0.0: j'11 err -6.54e-05  j'21 err -1.08e-04  j'02 err -1.17e-05  lam_max/8 = 11.29 (min V 1.7e-03)
+    R= 32 CF Vmin=0.25: j'11 err -2.39e-03  j'21 err -2.99e-03  j'02 err -1.67e-03  lam_max/8 = 1.05 (min V 1.7e-03)
+    R= 32 CF Vmin= 0.5: j'11 err -7.83e-03  j'21 err -9.75e-03  j'02 err -5.56e-03  lam_max/8 = 1.00 (min V 1.7e-03)
+    R= 32 GB th_min=0.001: j01 err +3.57e-05  j11 err +3.60e-05  lam_max/8 = 3.68
+    R= 32 GB th_min= 0.25: j01 err -4.14e-04  j11 err -4.14e-04  lam_max/8 = 1.33
+    R= 32 GB th_min=  0.5: j01 err -2.23e-03  j11 err -2.23e-03  lam_max/8 = 1.00
+    R= 64 RG: j'11 err +3.91e-03  j'21 err +4.51e-03  max|Im| low 0.0e+00  |lam|max/8 = 1.000  max|L-L^T| = 0.82
+    R= 64 CF Vmin= 0.0: j'11 err -2.07e-05  j'21 err -3.09e-05  j'02 err -8.03e-06  lam_max/8 = 8.90 (min V 1.7e-03)
+    R= 64 CF Vmin=0.25: j'11 err -1.65e-03  j'21 err -2.05e-03  j'02 err -1.16e-03  lam_max/8 = 1.05 (min V 1.7e-03)
+    R= 64 CF Vmin= 0.5: j'11 err -4.69e-03  j'21 err -5.81e-03  j'02 err -3.31e-03  lam_max/8 = 1.00 (min V 1.7e-03)
+    R= 64 GB th_min=0.001: j01 err +9.26e-06  j11 err +9.30e-06  lam_max/8 = 7.34
+    R= 64 GB th_min= 0.25: j01 err -2.38e-04  j11 err -2.38e-04  lam_max/8 = 1.30
+    R= 64 GB th_min=  0.5: j01 err -1.01e-03  j11 err -1.01e-03  lam_max/8 = 1.00
+      [9 s]
+  centre offset (0.31, 0.17)
+    R=  8 RG: j'11 err +2.75e-02  j'21 err +3.17e-02  max|Im| low 0.0e+00  |lam|max/8 = 0.989  max|L-L^T| = 0.78
+    R=  8 CF Vmin= 0.0: j'11 err -2.83e-04  j'21 err -5.16e-04  j'02 err -3.22e-05  lam_max/8 = 10.42 (min V 1.7e-03)
+    R=  8 CF Vmin=0.25: j'11 err -1.12e-02  j'21 err -1.47e-02  j'02 err -8.83e-03  lam_max/8 = 1.05 (min V 1.7e-03)
+    R=  8 CF Vmin= 0.5: j'11 err -3.51e-02  j'21 err -4.70e-02  j'02 err -3.36e-02  lam_max/8 = 0.99 (min V 1.7e-03)
+    R=  8 GB th_min=0.001: j01 err +6.77e-04  j11 err +7.45e-04  lam_max/8 = 16.19
+    R=  8 GB th_min= 0.25: j01 err -2.25e-03  j11 err -2.18e-03  lam_max/8 = 1.31
+    R=  8 GB th_min=  0.5: j01 err -1.04e-02  j11 err -1.05e-02  lam_max/8 = 0.99
+    R= 16 RG: j'11 err +1.36e-02  j'21 err +1.58e-02  max|Im| low 2.3e-05  |lam|max/8 = 0.997  max|L-L^T| = 0.85
+    R= 16 CF Vmin= 0.0: j'11 err -9.86e-05  j'21 err -1.74e-04  j'02 err -1.06e-05  lam_max/8 = 6.81 (min V 1.7e-03)
+    R= 16 CF Vmin=0.25: j'11 err -5.46e-03  j'21 err -6.87e-03  j'02 err -3.91e-03  lam_max/8 = 1.07 (min V 1.7e-03)
+    R= 16 CF Vmin= 0.5: j'11 err -1.67e-02  j'21 err -2.11e-02  j'02 err -1.23e-02  lam_max/8 = 1.00 (min V 1.7e-03)
+    R= 16 GB th_min=0.001: j01 err +1.66e-04  j11 err +1.72e-04  lam_max/8 = 60.75
+    R= 16 GB th_min= 0.25: j01 err -1.44e-03  j11 err -1.44e-03  lam_max/8 = 1.32
+    R= 16 GB th_min=  0.5: j01 err -5.55e-03  j11 err -5.57e-03  lam_max/8 = 1.00
+    R= 32 RG: j'11 err +7.03e-03  j'21 err +8.20e-03  max|Im| low 0.0e+00  |lam|max/8 = 0.999  max|L-L^T| = 0.90
+    R= 32 CF Vmin= 0.0: j'11 err -1.57e-05  j'21 err -3.04e-05  j'02 err +1.61e-06  lam_max/8 = 8.33 (min V 1.7e-03)
+    R= 32 CF Vmin=0.25: j'11 err -2.72e-03  j'21 err -3.38e-03  j'02 err -1.92e-03  lam_max/8 = 1.08 (min V 1.7e-03)
+    R= 32 CF Vmin= 0.5: j'11 err -8.45e-03  j'21 err -1.05e-02  j'02 err -6.02e-03  lam_max/8 = 1.00 (min V 1.7e-03)
+    R= 32 GB th_min=0.001: j01 err +4.11e-05  j11 err +4.16e-05  lam_max/8 = 113.05
+    R= 32 GB th_min= 0.25: j01 err -6.52e-04  j11 err -6.52e-04  lam_max/8 = 1.32
+    R= 32 GB th_min=  0.5: j01 err -2.63e-03  j11 err -2.63e-03  lam_max/8 = 1.00
+    R= 64 RG: j'11 err +3.54e-03  j'21 err +4.16e-03  max|Im| low 0.0e+00  |lam|max/8 = 1.000  max|L-L^T| = 0.96
+    R= 64 CF Vmin= 0.0: j'11 err -6.73e-06  j'21 err -1.31e-05  j'02 err +1.13e-06  lam_max/8 = 11.95 (min V 1.7e-03)
+    R= 64 CF Vmin=0.25: j'11 err -1.30e-03  j'21 err -1.61e-03  j'02 err -9.10e-04  lam_max/8 = 1.09 (min V 1.7e-03)
+    R= 64 CF Vmin= 0.5: j'11 err -4.06e-03  j'21 err -5.02e-03  j'02 err -2.86e-03  lam_max/8 = 1.00 (min V 1.7e-03)
+    R= 64 GB th_min=0.001: j01 err +1.02e-05  j11 err +1.03e-05  lam_max/8 = 87.04
+    R= 64 GB th_min= 0.25: j01 err -3.36e-04  j11 err -3.36e-04  lam_max/8 = 1.32
+    R= 64 GB th_min=  0.5: j01 err -1.32e-03  j11 err -1.32e-03  lam_max/8 = 1.00
+      [18 s]
+  RG time domain (R = 24, Co = 0.5): max|u| every 2000 steps: 2.73e-01 2.23e-01 2.15e-01 1.97e-01 2.43e-01 3.61e-01 2.29e+00 2.00e+01 2.59e+02 1.60e+03
+  R0 same run                          : 2.36e-01 2.26e-01 1.86e-01 1.72e-01 2.66e-01 2.42e-01 2.72e-01 2.14e-01 1.87e-01 2.39e-01

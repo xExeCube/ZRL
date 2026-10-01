@@ -1,0 +1,28 @@
+=== link-mask probe, cuda f32 ===
+  verify vs walls_lib (mixed pinned/rigid scene, 32 steps, Co 0.8): max rel diff word 6.5e-07, types 5.7e-07
+  N = 4097 (1.9% solid), best of 5 x 10 launches x 8 steps:
+    mask :   0.481 ms/step  (0.0287 ns/cell)  x1.000 of mask
+    word :   0.506 ms/step  (0.0301 ns/cell)  x1.052 of mask
+    types:   0.453 ms/step  (0.0270 ns/cell)  x0.942 of mask
+  host precompute of the link word (numpy): 2.95 s
+=== link-mask probe, cuda f64 ===
+  verify vs walls_lib (mixed pinned/rigid scene, 32 steps, Co 0.8): max rel diff word 2.9e-14, types 3.0e-14
+  N = 8193 (2.0% solid), best of 3 x 10 launches x 8 steps:
+    mask :   4.835 ms/step  (0.0720 ns/cell)  x1.000 of mask
+    word :   4.928 ms/step  (0.0734 ns/cell)  x1.019 of mask
+    types:   5.744 ms/step  (0.0856 ns/cell)  x1.188 of mask
+  host precompute of the link word (numpy): 13.55 s
+=== link-mask probe, cuda f32 ===
+  verify vs walls_lib (mixed pinned/rigid scene, 32 steps, Co 0.8): max rel diff word 6.5e-07, types 5.7e-07
+  N = 8193 (2.0% solid), best of 3 x 10 launches x 8 steps:
+    mask :   2.045 ms/step  (0.0305 ns/cell)  x1.000 of mask
+    word :   2.282 ms/step  (0.0340 ns/cell)  x1.116 of mask
+    types:   1.979 ms/step  (0.0295 ns/cell)  x0.968 of mask
+  host precompute of the link word (numpy): 12.40 s
+=== link-mask probe, vulkan f32 ===
+  verify vs walls_lib (mixed pinned/rigid scene, 32 steps, Co 0.8): max rel diff word 5.5e-07, types 5.5e-07
+  N = 4097 (1.9% solid), best of 5 x 10 launches x 8 steps:
+    mask :   0.944 ms/step  (0.0562 ns/cell)  x1.000 of mask
+    word :   1.131 ms/step  (0.0674 ns/cell)  x1.198 of mask
+    types:   1.257 ms/step  (0.0749 ns/cell)  x1.331 of mask
+  host precompute of the link word (numpy): 2.65 s
