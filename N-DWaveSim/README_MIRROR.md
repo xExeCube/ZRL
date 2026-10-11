@@ -15,6 +15,27 @@ is the 2D ancestor). Specs live here; the parent build spec's §0 / §4 / §8 ap
 | `ZRL_wave_findings_MIRROR.md` | the verified canon additions behind it (ς Fork 1, i^n j, ℤ₂⊂ℤ₄⊂U(1), conj = reciprocal, the Co ≤ 1/√D proof, the Huygens deep dive, the polarisation ellipse, paraxial ≡ Schrödinger) |
 | `ZRL_laser_project_sketch_MIRROR.md` | sketch (not a spec) for the laser/lens project |
 | `wave_membrane_MIRROR.html` | **built 2026-09-17, extended 2026-09-19 … 2026-09-26b** — 2D real membrane, leapfrog FDTD, Three.js surface. **The app where the CFL row is LIVE.** Boundaries (Dirichlet / Mur-absorbing / Neumann / periodic), 9 flavor domain shapes (incl. rotatable square), uniform/slab/lens media, 5- and 9-point stencils, square + triangular lattices, **domain radius slider**, **grid ↔ edge alignment block** (every aligned angle, optimal angle, optimal grid flavor, edge colouring, measured ledger row), vertex sources with a 3σ wall inset, full screen / photo mode, typed number boxes, **editable diverging gradient**. |
+| `ZRL_cell_lattice_app_spec_MIRROR.md` | **draft 2026-10-11** — spec for the cell-lattice app (a ZRL tiling over the solver grid as density medium + translucent borders): the decisions to settle as checkboxes with defaults, the verified facts they rest on, ledger rows, staged build plan. Nothing built. |
+| `LatticeSpecCLAUDE/` | the scripts behind that spec (snap rules, density levels, long-wave speed, border transmission) and their output logs |
+
+## 2026-10-11 — cell-lattice app: spec draft (NO app code changed)
+
+The author asked what must be settled before a "2 Lattice" app (a separate app, built on a copy).
+The answer is `ZRL_cell_lattice_app_spec_MIRROR.md`: 44 decisions in 8 groups (D0 scope, D1 grid
+and tiling, D2 cells and circles, D3 density, D4 medium, D5 borders, D6 scale regime, D7 sources and
+visuals), each with a proposed default. Measured for it (`LatticeSpecCLAUDE/`, logs beside the scripts):
+- One tiling's circumcircles give **exactly two density levels**: triangle 2/3, square 1/2, hexagon
+  1/2, with mean 4π/(3√3), π/2, 2π/(3√3).
+- The long-wave speed through a tiling is **c₀/√(mean node mass)** to 2e-4. The rule that samples
+  density at nodes moves it by up to 5%, because every tiling vertex is a node lying exactly on circles.
+- One-node translucent borders come in two families, **mass** (opaque limit = pinned) and **link**
+  (opaque limit = rigid). In 1D both give |t|² = 1/(1 + s² tan²(π/PPW)), independent of Co; this is the
+  26/09 edge-sheet result. In 2D they differ at oblique incidence.
+- A border's per-node strength is **not portable**: a tri row acts as √3/2 of sq5.
+- A thin border does not refract; lenses come from density.
+
+The membrane apps are unchanged. TaichiWave (origin/main) is the primary app since 2026-09-29; the
+spec's default (D0.1) builds the new app on its core.
 
 ## 2026-09-26c — the space-time grid: light cone, dispersion, points per wavelength, N to 2048
 

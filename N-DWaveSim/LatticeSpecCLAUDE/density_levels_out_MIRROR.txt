@@ -1,0 +1,21 @@
+== triangle (n = 3)
+   neighbour shells (d/R, cells, circles): 1.000000 x3 overlap, 1.732051 x6 overlap, 2.000000 x3 touch, 2.645751 x6 miss, 3.000000 x6 miss
+   edge-neighbour overlap width 2R(1 - cos(pi/n)) = 1.000000 R
+   circumcircle levels (MC): {2: 0.5813, 3: 0.4187}  mean 2.4187   exact mean 2.418399 -> exact shares 2: 0.581601, 3: 0.418399
+   + incircles (levels, MC): {2: 0.1824, 3: 0.6122, 4: 0.2054}  mean 3.0231   incircles cover 0.604600 of the plane, never overlap
+   a vertex lies ON 6 circles and strictly inside 0
+   R = 1.7 gives the same ratios: PASS
+== square (n = 4)
+   neighbour shells (d/R, cells, circles): 1.414214 x4 overlap, 2.000000 x4 touch, 2.828427 x4 miss
+   edge-neighbour overlap width 2R(1 - cos(pi/n)) = 0.585786 R
+   circumcircle levels (MC): {1: 0.4306, 2: 0.5694}  mean 1.5694   exact mean 1.570796 -> exact shares 1: 0.429204, 2: 0.570796
+   + incircles (levels, MC): {1: 0.0173, 2: 0.6098, 3: 0.3729}  mean 2.3556   incircles cover 0.785398 of the plane, never overlap
+   a vertex lies ON 4 circles and strictly inside 0
+   R = 1.7 gives the same ratios: PASS
+== hexagon (n = 6)
+   neighbour shells (d/R, cells, circles): 1.732051 x6 overlap, 3.000000 x6 miss
+   edge-neighbour overlap width 2R(1 - cos(pi/n)) = 0.267949 R
+   circumcircle levels (MC): {1: 0.7907, 2: 0.2093}  mean 1.2093   exact mean 1.209200 -> exact shares 1: 0.790800, 2: 0.209200
+   + incircles (levels, MC): {1: 0.0282, 2: 0.8279, 3: 0.1439}  mean 2.1158   incircles cover 0.906900 of the plane, never overlap
+   a vertex lies ON 3 circles and strictly inside 0
+   R = 1.7 gives the same ratios: PASS

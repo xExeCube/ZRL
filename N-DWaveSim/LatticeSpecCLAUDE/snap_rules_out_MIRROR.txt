@@ -1,0 +1,7 @@
+square/sq grid isomer, side 6            vertices on nodes: True   centres on nodes: True
+square/sq ZRL isomer, R 5                vertices on nodes: True   centres on nodes: True
+hexagon/tri ZRL isomer, R 4              vertices on nodes: True   centres on nodes: True
+hexagon/tri other isomer, R = 2 sqrt3    vertices on nodes: True   centres on nodes: True
+triangle/tri rows, side 6                vertices on nodes: True   centres on nodes: True
+triangle/tri rows, side 4                vertices on nodes: True   centres on nodes: False
+triangle/tri ZRL isomer, R 3             vertices on nodes: True   centres on nodes: True

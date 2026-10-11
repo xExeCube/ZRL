@@ -1,0 +1,25 @@
+1. 1D, s = 1 (mass: f = 0.7071; link: weight 0.5)
+   PPW 32: predicted |t|^2 0.990393 | solve mass 0.990393 link 0.990393 | arg r mass   95.6 link  -73.1 deg
+   PPW 16: predicted |t|^2 0.961940 | solve mass 0.961940 link 0.961940 | arg r mass  101.2 link  -56.2 deg | packet Co 0.5: mass 0.9619 (+r 0.0381) link 0.9619 (+r 0.0381) | packet Co 0.9: mass 0.9619 (+r 0.0381) link 0.9619 (+r 0.0381)
+   PPW  8: predicted |t|^2 0.853553 | solve mass 0.853553 link 0.853553 | arg r mass  112.5 link  -22.5 deg | packet Co 0.5: mass 0.8535 (+r 0.1465) link 0.8535 (+r 0.1465) | packet Co 0.9: mass 0.8535 (+r 0.1465) link 0.8535 (+r 0.1465)
+   PPW  4: predicted |t|^2 0.500000 | solve mass 0.500000 link 0.500000 | arg r mass  135.0 link   45.0 deg
+   s for 50% power at PPW 16: 5.0273 -> mass f = 0.4073
+2. 2D oblique, s = 1, Co 0.5: transmitted sum u^2 (reflected) vs the sq5 formula
+   sq5 mass PPW 16:  0.0 deg: 0.9619 (0.0381) pred 0.9619 | 30.0 deg: 0.9499 (0.0500) pred 0.9500 | 62.7 deg: 0.8445 (0.1551) pred 0.8456
+   sq5 mass PPW  8:  0.0 deg: 0.8535 (0.1465) pred 0.8536 | 30.0 deg: 0.8158 (0.1841) pred 0.8160 | 62.7 deg: 0.5811 (0.4185) pred 0.5827
+   sq5 link PPW 16:  0.0 deg: 0.9619 (0.0381) pred 0.9619 | 30.0 deg: 0.9712 (0.0287) pred 0.9714 | 62.7 deg: 0.9915 (0.0081) pred 0.9919
+   sq5 link PPW  8:  0.0 deg: 0.8535 (0.1465) pred 0.8536 | 30.0 deg: 0.8886 (0.1114) pred 0.8887 | 62.7 deg: 0.9675 (0.0321) pred 0.9680
+   sq9 mass PPW 16:  0.0 deg: 0.9619 (0.0381) pred 0.9619 | 30.0 deg: 0.9497 (0.0501) pred 0.9500 | 62.7 deg: 0.8403 (0.1594) pred 0.8456
+   sq9 mass PPW  8:  0.0 deg: 0.8535 (0.1465) pred 0.8536 | 30.0 deg: 0.8138 (0.1861) pred 0.8160 | 62.7 deg: 0.5496 (0.4500) pred 0.5827
+   sq9 link PPW 16:  0.0 deg: 0.9619 (0.0381) pred 0.9619 | 30.0 deg: 0.9739 (0.0260) pred 0.9714 | 62.7 deg: 0.9984 (0.0013) pred 0.9919
+   sq9 link PPW  8:  0.0 deg: 0.8535 (0.1465) pred 0.8536 | 30.0 deg: 0.8948 (0.1051) pred 0.8887 | 62.7 deg: 0.9926 (0.0070) pred 0.9680
+   tri mass PPW 16:  0.0 deg: 0.9713 (0.0287) pred 0.9619 | 30.0 deg: 0.9621 (0.0378) pred 0.9500 | 62.7 deg: 0.8758 (0.1239) pred 0.8456
+   tri mass PPW  8:  0.0 deg: 0.8887 (0.1113) pred 0.8536 | 30.0 deg: 0.8569 (0.1431) pred 0.8160 | 62.7 deg: 0.6249 (0.3748) pred 0.5827
+   tri link PPW 16:  0.0 deg: 0.9713 (0.0287) pred 0.9619 | 30.0 deg: 0.9805 (0.0194) pred 0.9714 | 62.7 deg: 0.9987 (0.0009) pred 0.9919
+   tri link PPW  8:  0.0 deg: 0.8887 (0.1113) pred 0.8536 | 30.0 deg: 0.9214 (0.0786) pred 0.8887 | 62.7 deg: 0.9953 (0.0045) pred 0.9680
+3. 1D density steps, Co 0.5: reflected power |r|^2
+   f = 0.7071: predicted mass-only 0.02944 | PPW 16: mass-only 0.03289, matched 1.53e-04 | PPW 8: mass-only 0.04705, matched 2.46e-03
+   f = 0.55: predicted mass-only 0.08429 | PPW 16: mass-only 0.09739, matched 1.16e-03 | PPW 8: mass-only 0.16092, matched 1.88e-02
+4. 1D mass step, exact discrete |r|^2, PPW 64 / 32 / 16 / 8
+   f = 0.7071: 0.02964 / 0.03026 / 0.03289 / 0.04702
+   f = 0.55: 0.08503 / 0.08732 / 0.09739 / 0.16078

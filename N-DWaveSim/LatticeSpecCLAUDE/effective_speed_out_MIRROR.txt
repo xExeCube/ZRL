@@ -1,0 +1,16 @@
+c_eff / c0 measured (lowest Bloch mode) vs 1/sqrt(mean m) predicted; m = circumcircle count, M = m
+sq5 square-grid R =  8.485 nodes, rule open  : N  72 (6 periods): mean m 1.5347 measured 0.80666 predicted 0.80721 diff -5.4e-04 | N 144 (12 periods): mean m 1.5347 measured 0.80708 predicted 0.80721 diff -1.3e-04
+sq5 square-grid R =  8.485 nodes, rule closed: N  72 (6 periods): mean m 1.5625 measured 0.79938 predicted 0.80000 diff -6.2e-04 | N 144 (12 periods): mean m 1.5625 measured 0.79985 predicted 0.80000 diff -1.5e-04
+sq5 square-grid R =  8.485 nodes, rule area  : N  72 (6 periods): mean m 1.5703 measured 0.79741 predicted 0.79801 diff -6.0e-04 | N 144 (12 periods): mean m 1.5703 measured 0.79786 predicted 0.79801 diff -1.4e-04
+sq9 square-grid R =  8.485 nodes, rule open  : N  72 (6 periods): mean m 1.5347 measured 0.80665 predicted 0.80721 diff -5.5e-04 | N 144 (12 periods): mean m 1.5347 measured 0.80707 predicted 0.80721 diff -1.3e-04
+sq9 square-grid R =  8.485 nodes, rule closed: N  72 (6 periods): mean m 1.5625 measured 0.79938 predicted 0.80000 diff -6.2e-04 | N 144 (12 periods): mean m 1.5625 measured 0.79985 predicted 0.80000 diff -1.5e-04
+sq9 square-grid R =  8.485 nodes, rule area  : N  72 (6 periods): mean m 1.5703 measured 0.79741 predicted 0.79801 diff -6.0e-04 | N 144 (12 periods): mean m 1.5703 measured 0.79786 predicted 0.79801 diff -1.5e-04
+sq5 square-zrl  R =  6.000 nodes, rule open  : N  72 (6 periods): mean m 1.5139 measured 0.81245 predicted 0.81274 diff -2.9e-04 | N 144 (12 periods): mean m 1.5139 measured 0.81267 predicted 0.81274 diff -7.1e-05
+sq5 square-zrl  R =  6.000 nodes, rule closed: N  72 (6 periods): mean m 1.5694 measured 0.79793 predicted 0.79823 diff -3.0e-04 | N 144 (12 periods): mean m 1.5694 measured 0.79815 predicted 0.79823 diff -7.4e-05
+sq5 square-zrl  R =  6.000 nodes, rule area  : N  72 (6 periods): mean m 1.5694 measured 0.79794 predicted 0.79823 diff -2.9e-04 | N 144 (12 periods): mean m 1.5694 measured 0.79816 predicted 0.79823 diff -7.1e-05
+tri hexagon     R =  4.000 nodes, rule open  : N  72 (6 periods): mean m 1.1458 measured 0.93398 predicted 0.93420 diff -2.1e-04 | N 144 (12 periods): mean m 1.1458 measured 0.93415 predicted 0.93420 diff -5.3e-05
+tri hexagon     R =  4.000 nodes, rule closed: N  72 (6 periods): mean m 1.2708 measured 0.88670 predicted 0.88707 diff -3.7e-04 | N 144 (12 periods): mean m 1.2708 measured 0.88697 predicted 0.88707 diff -9.1e-05
+tri hexagon     R =  4.000 nodes, rule area  : N  72 (6 periods): mean m 1.2096 measured 0.90906 predicted 0.90923 diff -1.7e-04 | N 144 (12 periods): mean m 1.2096 measured 0.90919 predicted 0.90923 diff -4.2e-05
+tri triangle    R =  6.928 nodes, rule open  : N  72 (6 periods): mean m 2.2639 measured 0.66453 predicted 0.66462 diff -9.3e-05 | N 144 (12 periods): mean m 2.2639 measured 0.66460 predicted 0.66462 diff -2.3e-05
+tri triangle    R =  6.928 nodes, rule closed: N  72 (6 periods): mean m 2.3472 measured 0.65261 predicted 0.65271 diff -1.1e-04 | N 144 (12 periods): mean m 2.3472 measured 0.65269 predicted 0.65271 diff -2.6e-05
+tri triangle    R =  6.928 nodes, rule area  : N  72 (6 periods): mean m 2.4180 measured 0.64300 predicted 0.64309 diff -9.2e-05 | N 144 (12 periods): mean m 2.4180 measured 0.64307 predicted 0.64309 diff -2.2e-05
