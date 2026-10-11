@@ -1,0 +1,37 @@
+[Taichi] version 1.7.4, llvm 15.0.1, commit b4b956fd, win, python 3.12.2
+[Taichi] Starting on arch=cuda
+PASS no solid cell in the domain: field bit-identical to no scene  | empty scene: = (has_solids False); object outside the domain: = (has_solids True, 0 solid cells inside)
+PASS closed loop, minimum brush (1.000 cell): interior sealed, sq5  | N=257, 7870 interior cells, 2000 steps: max|u| inside = 0.0e+00 (3 levels); outside, next to the wall: 2.71e-01
+PASS closed loop, minimum brush (1.000 cell): interior sealed, sq9  | N=257, 7870 interior cells, 2000 steps: max|u| inside = 0.0e+00 (3 levels); outside, next to the wall: 2.56e-01
+PASS closed loop, minimum brush (1.000 cell): interior sealed, tri  | N=257, 6770 interior cells, 2000 steps: max|u| inside = 0.0e+00 (3 levels); outside, next to the wall: 2.39e-01
+PASS one-cell diagonal wall seals, minimum brush seals: sq5  | N=257, driven cell (amplitude 1), 1500 steps: peak |u| beyond the wall 0.00e+00 (one-cell, 257 cells), 0.0e+00 (brush, 769 cells)
+PASS one-cell diagonal wall LEAKS, minimum brush seals: sq9  | N=257, driven cell (amplitude 1), 1500 steps: peak |u| beyond the wall 7.50e-02 (one-cell, 257 cells), 0.0e+00 (brush, 769 cells)
+PASS one-cell diagonal wall LEAKS, minimum brush seals: tri  | N=257, driven cell (amplitude 1), 1500 steps: peak |u| beyond the wall 2.31e-01 (one-cell, 109 cells), 0.0e+00 (brush, 547 cells)
+PASS solid cells stay exactly 0: unlicensed sq9  | N=513, 25537 solid cells, 1000 steps: max|u| on them 0.0e+00 (3 levels); E 1.543
+PASS solid cells stay exactly 0: unlicensed tri r0.85  | N=513, 15649 solid cells, 1000 steps: max|u| on them 0.0e+00 (3 levels); E 1.79
+PASS solid cells stay exactly 0: objects, full square Neumann sq9  | N=513, 10697 solid cells, 1000 steps: max|u| on them 0.0e+00 (3 levels); E 186.2
+PASS mirror-symmetric solids + on-axis source keep the mirror symmetry exactly (sq5 Dirichlet)  | N=257: solid mask mirror-identical (1733 cells); 1500 steps: max|u - mirror(u)| = 0.0e+00 (max|u| 0.0652)
+PASS area circle r 0.3, sq  | N=1025: 74116 cells x 1.0000 = 74116.0 vs 74119.5 (rel -4.7e-05; error / perimeter -0.004)
+PASS area rect 0.5 x 0.3 at 17 deg, sq  | N=1025: 39321 cells x 1.0000 = 39321.0 vs 39321.6 (rel -1.5e-05; error / perimeter -0.001)
+PASS area pentagon r 0.3 at 10 deg, sq  | N=1025: 56098 cells x 1.0000 = 56098.0 vs 56095.6 (rel +4.3e-05; error / perimeter +0.003)
+PASS area hexagon r 0.25, sq  | N=1025: 42477 cells x 1.0000 = 42477.0 vs 42566.9 (rel -2.1e-03; error / perimeter -0.117)
+PASS area circle r 0.3, tri  | N=1025: 64190 cells x 0.8660 = 55590.2 vs 55589.6 (rel +1.0e-05; error / perimeter +0.001)
+PASS area rect 0.5 x 0.3 at 17 deg, tri  | N=1025: 34046 cells x 0.8660 = 29484.7 vs 29491.2 (rel -2.2e-04; error / perimeter -0.009)
+PASS area pentagon r 0.3 at 10 deg, tri  | N=1025: 48577 cells x 0.8660 = 42068.9 vs 42071.7 (rel -6.6e-05; error / perimeter -0.004)
+PASS area hexagon r 0.25, tri  | N=1025: 37057 cells x 0.8660 = 32092.3 vs 31925.2 (rel +5.2e-03; error / perimeter +0.251)
+PASS Unlicensed plate area, sq radius 1.0  | N=1025: R = 510.50, plate 1021.0 x 510.5, corner 33.18: 520759.0 vs 520275.3 (rel +9.3e-04, error / perimeter +0.161); lettering + screws 102156 cells
+PASS Unlicensed plate area, tri radius 0.85  | N=1025: R = 375.62, plate 751.2 x 375.6, corner 24.42: 281308.4 vs 281668.0 (rel -1.3e-03, error / perimeter -0.163); lettering + screws 64211 cells
+PASS Unlicensed plate area, sq radius 0.6  | N=1025: R = 306.30, plate 612.6 x 306.3, corner 19.91: 187811.0 vs 187299.1 (rel +2.7e-03, error / perimeter +0.284); lettering + screws 37021 cells
+PASS update_solids mid-run (sq5)  | N=513: 6496 cells made solid at step 150 (circle + 12-point stroke; the eraser freed 16): max|u| on them 0.0e+00 (3 levels), other cells untouched, incremental mask == full re-rasterisation; 500 more steps: E 1.699 -> 0.9344, solids 0.0e+00
+PASS update_solids mid-run (sq9)  | N=513: 6496 cells made solid at step 150 (circle + 12-point stroke; the eraser freed 16): max|u| on them 0.0e+00 (3 levels), other cells untouched, incremental mask == full re-rasterisation; 500 more steps: E 1.648 -> 0.9237, solids 0.0e+00
+PASS update_solids mid-run (tri)  | N=513: 6165 cells made solid at step 150 (circle + 12-point stroke; the eraser freed 18): max|u| on them 0.0e+00 (3 levels), other cells untouched, incremental mask == full re-rasterisation; 500 more steps: E 2.307 -> 2.617, solids 0.0e+00
+PASS source snaps out of solids (sq5)  | requested (166, 141): walk-back -> (158, 141); centre swallowed -> nearest free (204, 141) at 38 hops (brute-force minimum 38); 200 driven steps: max|u| in solids 0.0e+00
+PASS source snaps out of solids (sq9)  | requested (166, 141): walk-back -> (160, 136); centre swallowed -> nearest free (193, 169) at 28 hops (brute-force minimum 28); 200 driven steps: max|u| in solids 0.0e+00
+PASS source snaps out of solids (tri)  | requested (151, 139): walk-back -> (144, 146); centre swallowed -> nearest free (188, 140) at 38 hops (brute-force minimum 38); 200 driven steps: max|u| in solids 0.0e+00
+PASS driven vertex sources snap out of solids  | 5 vertices, each under a solid disk: all re-placed on free cells; max|u| in solids 0.0e+00
+PASS scene save/load round trip; font errors are clear  | ScenesCLAUDE\test_roundtrip_MIRROR.json: dict =, rasterisation =; missing font -> FileNotFoundError: True; unknown variation -> ValueError: True; Bahnschrift variations: 15
+PASS painting speed N=2049  | extend_stroke + update_solids: median 2.68 ms, p90 3.21, max 3.49 (80 segments over the lettering, brush 3 cells); full re-rasterisation 221 ms; Membrane setup with the plate 0.52 s
+PASS painting speed N=8193  | extend_stroke + update_solids: median 2.65 ms, p90 2.91, max 3.88 (80 segments over the lettering, brush 3 cells); full re-rasterisation 3258 ms; Membrane setup with the plate 8.18 s
+PASS one long diagonal segment: incremental == full re-rasterisation, and fast  | sq unlicensed N=513: 0 cells differ; tri unlicensed N=513: 0 cells differ; sq n6 N=257: 0 cells differ; tri circle N=257: 0 cells differ; N=8193 segment of ~3687 cells at 45 deg over the plate: 52 ms (< 250)
+
+ALL PASS (cuda f64, 50.9 s)

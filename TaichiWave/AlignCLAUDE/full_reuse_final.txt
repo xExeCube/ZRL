@@ -1,0 +1,37 @@
+[Taichi] version 1.7.4, llvm 15.0.1, commit b4b956fd, win, python 3.12.2
+[Taichi] Starting on arch=x64
+JS dump: 0.0 s, 2295 configs
+port: 72.5 s
+
+function                                    agree
+al_class                             1460/1460  
+al_lattice_dir                       1460/1460  
+al_near_dir                          5840/5840  
+al_angles                              50/50    
+al_gcd_f                               30/30    
+al_canon                               70/70    
+al_rot_deg / al_lat                  2295/2295  
+al_dirs                              2295/2295  
+al_count                             2295/2295  
+al_sym_period                        2295/2295  
+fits_inside                          2295/2295  
+al_nothing_left                      2295/2295  
+al_edges                             2295/2295  
+al_measure                           2295/2295  
+al_edge_report                       2295/2295  
+ledger 7c (period)                   2295/2295  
+ledger 7c-bis (straightness)         2295/2295  
+al_list                              4590/4590  
+al_canon (per entry)                 4590/4590  
+al_best_of                           4590/4590  
+al_flavor_pick                       4590/4590  
+NOTE text (al_note)                  4590/4590  
+snap list (al_snap_options)          4590/4590  
+al_step(+1)                          4590/4590  
+al_step(-1)                          4590/4590  
+al_optimal                           4590/4590  
+al_flavor                            4590/4590  
+(edge normals compared mod 360: 1 read 0 in the JS and 360 - eps here, or back)
+(sliver edges < 0.001 cells compared at 1e-13*N/len: 0 differ at the strict 1e-9)
+
+TOTAL 80055/80055 comparisons agree over 2295 configs (+ the pure sweep)

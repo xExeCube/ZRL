@@ -1,0 +1,118 @@
+[Taichi] version 1.7.4, llvm 15.0.1, commit b4b956fd, win, python 3.12.2
+[Taichi] Starting on arch=cuda
+API: types in the cycle, existing defaults unchanged, two-sided, rebuild on Co change
+  [PASS] beam and packet are in SOURCES (after the web app's six)  
+  [PASS] two-sided drives only the front aperture  82 -> 41
+  [PASS] Co change rebuilds the beam tables (k follows the dispersion)  
+  [PASS] beam_geometry gives source, aperture ends, arrow tip  
+  [PASS] beam_geometry is None for point sources  
+directivity (forward/backward energy, lambda 12, w0 8, T 520, Co 0.5)
+    sq5   0 deg: one-sided   29.2 dB   two-sided    0.0 dB   one-sided w0 16:   37.4 dB
+    sq5  20 deg: one-sided   30.7 dB   two-sided    0.3 dB   one-sided w0 16:   34.9 dB
+    sq5  30 deg: one-sided   28.7 dB   two-sided    0.3 dB   one-sided w0 16:   35.9 dB
+    sq5  45 deg: one-sided   29.8 dB   two-sided    0.0 dB   one-sided w0 16:   37.9 dB
+    sq5  60 deg: one-sided   28.7 dB   two-sided    0.3 dB   one-sided w0 16:   35.9 dB
+    sq9   0 deg: one-sided   29.4 dB   two-sided    0.0 dB   one-sided w0 16:   37.5 dB
+    sq9  20 deg: one-sided   30.1 dB   two-sided    0.3 dB   one-sided w0 16:   32.2 dB
+    sq9  30 deg: one-sided   29.4 dB   two-sided    0.3 dB   one-sided w0 16:   36.6 dB
+    sq9  45 deg: one-sided   29.6 dB   two-sided    0.0 dB   one-sided w0 16:   37.7 dB
+    sq9  60 deg: one-sided   29.4 dB   two-sided    0.3 dB   one-sided w0 16:   36.6 dB
+    tri   0 deg: one-sided   29.6 dB   two-sided    0.3 dB   one-sided w0 16:   37.8 dB
+    tri  20 deg: one-sided   29.9 dB   two-sided    0.3 dB   one-sided w0 16:   34.6 dB
+    tri  30 deg: one-sided   29.5 dB   two-sided   -0.0 dB   one-sided w0 16:   37.6 dB
+    tri  45 deg: one-sided   29.9 dB   two-sided    0.4 dB   one-sided w0 16:   33.1 dB
+    tri  60 deg: one-sided   29.6 dB   two-sided    0.3 dB   one-sided w0 16:   37.8 dB
+  [PASS] one-sided forward/backward >= 26 dB (w0 8) on every lattice and angle  min 28.7 dB
+  [PASS] one-sided forward/backward >= 31 dB with w0 16  min 32.2 dB
+  [PASS] two-sided is ~symmetric (|ratio| within 3 dB of 0)  range -0.0..0.4 dB
+beam width vs the Gaussian-beam law w0 sqrt(1 + (z/zR)^2) (lambda 12, w0 16: zR = 67.0, half-angle lambda/(pi w0) = 0.239 rad; N 801, 800 steps)
+    sq5  0 deg lam 11.89: w(z) 20.4 30.1 41.5 53.5 65.7  law 19.9 28.6 38.9 50.0 61.3  half-angle 0.255 vs 0.237  worst 7.3%
+    sq5 30 deg lam 11.95: w(z) 20.2 29.1 39.4 50.6 62.0  law 19.9 28.7 39.1 50.2 61.5  half-angle 0.240 vs 0.238  worst 1.5%
+    sq5 45 deg lam 11.97: w(z) 19.8 28.4 38.8 49.6 60.9  law 19.9 28.7 39.1 50.2 61.6  half-angle 0.235 vs 0.238  worst 1.2%
+    sq9  0 deg lam 11.89: w(z) 20.1 29.2 40.0 51.5 63.2  law 19.9 28.6 38.9 50.0 61.3  half-angle 0.244 vs 0.237  worst 3.1%
+    sq9 30 deg lam 11.90: w(z) 20.6 29.5 40.1 51.6 63.4  law 19.9 28.6 38.9 50.0 61.3  half-angle 0.245 vs 0.237  worst 3.4%
+    sq9 45 deg lam 11.90: w(z) 20.1 29.2 40.0 51.3 63.1  law 19.9 28.6 38.9 50.0 61.3  half-angle 0.244 vs 0.237  worst 2.9%
+    tri  0 deg lam 11.93: w(z) 20.2 29.3 40.2 51.6 63.4  law 19.9 28.6 39.0 50.1 61.5  half-angle 0.245 vs 0.237  worst 3.1%
+    tri 30 deg lam 11.93: w(z) 20.1 29.3 40.2 51.6 63.3  law 19.9 28.6 39.0 50.1 61.5  half-angle 0.245 vs 0.237  worst 3.0%
+    tri 45 deg lam 11.93: w(z) 23.3 30.6 40.6 51.7 63.3  law 19.9 28.6 39.0 50.1 61.5  half-angle 0.245 vs 0.237  worst 16.9%
+  [PASS] beam width follows the Gaussian-beam law within 10% (z = 100..250)  worst 7.3% (z = 50 included: 16.9%)
+  [PASS] far-field half-angle within 10% of lambda/(pi w0)  worst 7.8%
+steering: measured energy direction - requested (deg), annulus 100..200 cells, w0 = 1.5 lambda
+    sq5 lam  6 energy-aim: 0:-0.00 10:-0.23 20:-0.41 30:-0.33 45:+0.00 60:+0.33 75:+0.35 90:+0.00
+    sq5 lam  6 phase -aim: 0:-0.00 10:+1.73 20:+2.61 30:+2.24 45:+0.00 60:-2.24 75:-2.32 90:+0.00
+    sq5 lam  8 energy-aim: 0:-0.00 10:-0.13 20:-0.21 30:-0.16 45:+0.00 60:+0.16 75:+0.17 90:+0.00
+    sq5 lam 12 energy-aim: 0:-0.00 10:-0.07 20:-0.09 30:-0.08 45:+0.00 60:+0.08 75:+0.09 90:+0.00
+    sq5 lam 12 phase -aim: 0:-0.00 10:+0.38 20:+0.58 30:+0.50 45:+0.00 60:-0.50 75:-0.51 90:+0.00
+    sq5 lam 24 energy-aim: 0:+0.00 10:-0.02 20:-0.02 30:-0.01 45:+0.00 60:+0.01 75:+0.02 90:+0.00
+    sq9 lam  6 energy-aim: 0:+0.00 10:-0.03 20:-0.01 30:+0.02 45:+0.00 60:-0.02 75:+0.03 90:+0.00
+    sq9 lam  6 phase -aim: 0:+0.00 10:+0.06 20:+0.12 30:+0.12 45:+0.00 60:-0.12 75:-0.08 90:+0.00
+    sq9 lam  8 energy-aim: 0:+0.00 10:-0.01 20:+0.00 30:-0.00 45:+0.00 60:+0.00 75:+0.01 90:+0.00
+    sq9 lam 12 energy-aim: 0:+0.00 10:-0.00 20:-0.00 30:-0.00 45:+0.00 60:+0.00 75:+0.00 90:+0.00
+    sq9 lam 12 phase -aim: 0:+0.00 10:+0.00 20:+0.00 30:+0.00 45:+0.00 60:-0.00 75:-0.00 90:+0.00
+    sq9 lam 24 energy-aim: 0:-0.00 10:-0.01 20:-0.01 30:-0.00 45:+0.00 60:+0.00 75:+0.01 90:-0.00
+    tri lam  6 energy-aim: 0:-0.00 10:-0.01 20:+0.02 30:-0.00 45:-0.03 60:-0.00 75:+0.03 90:+0.00
+    tri lam  6 phase -aim: 0:-0.00 10:-0.05 20:-0.02 30:-0.00 45:+0.02 60:-0.00 75:-0.02 90:+0.00
+    tri lam  8 energy-aim: 0:+0.00 10:-0.01 20:+0.00 30:-0.00 45:-0.01 60:-0.00 75:+0.01 90:+0.00
+    tri lam 12 energy-aim: 0:-0.00 10:-0.00 20:-0.00 30:-0.00 45:+0.00 60:-0.00 75:-0.00 90:+0.00
+    tri lam 12 phase -aim: 0:-0.00 10:-0.00 20:-0.01 30:-0.00 45:+0.00 60:-0.00 75:-0.00 90:+0.00
+    tri lam 24 energy-aim: 0:+0.00 10:-0.00 20:-0.00 30:-0.00 45:+0.00 60:-0.00 75:-0.00 90:-0.00
+  [PASS] energy-aimed beam within 1 deg of the request (lambda >= 8)  worst 0.21 deg
+  [PASS] energy-aimed beam within 2 deg at lambda 6  worst 0.41 deg
+packet: backward residue and group velocity (lambda 16, L 12, w 16, N 601, 400 steps)
+    sq5  0 deg: v_g measured 0.4854 predicted 0.4856 (central K 0.4927) (-0.04%), direction err +0.00 deg, backward residue 7.64e-06
+    sq5 30 deg: v_g measured 0.4892 predicted 0.4891 (central K 0.4963) (+0.03%), direction err +0.02 deg, backward residue 8.57e-06
+    sq5 45 deg: v_g measured 0.4906 predicted 0.4903 (central K 0.4976) (+0.05%), direction err +0.00 deg, backward residue 8.17e-06
+    sq9  0 deg: v_g measured 0.4852 predicted 0.4854 (central K 0.4927) (-0.04%), direction err +0.00 deg, backward residue 7.75e-06
+    sq9 30 deg: v_g measured 0.4853 predicted 0.4854 (central K 0.4928) (-0.04%), direction err +0.00 deg, backward residue 8.29e-06
+    sq9 45 deg: v_g measured 0.4853 predicted 0.4855 (central K 0.4928) (-0.04%), direction err +0.00 deg, backward residue 7.88e-06
+    tri  0 deg: v_g measured 0.4880 predicted 0.4880 (central K 0.4952) (+0.00%), direction err +0.00 deg, backward residue 8.09e-06
+    tri 30 deg: v_g measured 0.4880 predicted 0.4880 (central K 0.4952) (+0.00%), direction err +0.00 deg, backward residue 8.64e-06
+    tri 45 deg: v_g measured 0.4880 predicted 0.4880 (central K 0.4952) (+0.00%), direction err +0.00 deg, backward residue 8.64e-06
+    reference: the same packet started at rest leaves 0.500 behind
+  [PASS] packet speed within 0.3% of the discrete prediction (spectrum-weighted v_g)  worst 0.05%
+  [PASS] packet backward residue < 1e-3 of its energy  worst 8.6e-06 (at-rest start: 0.50)
+  [PASS] packet direction within 0.5 deg  worst 0.02 deg
+stability at Co = 0.99 C_max (3000 steps, N 257)
+  [PASS] sq5 beam dirichlet Co 0.7000: finite, bounded  peak per 500 steps 0.85 1.08 1.19 1.36 1.34 1.85
+  [PASS] sq5 beam mur Co 0.7000: finite, bounded  peak per 500 steps 0.70 0.70 0.70 0.70 0.70 0.70
+  [PASS] sq5 packet dirichlet Co 0.7000: finite, bounded  peak per 500 steps 0.25 0.23 0.20 0.17 0.15 0.16
+  [PASS] sq5 packet mur Co 0.7000: finite, bounded  peak per 500 steps 0.01 0.00 0.00 0.00 0.00 0.00
+  [PASS] sq9 beam dirichlet Co 0.8574: finite, bounded  peak per 500 steps 0.80 0.90 0.99 0.86 0.61 0.46
+  [PASS] sq9 beam mur Co 0.8574: finite, bounded  peak per 500 steps 0.60 0.60 0.60 0.60 0.60 0.60
+  [PASS] sq9 packet dirichlet Co 0.8574: finite, bounded  peak per 500 steps 0.24 0.19 0.22 0.16 0.16 0.17
+  [PASS] sq9 packet mur Co 0.8574: finite, bounded  peak per 500 steps 0.00 0.00 0.00 0.00 0.00 0.00
+  [PASS] tri beam dirichlet Co 0.8083: finite, bounded  peak per 500 steps 0.85 0.94 0.91 1.09 1.25 1.58
+  [PASS] tri packet dirichlet Co 0.8083: finite, bounded  peak per 500 steps 0.36 0.31 0.18 0.17 0.20 0.17
+obstacles: a solid in the path; an aperture crossing the domain wall or a solid
+  [PASS] sq5: a pinned slab ahead reflects (backward energy x187), solid stays 0  
+  [PASS] sq5: aperture crossing the circle wall is clipped (4 cells dropped), no crash  
+  [PASS] sq5: aperture through a solid skips its cells (20 dropped), solid stays 0  
+  [PASS] sq9: a pinned slab ahead reflects (backward energy x198), solid stays 0  
+  [PASS] sq9: aperture crossing the circle wall is clipped (4 cells dropped), no crash  
+  [PASS] sq9: aperture through a solid skips its cells (20 dropped), solid stays 0  
+  [PASS] tri: a pinned slab ahead reflects (backward energy x299), solid stays 0  
+  [PASS] tri: aperture crossing the circle wall is clipped (28 cells dropped), no crash  
+  [PASS] tri: aperture through a solid skips its cells (20 dropped), solid stays 0  
+cost per step (ms), record off / on
+    N 1025 sq5 pulse  w  8 cells     : 0.090 / 0.137
+    N 1025 sq5 cont   w  8 cells     : 0.163 / 0.231
+    N 1025 sq5 beam   w  8 cells   82: 0.171 / 0.233
+    N 1025 sq5 beam   w 64 cells  642: 0.176 / 0.249
+    N 1025 sq5 packet w  8 cells     : 0.112 / 0.142
+    N 1025 tri pulse  w  8 cells     : 0.103 / 0.148
+    N 1025 tri cont   w  8 cells     : 0.185 / 0.248
+    N 1025 tri beam   w  8 cells   94: 0.208 / 0.262
+    N 1025 tri beam   w 64 cells  738: 0.206 / 0.257
+    N 1025 tri packet w  8 cells     : 0.116 / 0.151
+    N 2049 sq5 pulse  w  8 cells     : 0.219 / 0.352
+    N 2049 sq5 cont   w  8 cells     : 0.291 / 0.433
+    N 2049 sq5 beam   w  8 cells   82: 0.298 / 0.440
+    N 2049 sq5 beam   w 64 cells  642: 0.296 / 0.442
+    N 2049 sq5 packet w  8 cells     : 0.220 / 0.354
+    N 2049 tri pulse  w  8 cells     : 0.195 / 0.360
+    N 2049 tri cont   w  8 cells     : 0.276 / 0.459
+    N 2049 tri beam   w  8 cells   94: 0.284 / 0.460
+    N 2049 tri beam   w 64 cells  738: 0.273 / 0.457
+    N 2049 tri packet w  8 cells     : 0.199 / 0.367
+
+34/34 checks pass (96 s)

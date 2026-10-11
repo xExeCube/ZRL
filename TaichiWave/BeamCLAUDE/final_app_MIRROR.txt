@@ -1,0 +1,90 @@
+[Taichi] version 1.7.4, llvm 15.0.1, commit b4b956fd, win, python 3.12.2
+[Taichi] Starting on arch=cuda
+PASS  palette: zero 0.05, exposure 1, contrast 1 == web colorOf div (host)   [max diff 1.1e-16]
+PASS  palette: kernel == host (zero 0.05, exposure 1.0, contrast 1.0)   [max diff 6.7e-08]
+PASS  palette: kernel == host (zero 0.22, exposure 1.0, contrast 1.0)   [max diff 6.4e-08]
+PASS  palette: kernel == host (zero 0.3, exposure 1.7, contrast 2.5)   [max diff 6.9e-08]
+PASS  palette (default look): luminance rises with |u| on both signs, sign separation at |u|>=1/2   [min separation 0.526 (web app house ramp: 0.555)]
+PASS  2D mapping: cell shown == cell under the cursor, sq N=513 zoom 1.0 pan (0.0, 0.0) ox 0.0   [0 of 1,600,000 pixels differ]
+PASS  2D mapping: cell shown == cell under the cursor, tri N=257 zoom 3.7 pan (0.2, -0.1) ox 0.0   [1 of 1,600,000 pixels differ, all within 4.3e-07 cells of a cell edge]
+PASS  2D mapping: cell shown == cell under the cursor, sq N=161 zoom 12.5 pan (-0.61, 0.33) ox 0.0   [0 of 1,600,000 pixels differ]
+PASS  2D mapping: cell shown == cell under the cursor, sq N=257 zoom 1.0 pan (0.0, 0.0) ox 0.125   [0 of 1,600,000 pixels differ]
+PASS  2D mapping: cell shown == cell under the cursor, sq N=2049 zoom 0.6 pan (0.05, 0.0) ox 0.0   [0 of 1,600,000 pixels differ]
+PASS  2D mapping: cell shown == cell under the cursor, tri N=1025 zoom 1.0 pan (0.0, 0.0) ox 0.0   [8 of 1,600,000 pixels differ, all within 1.1e-05 cells of a cell edge]
+PASS  3D projection: GGUI marker pixel == world_to_screen, az 0.0 el 38.0 dist 2.9   [max error 0.170 px over 4 markers]
+PASS  3D projection: GGUI marker pixel == world_to_screen, az 35.0 el 60.0 dist 2.0   [max error 0.145 px over 4 markers]
+PASS  3D projection: GGUI marker pixel == world_to_screen, az -120.0 el 20.0 dist 3.5   [max error 0.160 px over 4 markers]
+PASS  3D projection: GGUI marker pixel == world_to_screen, az 170.0 el 85.0 dist 1.5   [max error 0.119 px over 3 markers]
+PASS  3D projection: GGUI marker pixel == world_to_screen, az 60.0 el -30.0 dist 2.5   [max error 0.063 px over 4 markers]
+PASS  3D projection: GGUI marker pixel == world_to_screen, az -45.0 el 45.0 dist 0.9   [max error 0.090 px over 3 markers]
+PASS  3D unprojection: screen_to_plane(world_to_screen(P)) == P on the rest plane   [max error 1.9e-15 world units]
+PASS  orbit: elevation / distance clamps, azimuth wraps to (-180, 180]
+PASS  orbit: no flip (screen-up has +Y) and fixed target at every elevation in [-89, 89]   [0 bad poses of 1785]
+PASS  orbit: Z / SHIFT+Z zoom stop at the distance limits   [0.15 .. 25.0]
+PASS  freelook toggle keeps the orbit state
+PASS  f32 slider round trip is not a change (Viewer.moved)   [[]]
+PASS  resize / maximise: 3D aspect follows at once, 2D buffer after settling, minimise ignored, restore reuses   [True True True True True, 3D cursor err 6.96e-14 cells]
+PASS  auto gain: a live decaying pulse is bright (step 300), a dead field fades (step 2000), reset clears the cap   [step 300 shown at 0.470 of full scale, step 2000 at 1.21e-05]
+PASS  2D paint: stroke points == intended grid points, painted cells under the path   [37 points, max offset 1.0e-13 cells, 0 path cells not solid, solid 1,620]
+PASS  2D: SHIFT+LMB paints an ERASER stroke that removes cells   [solid 1,620 -> 1,596]
+PASS  a press inside a visible panel neither paints nor drags
+PASS  3D paint (az 30, el 50, dist 2.4): stroke points == intended grid points, painted cells under the path   [25 points, max offset 1.5e-13 cells, 0 path cells not solid, solid 2,998]
+PASS  3D paint (az -140, el 25, dist 3.1): stroke points == intended grid points, painted cells under the path   [13 points, max offset 2.4e-13 cells, 0 path cells not solid, solid 3,524]
+PASS  3D: RMB drag orbits (azimuth, elevation) about the fixed target   [az 0.0 -> -28.800, el 38.0 -> 47.000]
+PASS  3D: MMB drag up zooms in, CTRL+RMB drag down zooms out   [dist 2.9 -> 2.1484 -> 2.9000]
+PASS  2D: RMB drag pans (the content follows the cursor)   [pan (-41.78, -10.44)]
+PASS  2D: zoom keeps the point under the cursor   [moved 0.0e+00 cells]
+PASS  keys W/A/S/D/Q/E change no app state
+PASS  hotkeys I / J / K (panels), T (draw mode), Y (background)
+PASS  text entry: Return opens, letters/space/BackSpace/digits type, hotkeys are suppressed, Return applies   [typed 'DEATH WVR2013', object text 'DEATH WVR2013']
+PASS  text entry: Escape cancels
+PASS  text entry: an empty text keeps the old one
+PASS  object edit (x, rotation, cap height) updates the solids
+PASS  object delete
+PASS  add rect / circle / n-gon
+PASS  U undoes the last stroke
+PASS  clear painted walls
+PASS  scene save / load round trip (same solid cells)   [3,706 solid cells]
+PASS  text entry: Return with panels hidden shows it, adding an object closes it, Return never writes a rect   [True True True True]
+PASS  N slider: a drag rebuilds nothing until the value rests, then applies it once (odd)   [mid (0, 513), applied (1025, None), resets [1025]]
+PASS  programmatic stroke behind the camera: clear ValueError, no stroke, draw mode restored   [ValueError, strokes 0 -> 0]
+PASS  cell counts: recounted only when the masks / solid count change, values right   [calls 1 1 2]
+PASS  typed values: pick mode = one row per panel; per-slider buttons add one row per slider   [rows {'main': 62, 'solids': 37, 'align': 16, 'ledger': 26}, sliders {'main': 15, 'solids': 6, 'align': 0, 'ledger': 1}, with buttons {'main': 77, 'solids': 43, 'align': 16, 'ledger': 27}]
+PASS  typed values: digits . - and BackSpace, the picking click keeps the value, empty entry keeps it   [sx -0.37, picked True kept True, "source x: nothing typed, kept -0.59"]
+PASS  typed values: 2e-3 notation, clamped to the range (with a message), int sliders round   [damp 0.02, "damping: 5 is outside 0 .. 0.02, clamped to 0.02", sub 8 "steps / frame: 7.6 rounded to 8"]
+PASS  typed values: a bad number keeps the entry open; no hotkey fires while typing; Escape cancels   [open True, state same True, text "", rad 1.0]
+PASS  typed values: Escape stops pick mode; hotkeys still work while only armed   [True True True]
+PASS  typed values: an int and a float slider in each panel take a typed value   [[('main', 'steps / frame'), ('main', 'Courant Co'), ('solids', 'brush (cells)'), ('ledger', 'interval (s)')], failed [], panels without that kind ['solids:i', 'align:i', 'align:f', 'ledger:i']]
+PASS  typed values: N goes through the settle wait, then applies once (odd)   [pending True, N 301]
+PASS  typed values: the per-slider button opens the entry; a value whose slider is not drawn is dropped   [opened True, dropped True, damp 0.0]
+PASS  typed values: real GGUI panels with pick mode armed and an entry open   [[]]
+PASS  source-moved note: none at the default sy = -0.9; "moved out of a solid" at (0, 0) on the plate, shown in the main panel   [default None, note '   source moved out of a solid to (0.079, 0.000)', core src_moved True]
+PASS  beam: O cycles vtx -> beam -> packet -> impulse   [['beam', 'packet', 'impulse']]
+PASS  beam: angle/width/freq sliders in the main panel take typed values; the beam follows live (no reset)   [sliders ['beam angle (deg)', 'beam width w (cells)', 'freq (cyc/step)'], angle 37.5, theta_k 36.99, width 12.0, step 16]
+PASS  beam: emitter overlay = aperture + arrow (4 segments), toggles off, renders in 2D and 3D   [4 segs, off True, []]
+PASS  beam: packet panel (length, wavelength; no freq); a typed wavelength relaunches the packet   [lambda 20.0, sliders ['beam angle (deg)', 'beam width w (cells)', 'packet length L (cells)', 'packet wavelength (cells)']]
+PASS  G cycles every shape, including unlicensed   [['n4', 'circle', 'n3', 'n5', 'n6', 'n8', 'n12', 'rhomb', 'unlicensed', 'square']]
+PASS  Unlicensed: entering moves the default source to sy = -0.9 (out of the A counter), plate drawn   [solid 25,537, src (256, 141)]
+PASS  Unlicensed: lettering and screw toggles   [25,537 / screws only 324 / none 0]
+PASS  Unlicensed on the triangular lattice: radius drops to 0.89   [rad 0.89, solid 17,201]
+PASS  every panel drawn in an offscreen GGUI window, 10 states, no exception   [3D default, 2D, typing, draw mode, unlicensed, tri, 3D freelook, vtx source, mode source, rhombus]
+PASS  alignment panel: edge colouring overlay drawn in both views   [6 edges]
+PASS  frame at N=2049, all panels open, 3D mesh 1025: step x4 + draw + panels + render < 85 ms   [median 99.9 ms incl. a 52.1 ms headless readback -> ~47.7 ms without it]
+PASS  frame at N=2049, all panels open, 3D mesh 513: step x4 + draw + panels + render < 30 ms   [median 65.6 ms incl. a 51.3 ms headless readback -> ~14.3 ms without it]
+PASS  frame at N=2049, all panels open, 2D: step x4 + draw + panels + render < 30 ms   [median 61.7 ms incl. a 51.9 ms headless readback -> ~9.7 ms without it]
+PASS  painting latency N=513: extend_stroke + update_solids + sync per segment   [median 2.83 ms, p95 3.38 ms, max 14.32 ms, 199 segments, brush 2 cells]
+PASS  painting latency N=2049: extend_stroke + update_solids + sync per segment   [median 2.83 ms, p95 3.26 ms, max 4.12 ms, 199 segments, brush 2 cells]
+
+contrast (mean CIE L* per pixel class; ratio = WCAG (Y1+0.05)/(Y2+0.05) domain vs background):
+view  shape   look      bg L*  outside  domain dL dom-bg  ratio
+3d    square  round 1     0.6      nan     4.4       3.8   1.08
+3d    square  now         0.6      nan    24.2      23.6   1.82
+3d    circle  round 1     0.6      nan     4.4       3.8   1.08
+3d    circle  now         0.6      6.7    24.4      23.7   1.84
+2d    square  round 1     0.5      nan     3.4       2.9   1.06
+2d    square  now         0.6      nan    24.2      23.6   1.82
+2d    circle  round 1     0.5      6.3     3.4       2.9   1.06
+2d    circle  now         0.6      8.4    24.4      23.8   1.84
+PASS  contrast now: domain >= 15 L* above the background, outside-domain >= 3 L* apart from it
+
+75/75 passed (43 s, arch cuda)

@@ -1,0 +1,19 @@
+[Taichi] version 1.7.4, llvm 15.0.1, commit b4b956fd, win, python 3.12.2
+[Taichi] Starting on arch=cuda
+n5         tri rot 12 rad 1.0: 46 text lines, buttons ['aligned = row', '< snap', 'snap >', 'apply snap', '< prev aligned', 'next aligned >', 'optimal angle', 'optimal grid flavor'], resets so far 4, rot now 6.00, lattice tri
+unlicensed sq  rot  7 rad 0.8: 38 text lines, buttons ['aligned = row or shortest diagonal', '< snap', 'snap >', 'apply snap', '< prev aligned', 'next aligned >', 'optimal angle', 'optimal grid flavor'], resets so far 7, rot now 0.00, lattice sq
+unlicensed tri rot 30 rad 1.3: 37 text lines, buttons ['aligned = row', '< snap', 'snap >', 'apply snap', '< prev aligned', 'next aligned >', 'optimal angle', 'optimal grid flavor'], resets so far 12, rot now 0.00, lattice sq
+rhomb      sq  rot 10 rad 1.0: 32 text lines, buttons ['aligned = row or shortest diagonal', '< snap', 'snap >', 'apply snap', '< prev aligned', 'next aligned >', 'optimal angle', 'optimal grid flavor'], resets so far 16, rot now 30.00, lattice tri
+circle     sq  rot  0 rad 1.0: 6 text lines, buttons ['aligned = row', '< prev aligned', 'next aligned >', 'optimal angle', 'optimal grid flavor'], resets so far 16, rot now 0.00, lattice sq
+square     sq  rot  0 rad 1.0: 15 text lines, buttons ['aligned = row or shortest diagonal', '< snap', 'snap >', 'apply snap', '< prev aligned', 'next aligned >', 'optimal angle', 'optimal grid flavor'], resets so far 17, rot now 0.00, lattice sq
+n12        sq  rot  5 rad 2.5: 17 text lines, buttons ['aligned = row', '< snap', 'snap >', 'apply snap', '< prev aligned', 'next aligned >', 'optimal angle', 'optimal grid flavor'], resets so far 18, rot now 0.00, lattice sq
+flash messages seen: 34 | last 4: ['every flavor edge is clipped away at this radius -- nothing to align', 'every flavor edge is clipped away at this radius -- nothing to align', 'every flavor edge is clipped away at this radius -- nothing to align', 'every flavor edge is clipped away at this radius -- nothing to align']
+GGUI frames drawn OK
+N=1025 n5        /tri: reseed 0.18 s | al_rep 0.02 s, al_measure 0.09 s | first panel frame 0.13 s | cached: gui_section 0.48 ms (median), whole frame 35.3 ms, empty frame 34.6 ms | set_co 0.08 s, next frame 36 ms
+N=1025 n12       /sq: reseed 0.09 s | al_rep 0.01 s, al_measure 0.14 s | first panel frame 0.18 s | cached: gui_section 0.57 ms (median), whole frame 34.8 ms, empty frame 34.8 ms | set_co 0.08 s, next frame 37 ms
+N=1025 unlicensed/sq: reseed 0.14 s | al_rep 0.03 s, al_measure 0.07 s | first panel frame 0.11 s | cached: gui_section 0.44 ms (median), whole frame 34.9 ms, empty frame 34.5 ms | set_co 0.06 s, next frame 39 ms
+N=1025 rhomb     /tri: reseed 0.07 s | al_rep 0.01 s, al_measure 0.06 s | first panel frame 0.10 s | cached: gui_section 0.37 ms (median), whole frame 34.9 ms, empty frame 34.5 ms | set_co 0.06 s, next frame 35 ms
+N=4097 n5        /tri: reseed 1.35 s | al_rep 0.16 s, al_measure 0.32 s | first panel frame 0.52 s | cached: gui_section 0.47 ms (median), whole frame 34.9 ms, empty frame 34.2 ms | set_co 1.18 s, next frame 46 ms
+N=4097 n12       /sq: reseed 1.29 s | al_rep 0.16 s, al_measure 0.38 s | first panel frame 0.57 s | cached: gui_section 0.58 ms (median), whole frame 34.9 ms, empty frame 34.3 ms | set_co 1.10 s, next frame 51 ms
+N=4097 unlicensed/sq: reseed 2.23 s | al_rep 0.19 s, al_measure 0.28 s | first panel frame 0.49 s | cached: gui_section 0.44 ms (median), whole frame 35.7 ms, empty frame 34.7 ms | set_co 0.89 s, next frame 49 ms
+N=4097 rhomb     /tri: reseed 1.02 s | al_rep 0.16 s, al_measure 0.29 s | first panel frame 0.49 s | cached: gui_section 0.37 ms (median), whole frame 35.0 ms, empty frame 34.7 ms | set_co 0.80 s, next frame 47 ms

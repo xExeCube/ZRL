@@ -1,0 +1,11 @@
+[Taichi] version 1.7.4, llvm 15.0.1, commit b4b956fd, win, python 3.12.2
+[Taichi] Starting on arch=cuda
+N= 4097 plain       939.3 us/step  (x1.00 of plain)  compile 6.4s  finite=True
+N= 4097 mur1        944.8 us/step  (x1.01 of plain)  compile 10.7s  finite=True
+N= 4097 rule        876.8 us/step  (x0.93 of plain)  compile 138.5s  finite=True
+N= 4097 sp_arr     1080.1 us/step  (x1.15 of plain)  compile 6.8s  finite=True
+N= 4097 sp_code     915.1 us/step  (x0.97 of plain)  compile 6.0s  finite=True
+N= 4097 sp_rect     865.0 us/step  (x0.92 of plain)  compile 7.0s  finite=True
+N= 4097 cpml        868.0 us/step  (x0.92 of plain)  compile 15.7s  finite=True
+N= 4097 sp_ctr     1930.2 us/step  (x2.05 of plain)  compile 2.1s  finite=True
+N= 4097 sp_ctr_mul    915.7 us/step  (x0.97 of plain)  compile 1.5s  finite=True

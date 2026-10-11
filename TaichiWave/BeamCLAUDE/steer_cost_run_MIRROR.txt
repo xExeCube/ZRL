@@ -1,0 +1,46 @@
+[Taichi] version 1.7.4, llvm 15.0.1, commit b4b956fd, win, python 3.12.2
+[Taichi] Starting on arch=cuda
+steering: measured energy direction - requested (deg), annulus 100..200 cells, w0 = 1.5 lambda
+    sq5 lam  6 energy-aim: 0:-0.00 10:-0.23 20:-0.41 30:-0.33 45:+0.00 60:+0.33 75:+0.35 90:+0.00
+    sq5 lam  6 phase -aim: 0:-0.00 10:+1.73 20:+2.61 30:+2.24 45:+0.00 60:-2.24 75:-2.32 90:+0.00
+    sq5 lam  8 energy-aim: 0:-0.00 10:-0.13 20:-0.21 30:-0.16 45:+0.00 60:+0.16 75:+0.17 90:+0.00
+    sq5 lam 12 energy-aim: 0:-0.00 10:-0.07 20:-0.09 30:-0.08 45:+0.00 60:+0.08 75:+0.09 90:+0.00
+    sq5 lam 12 phase -aim: 0:-0.00 10:+0.38 20:+0.58 30:+0.50 45:+0.00 60:-0.50 75:-0.51 90:+0.00
+    sq5 lam 24 energy-aim: 0:+0.00 10:-0.02 20:-0.02 30:-0.01 45:+0.00 60:+0.01 75:+0.02 90:+0.00
+    sq9 lam  6 energy-aim: 0:+0.00 10:-0.03 20:-0.01 30:+0.02 45:+0.00 60:-0.02 75:+0.03 90:+0.00
+    sq9 lam  6 phase -aim: 0:+0.00 10:+0.06 20:+0.12 30:+0.12 45:+0.00 60:-0.12 75:-0.08 90:+0.00
+    sq9 lam  8 energy-aim: 0:+0.00 10:-0.01 20:+0.00 30:-0.00 45:+0.00 60:+0.00 75:+0.01 90:+0.00
+    sq9 lam 12 energy-aim: 0:+0.00 10:-0.00 20:-0.00 30:-0.00 45:-0.00 60:+0.00 75:+0.00 90:+0.00
+    sq9 lam 12 phase -aim: 0:+0.00 10:+0.00 20:+0.00 30:+0.00 45:+0.00 60:-0.00 75:-0.00 90:+0.00
+    sq9 lam 24 energy-aim: 0:-0.00 10:-0.01 20:-0.01 30:-0.00 45:+0.00 60:+0.00 75:+0.01 90:-0.00
+    tri lam  6 energy-aim: 0:-0.00 10:-0.01 20:+0.02 30:+0.00 45:-0.03 60:+0.00 75:+0.03 90:-0.00
+    tri lam  6 phase -aim: 0:-0.00 10:-0.05 20:-0.02 30:-0.00 45:+0.02 60:-0.00 75:-0.02 90:+0.00
+    tri lam  8 energy-aim: 0:+0.00 10:-0.01 20:+0.00 30:-0.00 45:-0.01 60:+0.01 75:+0.01 90:-0.00
+    tri lam 12 energy-aim: 0:-0.00 10:-0.00 20:-0.00 30:+0.00 45:+0.00 60:+0.03 75:-0.00 90:+0.00
+    tri lam 12 phase -aim: 0:-0.00 10:-0.00 20:-0.01 30:-0.00 45:+0.00 60:-0.00 75:-0.00 90:+0.00
+    tri lam 24 energy-aim: 0:+0.00 10:-0.00 20:-0.00 30:+0.00 45:+0.00 60:+0.02 75:-0.00 90:-0.00
+  [PASS] energy-aimed beam within 1 deg of the request (lambda >= 8)  worst 0.21 deg
+  [PASS] energy-aimed beam within 2 deg at lambda 6  worst 0.41 deg
+cost per step (ms), record off / on
+    N 1025 sq5 pulse  w  8 cells     : 0.097 / 0.138
+    N 1025 sq5 cont   w  8 cells     : 0.165 / 0.252
+    N 1025 sq5 beam   w  8 cells   82: 0.172 / 0.232
+    N 1025 sq5 beam   w 64 cells  642: 0.211 / 0.267
+    N 1025 sq5 packet w  8 cells     : 0.087 / 0.141
+    N 1025 tri pulse  w  8 cells     : 0.105 / 0.162
+    N 1025 tri cont   w  8 cells     : 0.186 / 0.233
+    N 1025 tri beam   w  8 cells   94: 0.221 / 0.261
+    N 1025 tri beam   w 64 cells  738: 0.206 / 0.266
+    N 1025 tri packet w  8 cells     : 0.106 / 0.149
+    N 2049 sq5 pulse  w  8 cells     : 0.218 / 0.345
+    N 2049 sq5 cont   w  8 cells     : 0.288 / 0.431
+    N 2049 sq5 beam   w  8 cells   82: 0.299 / 0.439
+    N 2049 sq5 beam   w 64 cells  642: 0.299 / 0.434
+    N 2049 sq5 packet w  8 cells     : 0.217 / 0.349
+    N 2049 tri pulse  w  8 cells     : 0.197 / 0.358
+    N 2049 tri cont   w  8 cells     : 0.292 / 0.495
+    N 2049 tri beam   w  8 cells   94: 0.277 / 0.458
+    N 2049 tri beam   w 64 cells  738: 0.275 / 0.457
+    N 2049 tri packet w  8 cells     : 0.196 / 0.392
+
+2/2 checks pass (73 s)

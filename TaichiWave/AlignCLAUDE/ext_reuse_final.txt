@@ -1,0 +1,41 @@
+[Taichi] version 1.7.4, llvm 15.0.1, commit b4b956fd, win, python 3.12.2
+[Taichi] Starting on arch=x64
+JS dump: 0.0 s, 2370 configs
+port: 71.1 s
+
+function                                    agree
+al_class                             1460/1460  
+al_lattice_dir                       1460/1460  
+al_near_dir                          5840/5840  
+al_angles                              50/50    
+al_gcd_f                               30/30    
+al_canon                               70/70    
+al_rot_deg / al_lat                  2370/2370  
+al_dirs                              2370/2370  
+al_count                             2370/2370  
+al_sym_period                        2370/2370  
+fits_inside                          2370/2370  
+al_nothing_left                      2370/2370  
+al_edges                             2370/2370  
+al_measure                           2370/2370  
+al_edge_report                       2370/2370  
+ledger 7c (period)                   2370/2370  
+ledger 7c-bis (straightness)         2370/2370  
+al_list                              4740/4740  
+al_canon (per entry)                 4740/4740  
+al_best_of                           4740/4740  
+al_flavor_pick                       4740/4740  
+NOTE text (al_note)                  4740/4740  
+snap list (al_snap_options)          4740/4740  
+al_step(+1)                          4740/4740  
+al_step(-1)                          4740/4740  
+al_optimal                           4740/4740  
+al_flavor                            4740/4740  
+(edge normals compared mod 360: 1 read 0 in the JS and 360 - eps here, or back)
+(sliver edges < 0.001 cells compared at 1e-13*N/len: 21 differ at the strict 1e-9, in 11 configs; some shown below)
+    rad_none_rhomb_sq_t45_r45_R3.501199877528295 len 1.060e-06: [2].nx: js=-0.3826834297357063 py=-0.38268343447524455
+    rad_none_rhomb_sq_t45_r45_R3.501199877528295 len 1.060e-06: [3].nx: js=-0.9238795327872368 py=-0.9238795316372321
+    rad_none_rhomb_sq_t45_r45_R3.501199877528295 len 1.060e-06: [6].nx: js=0.3826834249961681 py=0.38268342025663016
+    rad_none_rhomb_sq_t45_r45_R3.501199877528295 len 1.060e-06: [7].nx: js=0.9238795327872368 py=0.9238795316372321
+
+TOTAL 82380/82380 comparisons agree over 2370 configs (+ the pure sweep)
