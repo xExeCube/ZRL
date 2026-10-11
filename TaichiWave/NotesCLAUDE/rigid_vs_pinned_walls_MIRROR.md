@@ -4,6 +4,8 @@ Research note for the Taichi port of the ZRL 2D membrane. **Analysis and prototy
 
 *Generated from scratch — Claude Opus 5.5 — 29/09/2026 (prototypes) and 30/09/2026 (runs, note)*
 
+*Fact-checked and corrected — Claude Opus 5.5 — 01/10/2026. Every changed passage carries a "corrected 01/10/2026" line. Evidence, check by check: `ScratchCLAUDE/ReviewCLAUDE/findings_walls_v3_MIRROR.md`; new scripts and outputs: `ScratchCLAUDE/WallsCLAUDE/v3_*`. The reruns of `checks`, `energy_leak`, `circle_eigs` and `chain_reflection` reproduced the stored outputs exactly (timings aside).*
+
 ---
 
 ## 0. The short answer
@@ -11,17 +13,21 @@ Research note for the Taichi port of the ZRL 2D membrane. **Analysis and prototy
 - **Pinned** (u = 0, Dirichlet) is what every wall, solid and mask edge does today. It is right for a **membrane** held down by a post or a glued shape, and for acoustics with a **pressure-release** surface. It reflects with **R = −1** (the pulse comes back inverted).
 - **Rigid** (∂u/∂n = 0, Neumann) is right for **sound hitting a hard object** (u = pressure), for **water ripples off a quay** (u = surface height), and for a membrane edge on a **frictionless ring**. It reflects with **R = +1** (the pulse comes back upright). "A wave bouncing off a cube / off text" in the everyday sense is this one.
 - **The rule to implement later:** rigid = **link removal** (drop every stencil link that touches a rigid cell), with **corner blocking** for the diagonal links of sq9 and tri. It keeps the operator a symmetric graph Laplacian, so it:
-  - conserves the discrete energy exactly (measured drift ≤ 2e-14 over 20 000 steps);
-  - never tightens the CFL limit (λ_max ≤ the open-lattice value, measured);
-  - leaks nothing through one-cell walls (measured: exactly 0.0).
+  - conserves the discrete leapfrog energy exactly, up to round-off (measured drift ≤ 2e-14 over 20 000 steps for a pulse; 3e-13 to 2e-12 for random noise near the CFL limit). §2 (ii) says exactly which quantity this is;
+  - never tightens the CFL limit (λ_max ≤ the open-lattice value: proven for P and R0, measured for corner-blocked pinned and R1);
+  - leaks nothing through one-cell walls (measured: exactly 0.0, and no link crosses such a wall).
+
+  *corrected 01/10/2026: added what is conserved, the round-off qualifier, and which CFL statements are proven and which are only measured.*
 - **One kernel handles both types:** a per-cell type byte (or a precomputed 16-bit link word) replaces the mask. Pinned links stay (the neighbour holds 0); rigid links are dropped. Measured cost: **+2 % to +20 %** per step for the link word (§3.12).
 - **The price of rigid walls is staircase roughness** (§3.3, §3.11):
-  - a rotated rigid square scatters **+25–33 %** more than the same square axis-aligned on sq5, +4–27 % on sq9, and within ±10 % on tri;
+  - an 11-cell rotated rigid square scatters **+25–33 %** more than the same square axis-aligned on sq5, +4–27 % on sq9, and within ±10 % on tri. On sq5, at the same size in wavelengths but with twice the cells (side 21), the excess falls to **+17–18 %**. It shrinks with resolution, but slowly (*corrected 01/10/2026*: the note used to say it does not shrink);
   - a pinned one stays within ±3 % on every lattice.
   - Up to 117° reflection phase error at grazing incidence on 45° rigid staircases (λ = 8).
 - **Two things to fix for pinned walls now, before rigid walls exist** (§4.2, §5.4):
-  - *Leak:* a one-cell 8-connected diagonal wall leaks through the sq9 diagonals (**2.3 %** of the energy) and through one tri direction (**17 %**). Text strokes will produce exactly such walls. Corner blocking stops it (measured 0).
-  - *Offset:* a pinned wall acts at the **centres of the first solid cells**, half a cell deeper than the drawn edge. So pinned objects act ~1 cell thinner than drawn, and pinned cavities ~1 cell wider.
+  - *Leak:* a one-cell 8-connected diagonal wall leaks through the sq9 diagonals (**2.3 %** of Σu² for the test pulse). On tri, one specific one-cell wall pattern leaks **17 %**: two solid cells √3 apart with a free–free link between them. Thresholded text and thin brush strokes produce the sq9 pattern (measured for brush lines at 45° with radius < 0.71). On tri, brush lines of radius ≥ 0.5 never produced the leaking pattern, so whether text does is unmeasured. Corner blocking stops every case (measured 0).
+  - *Offset:* a pinned wall acts at the **centres of the first solid cells**, 0.35–0.5 cells deeper than the drawn edge on each face. So pinned objects act ~0.7–1 cell thinner than drawn, and pinned cavities ~0.7–1 cell wider.
+
+  *corrected 01/10/2026: the leak figures are fractions of Σu² for one test pulse, not of the energy. The tri pattern and the evidence about text are now stated precisely. The offset is now per face.*
 
 ---
 
@@ -40,6 +46,8 @@ Research note for the Taichi port of the ZRL 2D membrane. **Analysis and prototy
 | 2D EM, TE (H_z) | H_z | perfect conductor | ∂H_z/∂n = 0 | +1 |
 
 *(Standard physics.)* Both walls reflect **all** the energy: |R| = 1. What differs is the phase.
+
+*Added 01/10/2026:* a membrane edge with **nothing** attached is not a physical "free edge": a membrane carries its tension in-plane, and a truly free edge cannot hold it. The Neumann membrane edge is the idealised one in the table: the edge is held in-plane, so the tension stays, but it slides transversely without friction (massless rings on frictionless rods). Its transverse force T ∂u/∂n must then vanish.
 - **Pinned:** the displacement must vanish at the wall, so the reflected wave cancels the incident one there. R = −1: a crest returns as a trough.
 - **Rigid:** the slope must vanish, so the two waves add at the wall. R = +1: a crest returns as a crest, and the wall is a pressure (displacement) antinode, with a 2× peak on contact.
 
@@ -50,7 +58,7 @@ The pinned wall is what a **membrane** does around a post. It also makes a **sma
 - a rigid point is almost invisible to it.
 
 The lattice reproduces this exactly (§3.10):
-- **Pinned single cell:** its scattering width *grows* with λ, like λ^0.47. It acts like a Dirichlet disc of radius 0.20 cells at every λ.
+- **Pinned single cell:** its scattering width *grows* with λ (local exponent +0.47 between λ = 16 and 32). It acts like a Dirichlet disc of radius 0.20 cells at every λ. *(Added 01/10/2026: this matches the standard lattice-Green's-function radius of one pinned site on the 5-point lattice, e^−γ/(2√2) = 0.1985. That constant is from memory, not derived here.)*
 - **Rigid single cell:** its scattering width falls like λ^−3.0, the 2D Rayleigh law.
 
 At λ = 32 cells the pinned cell scatters **304×** more energy than the rigid one.
@@ -63,7 +71,9 @@ R(θ) = (ζ cos θ − 1) / (ζ cos θ + 1).
 
 - ζ → ∞: rigid (R = +1).
 - ζ → 0: pressure release (R = −1).
-- ζ = 1: absorbs at normal incidence (R = 0). This is exactly Mur's first-order absorbing condition.
+- ζ = 1: absorbs at normal incidence (R = 0). Its continuum condition, ∂p/∂t + c ∂p/∂n = 0, is the first-order one-way (Engquist–Majda) condition, and Mur's first-order ABC discretises it.
+
+*corrected 01/10/2026: the note used to say "exactly Mur's first-order condition". Mur 1981 is a discretisation of this continuum condition, not the condition itself. Derived here: p = Z v_n with ρ ∂v_n/∂t = −∂p/∂n gives ∂p/∂t + ζc ∂p/∂n = 0. That reproduces the R(θ) above and the ghost coefficient k = (ζCo − 1)/(ζCo + 1) used in §3.4.*
 
 In between, the wall absorbs part of the energy. This is the natural third wall type (carpet, foam, a damped rim).
 
@@ -95,6 +105,11 @@ Cell types: FREE, PIN, RIG. The rules for a link from a free cell i to its neigh
 **(ii) R0 — rigid by link removal.**
 - j is rigid: the term is dropped.
 - The operator stays a symmetric graph Laplacian, so leapfrog conserves the discrete energy E = Σ(Δu)²/Co² − ⟨u⁺, L u⟩ exactly.
+  - *Made precise 01/10/2026.* With u⁺ − 2u + u⁻ = Co² L u, take the dot product with (u⁺ − u⁻) and use L = Lᵀ. Then E^{n+½} = ‖u^{n+1} − u^n‖²/Co² − ⟨u^{n+1}, L u^n⟩ is the same at every step, for any symmetric L and any Co. The sums run over free cells, with unit weight per cell; that is right for these uniform lattices at h = 1.
+  - Link by link: E = Σ_free (u_i^{n+1} − u_i^n)²/Co² + Σ_{active free–free links} w (u_i^{n+1} − u_j^{n+1})(u_i^n − u_j^n) + Σ_{links to pinned, incl. pinned-blocked} w u_i^{n+1} u_i^n. **Rigid links contribute no term:** the wall does no work, and no energy crosses it.
+  - E is a time-staggered quantity, not the kinetic + potential energy at one time level. It is a norm (positive) only when Co² λ_max(−L) < 4, i.e. inside the CFL limit.
+  - Quantities that are **not** conserved: Σu², the mean, and any single-level "energy". In a closed rigid cavity the mean *velocity* is conserved, so the mean drifts linearly (§3.7).
+  - Measured independently (`ScratchCLAUDE/WallsCLAUDE/v3_energy_MIRROR.py`, built from its own edge list rather than `walls_lib`): the operator equals `walls_lib.build_L` to 2e-16 on sq9 and tri, with mixed pinned and rigid cells. The link form equals the matrix form. Drift over 20 000 steps is 3e-13 to 2e-12 for random-noise data at 0.95 and 0.999 × the scene's CFL limit. That is round-off: the noise put DC velocity into enclosed rigid pockets, so Σu² grew 100×.
 - For a flat axis-aligned wall, it equals a **ghost mirror with the wall half a cell out**, on the rasterisation line: the neighbour reads u_i itself, and w(u_i − u_i) = 0.
 - Measured: exactly R = +1 with zero offset at every λ on sq5 axis walls, at every angle (§3.3).
 
@@ -103,7 +118,7 @@ Cell types: FREE, PIN, RIG. The rules for a link from a free cell i to its neigh
 - R1 gives the dropped weight back to the tangential link along the wall, then symmetrises: W = (T + Tᵀ)/2.
   - It moves τ·w of each dropped link (sq9: a dropped diagonal) onto the in-wall link between the free cell and its free common neighbour, with τ = 1 on sq9 and τ = 1/4 on tri.
   - It only applies when the dropped link's two "common neighbours" are one free and one rigid.
-- **On sq9 with a straight rigid ring, R1 is identical to the ghost-copy Neumann ring with corner u(0,0) = u(1,1)** (measured 3.6e-15). That is exactly the corner fix proposed in the README's web-app finding.
+- **On sq9 with a straight rigid ring, R1 is identical to the ghost-copy Neumann ring with corner u(0,0) = u(1,1)** (measured 3.6e-15). That is the first of the two corner fixes the README proposes (line 114: u(0,0) = u(1,1), or the mean of the two side neighbours). *corrected 01/10/2026: the README offers two fixes; R1 matches only the first.*
 - R1 makes sq9 axis walls exact at every angle, and tri row walls nearly so (§3.3). It changes nothing on 45° staircases.
 
 **(iii) RG — ghost mirror along an estimated normal.**
@@ -114,18 +129,22 @@ Cell types: FREE, PIN, RIG. The rules for a link from a free cell i to its neigh
 - Not recommended for an explicit scheme without further stabilisation.
 
 **(iv) Embedded-boundary / cut-cell methods for oblique walls.** *(literature, plus two sq5 prototypes measured here)*
-- **Dirichlet:** Gibou, Fedkiw, Cheng & Kang (J. Comput. Phys. 2002) keep the operator symmetric by placing u = 0 at the true crossing point, at link fraction θ: the term becomes −u_i/θ. Second order.
-  - Measured here (GB): j01 error 5e-4 → 9e-6 from R = 8 to 64 (≈ second order).
+- **Dirichlet:** Gibou, Fedkiw, Cheng & Kang (J. Comput. Phys. 176, 2002) keep the operator symmetric by placing u = 0 at the true crossing point, at link fraction θ: the term becomes −u_i/θ. Second order in the solution.
+  - Measured here (GB): j01 error 5.0e-4 → 9.3e-6 from R = 8 to 64 at the cell-centred disc (p ≈ 1.9).
   - But λ_max grows like 1/θ. With θ_min = 0.001, λ_max reached **113× the open-lattice value**, which would cut the explicit time step ~10×.
-  - With θ_min = 0.25: λ_max ×1.3 (Co −13 %), error 1e-4 to 1e-3.
+  - With θ_min = 0.25: λ_max ×1.3 (Co −13 %), error 1.4e-4 to 2.3e-3. At the offset centre it is first order (2.25e-3 → 3.4e-4, p ≈ 0.9).
   - With θ_min = 0.5: CFL-neutral, but back to first order.
 - **Neumann:** finite-volume cut cells (face apertures + volume fractions, symmetric with respect to V).
-  - Measured here (CF): j'11 error 3e-4 → 2e-5 from R = 8 to 64.
+  - Measured here (CF): j′11 error 3.4e-4 → 2.1e-5 (cell-centred) and 2.8e-4 → 6.7e-6 (offset) from R = 8 to 64. That is order p ≈ 1.35 and 1.8: better than first order, but not cleanly second.
   - But the small-cell problem gives λ_max up to **12×** (Co ÷3.5).
-  - Flooring V at 0.25 costs +9 % λ_max and gives back first order.
-  - The literature fixes small cells by **cell merging** or **flux redistribution** (Colella and co-workers' embedded-boundary work, e.g. J. Comput. Phys. 2006).
-- For the second-order wave equation specifically: Kreiss, Petersson & Yström (SIAM J. Numer. Anal. 2002 Dirichlet, 2004 Neumann) give stable embedded-boundary schemes.
-- In FDTD electromagnetics, staircase error was analysed by Cangellaris & Wright (IEEE TAP 1991), and conformal FDTD (Dey & Mittra 1997) fixes it.
+  - Flooring V at 0.25 costs +9 % λ_max and gives back first order (p ≈ 1.1).
+  - The literature fixes small cells by **flux redistribution** (e.g. Colella, Graves, Keen & Modiano, J. Comput. Phys. 211, 2006) or by **cell merging** (an older, separate approach; no reference verified here).
+- For the second-order wave equation specifically: Kreiss, Petersson & Yström (SIAM J. Numer. Anal. 40, 2002, Dirichlet; 42, 2004, Neumann) give stable embedded-boundary schemes. Kreiss & Petersson (SIAM J. Sci. Comput. 2006) give a second-order Dirichlet embedded boundary.
+- In FDTD electromagnetics, staircase error was analysed by Cangellaris & Wright (IEEE Trans. Antennas Propag. 39, 1991). The locally conformal FDTD of Dey & Mittra (IEEE Microwave Guided Wave Lett. 7, 1997) reduces it.
+- *corrected 01/10/2026:*
+  - The cut-cell (CF) rate was overstated as second order; the GB θ_min = 0.25 error range and rate are now given.
+  - Colella et al. 2006 is a redistribution paper, not cell merging.
+  - The volume numbers and venues above are from memory, not checked against the papers. The same goes for the Kreiss & Petersson 2006 paper.
 - None of this is needed for the first rigid-wall version. It is the upgrade path if the rigid staircase error (§3.3, §3.11) matters.
 
 **Corner blocking** (sq9 diagonals, tri links).
@@ -149,7 +168,9 @@ Rigid links and rigid-blocked links are dropped. Because pinned cells hold u = 0
 
 All in numpy/scipy, f64, h = 1, leapfrog. The operators are built as explicit sparse matrices by `walls_lib_MIRROR.py`, so symmetry, spectrum and energy are checked directly.
 
-### 3.1 Sanity (`checks_MIRROR.py` → `checks_out_MIRROR.txt`): 22/22 PASS
+### 3.1 Sanity (`checks_MIRROR.py` → `checks_out_MIRROR.txt`): 19/19 PASS
+
+*corrected 01/10/2026: the header used to say 22/22. The script runs 19 pass/fail checks (3 port-equality, 15 symmetry, 1 R1 = ghost ring) and prints 6 second-moment readings. Rerun on 01/10: identical. The 0.8333 was checked by hand: the boundary row keeps 2 edge links (2/3 each) and 2 diagonals (1/6 each), which gives 2/3 + 1/6 = 5/6.*
 
 - **Rule P reproduces the port's pinned stencils** (zero padding) for sq5, sq9 and tri: max diff 1.8e-15 to 3.6e-15.
 - **Every rule is exactly symmetric** (|L − Lᵀ| = 0) on a scene holding every hard case: a fin, a one-cell diagonal wall, a single cell, a 3×3 block, a closed ring with a counter, a concave notch.
@@ -228,7 +249,9 @@ Two forms:
 - **Z (damping on the boundary cell):** the links to the wall are dropped, and u⁺ = (… + g u⁻)/(1 + g), with g = Co Σ w·(normal link length)/(2ζ).
 - **ZM (generalised Mur ghost):** g^{n+1} = i^n + k (i^{n+1} − g^n), with k = (ζCo − 1)/(ζCo + 1).
 
-Selected values (sq5; sq9 is within 0.01 of these at λ = 32):
+Selected values (sq5; sq9 is within 0.01 of these at λ = 32 for ZM):
+
+*corrected 01/10/2026: the "within 0.01" holds for ZM only. The Z form's phase error is larger on sq9 at oblique incidence. For example, ζ = 5, θ = 60°, λ = 32 gives +0.428 + 0.058i on sq9 against +0.430 + 0.008i on sq5; at λ = 8, sq9 reaches +0.417 + 0.230i.*
 
 | ζ | θ | exact | Z at λ = 32 | ZM at λ = 32 | Z at λ = 8 | ZM at λ = 8 |
 |---|---|---|---|---|---|---|
@@ -253,7 +276,15 @@ Selected values (sq5; sq9 is within 0.01 of these at λ = 32):
 | sq9 | 1.8e-14 | 1.9e-14 | 1.7e-14 | 1.9e-14 | 1.7e-14 | 1.9e-14 |
 | tri | 1.4e-14 | 1.6e-14 | 1.2e-14 | 1.4e-14 | 1.2e-14 | 1.6e-14 |
 
-**λ_max(−L)/λ_open** (the CFL radius) is 0.9994–0.9997 on the scene and 0.971–0.990 on a random 15 %-solid grid. It is **never above 1**, for any rule: removing links (or adding a pinned diagonal term) cannot raise the Gershgorin bound. **Rigid walls cost no time step.**
+**λ_max(−L)/λ_open** (the CFL radius) is 0.9994–0.9997 on the scene and 0.971–0.990 on a random 15 %-solid grid. It is **never above 1** in any run. **Rigid walls cost no time step.**
+
+*corrected 01/10/2026:* the old reason was "removing links cannot raise the Gershgorin bound". That proves nothing on sq9 and tri, because their open λ_max (16/3 and 6) lies *below* their Gershgorin bounds (20/3 and 8).
+- **Valid proof for P and R0 (including rigid corner blocking):** on the free cells, the quadratic form of −L equals the open-lattice form of the zero-extended vector minus non-negative terms. So by the Rayleigh quotient, λ_max ≤ λ_open.
+- **Not covered by that proof:**
+  - Pcb: a pinned-blocked diagonal contributes w(x_i² + x_j²) where the open form has w(x_i − x_j)².
+  - R1: it adds weight to links.
+- An adversarial hill-climb (`v3_energy_MIRROR.py`; 14×14 boxes, 6 starts × 400 cell flips) found at most 0.9924 (sq9 Pcb), 0.9915 (sq9 R1), 0.9905 (tri Pcb) and 0.9817 (tri R1). None is above the near-empty-box value.
+- So for Pcb and R1 the claim is safe in practice, but not proven.
 
 *Compare:* the non-symmetric ghost normal (RG) grows without bound (§2 (iii)). The cut-cell and Gibou forms raise λ_max by up to 12× and 113× without floors (§2 (iv)).
 
@@ -268,6 +299,11 @@ Selected values (sq5; sq9 is within 0.01 of these at λ = 32):
 | anti-diagonal i + j = n − 1 | 0 | 2.3e-2 | 0 | 0.76 | 0 | 0 | 0 | 0 | 0 |
 
 Brush-rasterised lines at 0–90° (the hand-drawn case): the only leaks are sq9 at 45° with brush radius r < √2/2 (P 9.2e-3, R0nb 0.71). At r ≥ 0.71 the rasterisation is 4-connected, and nothing leaks on any lattice or rule.
+
+*Added 01/10/2026:*
+- The rerun reproduced every entry: sq9 P 2.28e-2, R0nb 0.757; tri P 0.174, R0nb 0.753.
+- An independent structural count (`v3_leaklinks_MIRROR.py`) confirms the zeros. For every straight wall, and for every wall once blocking is on, **no** free–free link joins the two sides. Without blocking, 40 links cross the sq9 diagonal and anti-diagonal walls and the tri i = j wall (41² grid).
+- The non-zero leak values belong to one test: a Gaussian pulse (σ = 2.5 cells), Co = 0.5, 500 steps. They are fractions of Σu², not of the energy, and they depend on the wavelength. Low frequencies pass through any weak coupling, which is why the R0nb wall, coupled only through 1/6-weight diagonals, passes ~76 %.
 
 Reading it:
 - A pinned one-cell diagonal wall leaks a little on sq9 (the diagonal link reads a free cell *through* the wall) and a lot on tri in one direction. The tri link (1,−1) crosses an i = j staircase; the other diagonal is a lattice row pair, so it doesn't leak.
@@ -299,12 +335,18 @@ A hard (prescribed-u) source inside the cavity removes the zero mode (the source
 
 (Mode 2 — j11 for P; j′21 = 3.054237 for rigid — behaves the same, with R·|err| up to 0.24 for R0. The j′02 = 3.831706 errors are the smallest, ≤ 5e-4 at R = 128. Per-centre fits and all raw errors are in the output.)
 
+*Checked 01/10/2026:*
+- All quoted Bessel values match scipy: j01 = 2.404826, j11 = 3.831706, j′11 = 1.841184, j′21 = 3.054237, j′02 = 3.831706.
+- The label j′02 counts the trivial zero x = 0 of J0′ as j′01. scipy's `jnp_zeros(0, 1)` already returns 3.8317. In the Neumann disc spectrum it is the third non-zero eigenvalue; the constant mode is the first eigenvalue.
+- The bulk corrections c4 were checked by hand: sq5 1/16 (angle average), and sq9 1/12 and tri 1/16, both isotropic.
+- The rerun reproduced the table exactly.
+
 Reading it:
-- **Every staircase rule converges at first order.** The error is a boundary offset of order one cell, as expected.
-- **Pinned:** the frequency is always **too low** (one sign), by an effective radius **+0.3 to +0.42 cells** (the pinned wall sits beyond the mask edge). This is systematic, so a mask drawn ~0.35 cells smaller cancels most of it.
-- **Rigid:** errors are 2–3× smaller (the wall sits on the rasterisation line) but erratic in sign at the cell-centred disc. **R1** is the most accurate.
+- **Every staircase rule is first order at worst:** the error is a boundary offset of at most about one cell. *corrected 01/10/2026: at the offset centre the fitted order is 0.98–1.11 for every rule. At the cell-centred disc the rigid errors are small and have no clean rate (fitted p = 0.05 for sq5 R0, −0.72 for sq9 R0, with sign changes). There "first order" is only a bound, R·|err| ≤ 0.07.*
+- **Pinned:** the frequency is always **too low** (one sign), by an effective radius **+0.27 to +0.42 cells** (the pinned wall sits beyond the mask edge). This is systematic, so a mask drawn ~0.35 cells smaller cancels most of it.
+- **Rigid:** errors are ~3× smaller at the offset centre, and 5× or more at the cell-centred disc (the wall sits on the rasterisation line). They are erratic in sign at the cell-centred disc. **R1** is the most accurate. *corrected 01/10/2026: this used to say "2–3× smaller".*
 - **Reference methods (sq5):**
-  - cut cells and Gibou are second order but pay in CFL (§2 (iv));
+  - Gibou is second order and cut cells are order 1.35–1.8; both pay in CFL (§2 (iv)). *corrected 01/10/2026: this used to say "both second order".*
   - the ghost normal (RG) is first order, *worse* than R0 (R·err ≈ 0.25–0.3), and unstable in time.
 - A pooled log-log fit reported p = 0.15 for sq9 R0 on 29/09, because the error changes sign between radii. That figure was wrong and is replaced by this table.
 
@@ -332,14 +374,20 @@ sq5, σ in cells:
 
 | obstacle | fitted radius | equal-area radius | what it matches |
 |---|---|---|---|
-| pinned single cell | Dirichlet 0.206 / 0.199 / 0.197 (λ = 8 / 16 / 32) | 0.564 | a point clamp |
-| pinned 3×3 | Dirichlet 1.28–1.31 | 1.69 | the ring of solid cell *centres* (a 2×2 square) |
-| rigid single cell | Neumann 0.68–0.69 | 0.564 | the faces of the solid cells |
-| rigid 3×3 | Neumann 1.85–1.90 | 1.69 | the faces of the solid cells |
+| pinned single cell | Dirichlet 0.206 / 0.199 / 0.197 (λ = 8 / 16 / 32) | 0.564 | a point clamp: the lattice radius of one pinned site, e^−γ/(2√2) = 0.1985 |
+| pinned 3×3 | Dirichlet 1.31 / 1.28 / 1.28 | 1.69 | a square of side ~2.2. That is a little larger than the 2×2 square of solid cell *centres*, whose capacity radius is 0.590 × 2 = 1.18 |
+| rigid single cell | Neumann 0.73 / 0.69 / 0.68 | 0.564 | larger than its faces would give (see below) |
+| rigid 3×3 | Neumann 2.62 / 1.90 / 1.85 | 1.69 | between the cell and the faces (see below) |
 
-The fitted radius is **constant with λ**, so the lattice obstacles follow the continuum laws, not just their trend:
-- pinned ~ 1/(k ln²(ka));
-- rigid ~ k³a⁴.
+For the pinned obstacles, and for the rigid ones at λ ≥ 16, the fitted radius is **nearly constant with λ**. So the lattice obstacles follow the continuum laws, not just their trend:
+- pinned: σ ≈ (4/k)/(1 + (2/π)²(ln(ka/2) + γ)²), i.e. ~1/(k ln²(ka)) at leading order;
+- rigid: σ ≈ (3π²/4) k³a⁴ (checked against the series here: agrees to 0.3 % at ka = 0.1).
+
+*corrected 01/10/2026:*
+- The rigid obstacles were not fitted at λ = 8 before. There the fits give 0.73 and 2.62, so "constant with λ" holds for rigid only from λ = 16.
+- **"Rigid matches the faces of the solid cells" is not supported.** The same shape scaled by 3 would give 3 × 0.681 = 2.04 for the 3×3 block, but 1.85 is measured. Per unit side, the single rigid cell acts larger (0.68) than the block (0.62).
+- **"Pinned 3×3 = the 2×2 centre square" was too strong.** The centre square's logarithmic-capacity radius, Γ(1/4)²/(4π^{3/2}) × side = 1.18, is ~8 % below the fit.
+- The lattice-site radius and the square-capacity constant are standard results quoted from memory. The fits are from `v3_series_MIRROR.py`.
 
 **sq9 and tri** (σ in cells; the tri cell has area √3/2, and its "3×3" is a 3×3 rhombus of cells, area 7.79):
 
@@ -397,7 +445,18 @@ Reading it:
 - **Pinned is orientation-robust:** a rotated pinned square scatters within **±3 %** of the axis-aligned one on every lattice, the same size as the disc reference. The pinned staircase really is "a smooth face shifted inward" (§3.3).
 - **Rigid on sq5 is not:**
   - the staircase-faced square scatters **+25 % to +33 %** more, at λ = 8 *and* λ = 16;
-  - at λ = 16 the disc reference is within 1 %, so this is the staircase itself, and it does **not** shrink with resolution between these two λ.
+  - at λ = 16 the disc reference is within 1 %, so this is the staircase itself.
+  - *corrected 01/10/2026:* this line used to add "and it does **not** shrink with resolution between these two λ". That does not follow. Going from λ = 8 to λ = 16 at a fixed 11-cell side changes the object's size in wavelengths (ka) as well as the cells per wavelength, so it is not a resolution test.
+  - **True resolution test** (`ScratchCLAUDE/WallsCLAUDE/v3_resolution_MIRROR.py` → `v3_resolution_sq5_x2_MIRROR.txt`): side 21 at λ = 8·21/11 = 15.3, the same ka as side 11 at λ = 8 with 1.9× the cells per wavelength.
+
+    | sq5 | rot 30°: P / R0 / R0 disc ref | rot 45°: P / R0 / R0 disc ref |
+    |---|---|---|
+    | side 11, λ = 8 | 1.034 / 1.254 / 1.245 | 1.004 / 1.330 / 1.224 |
+    | side 21, λ = 15.3 | 1.021 / **1.166** / 0.988 | 0.989 / **1.180** / 1.038 |
+
+  - The rigid excess falls from +25/+33 % to +17/+18 %, i.e. it shrinks by roughly a factor of 0.55–0.65 for 1.9× the resolution, about first order. Over the same step the disc reference's direction dependence falls from 22–24 % to 1–4 %.
+  - Cell counts are 441 / 441 at 30° and 441 / 421 at 45°. The 45° rotated square has 4.5 % fewer cells, which if anything lowers its σ.
+  - A first attempt with side 22 rasterised to 441 vs 485 cells, the same area trap as on 30/09. It is kept as `v3_resolution_sq5_x2_side22_MISMATCH_MIRROR.txt` and not used.
   - At λ = 8 even the rigid *disc* depends on the incident direction by 22–24 % on sq5 and sq9 (it falls to ≤ 4 % at λ = 16).
 - **sq9:** R0 +4 % to +14 %. **R1 is worse (+16 % to +27 %).** R1 makes the axis-aligned faces exact, so the axis square scatters less, but it does nothing for the stairs. The pair then disagrees more.
 - **tri:** the rigid rotated/axis difference is **−6 % to +10 %**, the same size as its own disc reference (−6 % to +5 %). On tri neither square is staircase-free: tri has no vertical lattice line, so the "axis" square's vertical faces are staircases too. Both scenes carry comparable roughness.
@@ -451,7 +510,7 @@ A prototype Taichi kernel with the core's shape: K = 8 steps unrolled per launch
   - It removes weight symmetrically, so energy stays exact and CFL does not tighten (measured on every scene, §3.5).
   - A pinned blocker contributes −w u_i (a link to a zero); two rigid blockers drop the link.
   - The *either*-solid variant would also be symmetric, but it removes the diagonals running along every face. Not used.
-- **Text will produce these walls:** anti-aliased glyph edges thresholded to a mask give 8-connected diagonal steps on every curve. Brush radius ≥ √2/2 (4-connected strokes) is the rasterisation-side fix; corner blocking is the stencil-side fix. **Do both.**
+- **Text will produce these walls on sq9:** anti-aliased glyph edges thresholded to a mask give 8-connected diagonal steps on every curve. *corrected 01/10/2026: for tri this is unmeasured. Brush lines of radius ≥ 0.5 never produced the leaking tri pattern (§3.6).* Brush radius ≥ √2/2 (4-connected strokes) is the rasterisation-side fix; corner blocking is the stencil-side fix. **Do both.**
 
 ### 4.3 Convex and concave corners
 - At a **convex** rigid corner, link removal leaves the corner-adjacent free cell with its tangential links only. The corner is the diffraction point, as it should be.
@@ -479,7 +538,7 @@ A prototype Taichi kernel with the core's shape: K = 8 steps unrolled per launch
 ### 5.2 The rule
 - **R0 + corner blocking** on all three lattices. sq5 needs no blocking (it has no diagonal links).
 - Symmetric, energy-exact, CFL-neutral, leak-free (§3.5–3.6). Exact for axis walls on sq5; first order on curves, 2–3× more accurate than pinned on the circle test (§3.8).
-- **Its weak spot is oblique/curved rigid outlines** (§3.3, §3.11): +25–33 % scattering error for a rotated square on sq5 that did not shrink from λ = 8 to 16. Pinned outlines are within ±3 %. For rigid text, prefer tri (±10 %, at the level of its own disc reference) or sq9.
+- **Its weak spot is oblique/curved rigid outlines** (§3.3, §3.11): +25–33 % scattering error for an 11-cell rotated square on sq5, falling to +17–18 % at twice the resolution (*corrected 01/10/2026*: the note used to say it did not shrink). Pinned outlines are within ±3 %. For rigid text, prefer tri (±10 %, at the level of its own disc reference) or sq9.
 - **R1** on sq9 and tri as a second step, only if axis-aligned rigid walls (rooms, rectangular boxes) must be exact at grazing incidence. It makes axis faces exact but leaves staircases unchanged, so a scene mixing both becomes *less* consistent (§3.11: sq9 rotated/axis 1.16–1.27 with R1 vs 1.04–1.14 with R0).
 - Cut cells / embedded boundaries only if curved-wall accuracy becomes the limit. They need cell merging or a θ floor to keep the explicit Co (§2 (iv)).
 
@@ -513,10 +572,11 @@ These are for the core owner (not done here; see "requests").
 - **Rigid staircases:**
   - 30–117° phase error at 80° incidence (§3.3);
   - +25–33 % extra scattering from a rotated square on sq5, +4–27 % on sq9, within ±10 % on tri (§3.11).
-  - The plane-wave phase error falls roughly like 1/λ, but the sq5 rotated-square excess did *not* fall from λ = 8 to 16 (1.25 → 1.25), so resolution alone is not a reliable fix. Prefer tri or sq9 for rigid scenes; embedded boundaries (§2 (iv)) are the real fix.
+  - The plane-wave phase error falls roughly like 1/λ. The sq5 rotated-square excess also falls with resolution: +25/+33 % → +17/+18 % at the same ka with 1.9× the cells (§3.11). So resolution helps, but only at first order and slowly. Prefer tri or sq9 for rigid scenes; embedded boundaries (§2 (iv)) are the real fix.
+  - *corrected 01/10/2026:* the old claim "did not fall from λ = 8 to 16 … resolution alone is not a reliable fix" compared different ka, not different resolutions.
 - **DC in closed rigid cavities** (§4.4).
 - **Vulkan:** use a 32-bit word (the core's u8 fault applies to u16 as well, until tested).
-- **Terminology:** the slit source's wall is **pinned** (u = 0), although the web app's comment (line 1316) and the port's (`membrane_core_MIRROR.py` near line 263) call it "a rigid wall". In this note, "rigid" means Neumann.
+- **Terminology:** the slit source's wall is **pinned** (u = 0), although the web app's comment (line 1316) and the port's (`membrane_core_MIRROR.py` near line 381 as of 01/10/2026; the note said 263) call it "a rigid wall". In this note, "rigid" means Neumann.
 
 ---
 
@@ -530,11 +590,14 @@ These are for the core owner (not done here; see "requests").
 - the ghost-normal instability;
 - the kernel costs.
 
-**Literature** (not re-derived here):
-- the continuum reflection coefficients and the impedance R(θ) formula;
-- the embedded-boundary references: Gibou et al. 2002; Kreiss, Petersson & Yström 2002/2004; Colella et al. 2006 on cell merging and redistribution;
+**Literature** (not re-derived here unless stated):
+- the continuum reflection coefficients. The impedance R(θ) formula and its Mur coefficient *were* re-derived on 01/10/2026 (§1.2);
+- the embedded-boundary references: Gibou et al. 2002; Kreiss, Petersson & Yström 2002/2004; Kreiss & Petersson 2006; Colella et al. 2006 (flux redistribution; cell merging is a separate approach, no reference verified);
 - the FDTD staircase references (Cangellaris & Wright 1991; Dey & Mittra 1997);
-- Mur 1981 for the first-order ABC.
+- Mur 1981 (IEEE Trans. EMC) for the discrete first-order ABC, and Engquist & Majda (Math. Comp. 1977) for the continuum one-way condition;
+- the lattice-site radius e^−γ/(2√2) and the square's capacity constant Γ(1/4)²/(4π^{3/2}) (§3.10).
+
+*corrected 01/10/2026: the citations are as I remember them. The authors and years are well known, but the volume numbers and venues were not checked against the papers in this pass.*
 
 The continuum scattering series was evaluated here (scipy), but is textbook.
 

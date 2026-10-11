@@ -98,7 +98,7 @@ Strokes are always in grid units.
 
 ### The Unlicensed plate
 
-The plate is from Death Grips, *Government Plates* (2013); the cover image is in the session scratchpad as `plate_0.png`.
+The plate is from Death Grips, *Government Plates* (2013); the user's cover is `ScratchCLAUDE/GovernmentPlates.jpg` (300 × 300, plate in slight perspective; supplied 01/10/2026).
 
 **Shape.** A rounded rectangle, width : height = 2 : 1, corner radius 0.065 H.
 - `dom_R()` = (base_half − 1.5) × radius is the **half-width**, so W = 2R and H = R.
@@ -106,22 +106,34 @@ The plate is from Death Grips, *Government Plates* (2013); the cover image is in
 - `shape_poly()` samples the outline with 16 segments per corner arc (68 points, CCW); the alignment module treats its straight sides as a rectangle.
 - The predicate is exact in the rotated frame (corner arcs, +1e-9).
 
-**Lettering and screws.** Anchored to the domain, in units of R, as measured from the cover:
+**Lettering and screws.** Anchored to the domain, in units of R, as measured from the cover (re-measured 01/10/2026 with the perspective removed, see below):
 
 | item | centre | cap height | total ink width | font (Bahnschrift variation) | tracking | fitted stretch |
 |---|---|---|---|---|---|---|
-| CA EXEMPT | (0, +0.319) | 0.1375 | 1.107 | SemiBold | 0.09 cap | 1.011 |
-| DEATH | (0, −0.0875) | 0.525 | 1.574 | SemiBold SemiCondensed | 0.30 cap | 0.651 |
-| 4 screw heads | (±0.628, ±0.4375) | radius 0.02 | | | | |
+| CA EXEMPT | (0, +0.3375) | 0.1375 | 1.107 | SemiBold | 0.09 cap | 1.011 |
+| DEATH | (−0.0425, −0.0875) | 0.545 | 1.595 | SemiBold SemiCondensed | 0.20 cap | 0.697 |
+| 4 screw heads | (±0.628, ±0.476) | radius 0.02 | | | | |
 
 **Why those font settings** (`ScratchCLAUDE/DevCLAUDE/font_probe_MIRROR.py`):
 - **DEATH.** Bahnschrift *SemiBold SemiCondensed* sets "DEATH" 3.58 cap heights wide; the cover's is 3.00, with narrow letters (~0.46 cap) and wide gaps.
   - Fitting the width by stretch alone would squash the gaps too.
-  - So tracking 0.30 cap is added, and the fitted stretch comes out at 0.65: letters ~0.5 cap wide, vertical stems ~0.10 cap, as on the cover.
+  - So tracking is added (0.30 cap until 30/09; 0.20 since 01/10/2026, see below), and the fitted stretch comes out at 0.70: letters 0.21-0.28 R wide (cover 0.235 each), stems 0.11 cap (cover 0.12).
 - **CA EXEMPT.** The line is a normal-width semibold: *SemiBold* sets it 7.32 cap heights wide against the cover's 8.05, so tracking 0.09 gives a stretch of 1.01.
 - **Fallbacks.** Arial Narrow Bold, then Arial Narrow, if Bahnschrift is missing. Only the default font falls back; any other missing font raises `FileNotFoundError` naming the paths tried.
 
 A render of the mask at N = 1025 looks like the cover's plate.
+
+**Plate vs cover, 01/10/2026 (Claude Opus 5.5).** `ScratchCLAUDE/SolidsCLAUDE/plate_cover_MIRROR.py` maps the cover's inner (light) area by a homography from its 4 corners to (±1, ±0.5) R, measures the ink boxes, letter runs, stems and screw blobs there, and measures the preset's mask on the same grid (`--sens`: corner jitter ±0.5 px moves every number by ≤ 0.004 R; `--png NAME`: side-by-side; `--spec JSON`: try other preset numbers). One cover pixel is ~0.01 R, and the letter edges are crisp (the emboss shade lies inside the strokes). Values were changed only where the cover disagreed by ≥ 1.5 cover px:
+
+| quantity | before | cover | after |
+|---|---|---|---|
+| CA EXEMPT centre y | 0.319 | 0.3375 | 0.3375 |
+| DEATH centre x | 0 | −0.0425 (left of centre) | −0.0425 |
+| DEATH cap height / ink width | 0.525 / 1.574 | 0.545 / 1.595 | 0.545 / 1.595 |
+| DEATH tracking (letters / gaps, R) | 0.30 (0.19-0.25 / 0.105-0.165) | letters 0.235, gaps 0.075-0.13 | 0.20 (0.21-0.28 / 0.08-0.14) |
+| screw centre y | ±0.4375 | ±0.476 (in the frame's notches) | ±0.476 |
+
+Kept: CA EXEMPT x / height / width, DEATH y, screw x (cover 0.634 right, 0.650 left), the screw radius (the cover's dark hole is 0.015, too small to resolve), and the core's corner radius 0.065 R (cover 0.047 ± 0.004: under 1 px on the diagonal). Bahnschrift's A stays wider than the cover's (0.28 vs 0.235): no tracking or variation fixes that; the Bold variations make stems and the H bar too thick. The screws now leave 0.004 R between their heads and the straight edge (~2 cells at N = 1025, 8 at 4097): a thin pocket of free cells, harmless for a pinned plate. Side-by-side: `ScratchCLAUDE/SolidsCLAUDE/plate_vs_cover_MIRROR.png` (before: `plate_vs_cover_before_MIRROR.png`).
 
 **Letter counters.** The holes in D and A (and P, R in CA EXEMPT) become **sealed cavities** of free cells. That is expected: a pinned plate with cut-out letters has them too.
 

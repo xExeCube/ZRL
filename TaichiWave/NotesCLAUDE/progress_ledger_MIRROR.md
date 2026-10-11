@@ -66,3 +66,13 @@ NotesCLAUDE/ledger_MIRROR.md, ScratchCLAUDE/LedgerCLAUDE/. Read-only: everything
 - VERIFIED final: cuda f64 crosscheck (saved jsonl) 3435/3435 + port-only 15/15, RESULT PASS (xc12 log).
 - STATUS: task complete. Open (not this area): cold build dominated by al_ledger_rows at N >= 4097; core
   Membrane setup n6 vtx N=8193 ~19 s.
+
+## 01/10/2026 round 3 -- Claude Opus 5.5
+- DONE (dev ScratchCLAUDE/CoreCLAUDE/ledger_dev_MIRROR.py): FIX 'cfl-damped' -- the CFL row grades Co against
+  m.co_limit() (damped, C_max(0) sqrt(1 - d/2)) when d > 0; _Ctx.co_limit() is now m.co_limit(damped=False) (the
+  web app's value; cone / mode rows unchanged). Spot check: sq5 d=0.02 Co=0.705 web FAIL (false) -> port PASS (RED OK,
+  diverged 1.2e73); Co=0.70 PASS both; sq9 Co=0.9 RED OK both; tri n6 cont d=0.01 PASS; n8 rad 1.3 vtx drive PASS;
+  plate + painted-solid square: every premise row NA, cfl/align/straight graded (deliberate), stair stated/PASS.
+- PROMOTED ledger_MIRROR.py (atomic). VERIFIED crosscheck_ledger --arch cuda --jsonl (saved dump): status 3435/3435
+  (100%), full-row 3435/3435, fix cfl-damped 12 rows attributed, 0 spurious, port-only 15/15, RESULT PASS
+  (ScratchCLAUDE/CoreCLAUDE/xcl_cuda_0110_MIRROR.txt). NotesCLAUDE/ledger_MIRROR.md FIX table: cfl-damped row added.

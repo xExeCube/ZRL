@@ -32,3 +32,12 @@ NotesCLAUDE/alignment_MIRROR.md, ScratchCLAUDE/align* scratch.
   --quick --reuse --arch cuda 27882/27882.
 - NotesCLAUDE/alignment_MIRROR.md written (API, verification, deviations, JS quirks, GGUI timings).
 - Next (optional): N=8193 timing; a Taichi kernel for the scans if 8193 matters.
+
+## 01/10/2026 -- panel wrap (Claude Opus 5.5)
+- FIXED: AlignPanel._lines printed the '[PASS]/[n/a] ...' ledger claims and the 56-char 'straightness, per edge
+  (...)' header unwrapped; both now go through textwrap.wrap(..., self.wrap) (claims indent 2 on continuation).
+  AlignPanel default wrap 64 -> 52 (the app already overrides to TEXT_WRAP - 2 = 52; 64 x 7 px overflowed 400 px).
+- VERIFIED in a real offscreen GGUI window (400 px sub_window, 8 shapes incl. 3 unlicensed, wrap 52 and default):
+  ScratchCLAUDE/AlignCLAUDE/align_wrap_ggui_MIRROR.py -> longest line 52 chars <= 54 (= (400 - 16) / 7), PASS.
+  Before the header fix: 10 lines over (all the 56-char header); the claims were already split by the fix.
+- crosscheck_alignment_MIRROR.py --quick --reuse after the edit: TOTAL 27882/27882 over 612 configs (ScratchCLAUDE/AlignCLAUDE/align_quick_0110_MIRROR.txt). Notes: alignment_MIRROR.md GGUI paragraph.

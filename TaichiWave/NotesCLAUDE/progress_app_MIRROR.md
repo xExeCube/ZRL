@@ -81,3 +81,38 @@
 - FIXED auto gain on a dead field: peak floored at 1e-3 x the run's largest |u| (Viewer.gain_ref), panel shows
   "capped". Was gain 3.2e6 at step 2000 (damp 0.02). Test t_gain.
 - FIXED text entry: add() closes it; commit() only edits a text object; Return also shows hidden panels. Test t_text_switch.
+- FIXED default layout: the 2D picture is centred in the strip the visible side panels leave free (View2D.ox,
+  Viewer.free_centre); the main panel hid the left ~90 px of the circle. t_map2d extended (ox 0.125).
+- FIXED N slider drag: rebuild only after the value rests 0.35 s (was ~1 s rebuild per drag frame in 3D). Test t_nslider.
+- FIXED programmatic stroke with the path behind the camera: clear ValueError (was TypeError in Frame), --walls-test
+  prints "skipped". Test t_stroke_offview. GUI press probe: 917 presses, only errors were that setup crash.
+- FIXED periodic stutter at N=8193: main-panel cell counts recounted only on change (was 36 ms every 0.5 s; gui max
+  120 -> 1.3 ms). Test t_cells_cache. Frame medians N=8193 3D: step x4 23 + draw 9 + gui 1 ms.
+
+## 01/10/2026 -- typed slider values + source-moved note (Claude Opus 5.5)
+- BUILT (not yet tested): app_input NumEntry + TypedGui (every slider_float/int of every panel gets a
+  "^ type a value" button under it; entry: digits . - e, BackSpace, Return/Escape; clamp + flash; value
+  returned as the slider's own value next pass). Viewer.handle routes all keys to it while open;
+  DigitPoller active and freelook off while open; checkbox to hide the buttons. Viewer.src_moved_note()
+  (amber, under source x/y; uses m.src_moved if the core has it, else solid_np at the requested cell).
+- Task 3: the UNSTABLE line already calls m.co_limit() -> no change.
+
+## 01/10/2026 -- typed values, run 2 (Claude Opus 5.5): review + pick mode
+- REVIEW: 30 slider call sites -> the per-slider button added up to ~30 panel rows. CHANGED to a PICK mode:
+  one "type a value: click here, then a slider" button at the top of each panel (TypedGui.header) arms
+  NumEntry.armed; the next slider whose value changes (f32 rounding ignored) opens the entry under it and its
+  value change is swallowed; the slider stays frozen while its entry is open; Escape (or the button) disarms.
+  Per-slider buttons kept behind the main-panel checkbox 'a "type" button under every slider' (default OFF).
+- src_moved_note fallback generalised: requested cell (round_cell) vs the cell used (m.src); 'out of a solid'
+  when the requested cell is solid, else 'into the domain'. Core m.src_moved still preferred when present
+  (not in membrane_core_MIRROR.py yet at this time).
+- NEXT: tests (FakeG/FakeW headless panel driver) in app_tests_MIRROR.py, notes, runs.
+- TESTS ADDED + PASS (cuda, isolated runner ScratchCLAUDE/AppCLAUDE/run_typed_MIRROR.py): 10/10. t_typed (FakeG/FakeW
+  drive the REAL panel code headless: rows main 67 -> 87 with per-slider buttons vs +1 in pick mode; keys . - e
+  BackSpace Return Escape; clamp/round messages; 20 hotkeys swallowed while typing; int+float slider per panel;
+  N settle path 300 -> 301; per-slider button; dropped pending; real GGUI pass) and t_src_note (Unlicensed (0,0)).
+- NotesCLAUDE/app_MIRROR.md: section 'Typed slider values and the source-moved note' (pick mode, why, Ctrl+click unknown, note).
+- FULL CUDA f64 app_tests: 71/71 in 44 s (ScratchCLAUDE/AppCLAUDE/app_tests_cuda_typed_MIRROR.txt).
+- Shots: panels_all_unl_3d, panels_main_2d, panels_* , orbit_default_3d all OK (pick-mode button visible as the
+  panels' first row; entry render checked in ScratchCLAUDE/AppCLAUDE/typed_entry_MIRROR.png). Entry hint line
+  shortened (it overflowed the 400 px panel). DONE.

@@ -2,6 +2,12 @@
 
 *Generated from scratch — Claude Opus 5.5 — 29/09/2026 (measurements) and 30/09/2026 (2D, masked, GPU, stability runs; this note)*
 
+*Fact-checked — Claude Opus 5.5 — 01/10/2026. The tables were re-printed from the json and spot runs re-run, and they match. Corrections are marked "corrected 01/10/2026" in place. The log is in `ScratchCLAUDE/ReviewCLAUDE/findings_absorbing_v3_MIRROR.md`. The main changes:*
+- *T1 on the tri hexagon is unstable from Co 0.55 up.*
+- *The sponge numbers hold only for σ = 3 pulses: about 10× worse at σ = 12.*
+- *The 2D centre-pulse figures for local rules are lower bounds, up to 2.6× low.*
+- *Several literature descriptions were wrong: Bayliss–Turkel "exact", the CFS-PML low-frequency claim, CRBC "uniform in time".*
+
 The question was: **which absorbing boundaries could we use beyond Mur?** This note answers it for this simulator specifically:
 - the scheme is second-order leapfrog for u_tt = c² ∇²u;
 - the lattices are square 5-point, square 9-point, and triangular 6-neighbour;
@@ -16,10 +22,10 @@ Every number below comes from a numpy prototype that uses the app's own update r
 
 | use case | what to build | reflection you get (measured) | cost on the GPU (measured) | effort |
 |---|---|---|---|---|
-| **full rectangle, sq5** | **CPML frame**: convolutional PML, 10–20 cells, cubic profile | L=10: ≤ 1.2e-4 for every angle 0–75° and λ = 8–32 cells. L=20 (α=0.05): ≤ 9e-6 up to 60°, 1.1e-4 at 75°. On a broadband 2D pulse, corners included: 1.8e-4 (L=10), 1.8e-6 (L=20). | +11–19 % per step at N=1025 (one extra pass in the prototype; zero extra passes are possible, §7). Within noise at N=4097. Memory ≈ 2 % of the field if the aux arrays cover the frame only. | ~1 day |
+| **full rectangle, sq5** | **CPML frame**: convolutional PML, 10–20 cells, cubic profile | L=10: ≤ 1.2e-4 for every angle 0–75° and λ = 8–32 cells at Co 0.5, and ≤ 3.3e-4 at Co 0.7. Unchanged for σ = 12 pulses (corrected 01/10/2026). L=20 (α=0.05): ≤ 9e-6 up to 60°, 1.1e-4 at 75°. On a broadband 2D pulse, corners included: 1.8e-4 (L=10), 1.8e-6 (L=20). | +11–19 % per step at N=1025 (one extra pass in the prototype; zero extra passes are possible, §7). Within noise at N=4097. If the aux arrays cover the frame only, memory is 4L/N of U[3]: 2 % at N = 4097 with L = 20, and 4–8 % at N = 1025. | ~1 day |
 | cheap upgrade of the current ring | Mur2 / Engquist–Majda A2, corner = Mur1 along the diagonal. Or Higdon order 2 (0°,45°) with ε=0.005. | Mur2: 3e-2 (0°) / 2.9e-2 (45°) / 0.11 (60°) / 0.35 (75°). Higdon2: ≤ 7e-3 to 45°, 0.06 at 60°, 0.27 at 75°. The corner region stays at ~0.1. | one ring pass, as today | ½ day |
-| **masked flavor shapes, any lattice** | **Distance-to-edge sponge**: grow the mask outward by L cells, damping ramps with the distance to the mask edge, centred damping form | L=40: 1.7e-2 on a broadband pulse, the same on the sq circle, the tri hexagon and the tri circle. L=20: 5e-2. The staircase does not matter. | ≈ 0 if the damping level is packed into the mask byte (a 256-entry table) | ½ day |
-| masked shapes, one cell thick | transport along the analytic normal ("T1" = Liao order 1 plus interpolation, with a √((r−c·dt)/r) factor on a circle) | 5–7 % on a staircase circle or hexagon | one boundary-cell pass | ½ day. Stable on sq at Co 0.5 and 0.7 (20000 steps) and 0.7071 (5000 steps); the tri hexagon **grows at Co ≥ 0.7** |
+| **masked flavor shapes, any lattice** | **Distance-to-edge sponge**: grow the mask outward by L cells, damping ramps with the distance to the mask edge, centred damping form | L=40: 1.7e-2 for the app's default pulse (σ = 3), the same on the sq circle, the tri hexagon and the tri circle. L=20: 5e-2. The staircase does not matter. **But** wider pulses reflect much more: 5.6e-2 at σ = 6 and 0.16 at σ = 12, the slider maximum (corrected 01/10/2026, §4.8). | ≈ 0 if the damping level is packed into the mask byte (a 256-entry table) | ½ day |
+| masked shapes, one cell thick | transport along the analytic normal ("T1" = Liao order 1 plus interpolation, with a √((r−c·dt)/r) factor on a circle) | 5–7 % on a staircase circle or hexagon | one boundary-cell pass | ½ day. Stable on sq at Co 0.5, 0.7 and 0.7071 (100000 steps). On the tri hexagon **only Co 0.5 is stable**; it grows from Co 0.55 up (corrected 01/10/2026, §4.5) |
 | **triangular lattice** | the same distance sponge | 1.6e-2 at L=40 (tri hexagon) | ≈ 0 | covered by the sponge work |
 
 **What NOT to build:**
@@ -55,7 +61,12 @@ u[c] = (2 u[b] − u[a] + CC · lap(u[b])) − d (u[b] − u[a])        a = n−
 - **The grid.** Angles 0, 15, 30, 45, 60 and 75°; λ = 8, 16 and 32 cells; Co = 0.5 and 0.7.
 - **Sanity checks.**
   - Dirichlet gives |R| = 1.0000 ± 1e-4.
-  - For every local rule, the measured |R| matches the discrete plane-wave theory R = −P(e^{+ik_x})/P(e^{−ik_x}) to < 1e-3. That includes Mur1 at 75° (0.589 measured vs (1−cos 75°)/(1+cos 75°) = 0.589) and Mur2 at 45° (0.0292 vs 0.0294).
+  - For Mur1, Mur2, Higdon2 (0, 45°), Liao2 and the direct-interpolation Liao rows, the measured |R| matches the discrete plane-wave theory R = −P(e^{+ik_x})/P(e^{−ik_x}) to < 1e-3. That includes Mur1 at 75° (0.589 measured vs (1−cos 75°)/(1+cos 75°) = 0.589) and Mur2 at 45° (0.0292 vs 0.0294).
+  - *corrected 01/10/2026: the earlier text said "every local rule". Three rows depart by more than 1e-3:*
+    - *Higdon2 (0, 60°) at 60°: 4.9e-3 measured against 1.7e-3 in theory. The packet's ±5 % spread in k_x averages R around its zero.*
+    - *Higdon3 (0, 30°, 60°) with ε = .005, at λ = 32 and 0°: 7.1e-3 against 3.2e-4.*
+    - *Higdon3 (0, 45°, 70°) with ε = .005, at λ = 32: 4.4e-3 against 1.1e-3.*
+  - The packet bench reads the packet average of R, not R at one angle. Near an exact-absorption angle the average sits above the theory value.
   - Higdon3 and Liao3 without damping depart from theory at λ = 32 and 0° (0.069 and 0.11, against theory values of 4.5e-5 and 2.7e-8). That is the zero-frequency drift of §6 showing up inside the time window.
 
 **2D box (`abc2d_MIRROR.py`, `box2d_runs_MIRROR.py`)**
@@ -64,10 +75,24 @@ u[c] = (2 u[b] − u[a] + CC · lap(u[b])) − d (u[b] − u[a])        a = n−
   - The "centre" pulse is at (100,100), measured when the front has run 230 cells.
   - The "corner" pulse is at (25,25), measured at 165 cells. It sweeps every angle up to grazing and hits the corner.
 - **Stability test.** White noise, 20000 steps, Co 0.5 and 0.7.
+- **Caveats on the window** (added 01/10/2026, `ScratchCLAUDE/AbsorbCLAUDE/checks2_MIRROR.py`)
+  - The reading is the reflected energy still inside the box at one instant. From the centre, reflections off one wall at 26–45° reach the adjacent absorbing wall before r = 230 and leave.
+  - So every window gives a **lower bound**, and a late window undercounts rules whose reflection grows with angle.
+  - The highest reading over r_end = 130–230 for the centre pulse:
+    - Mur1: **5.8e-2**, not 2.2e-2.
+    - Higdon2 ε.005: **4.9e-3**, not 2.2e-3.
+    - Mur2 diag: 1.1e-2, not 8.8e-3.
+    - CPML10: 6.0e-5. CPML20: 3.0e-6. Sponge40: 2.4e-2. All three within 20 % of the table.
+  - The ranking does not change.
+- **The pulse is σ = 3**, the app's default, so most of its energy is at λ ≈ 10–30 cells. See §4.2 for σ = 12.
+- **The corner reading depends on how close the pulse starts.** At (40,40) and 180 cells instead of (25,25) and 165:
+  - Mur1: 0.097 instead of 0.19.
+  - Mur2 diag: 0.030 instead of 0.10.
+  - CPML10: 6.9e-5 instead of 1.8e-4.
 
 **Masked shapes (`masked_MIRROR.py`, `masked_normal_MIRROR.py`)**
 - Physical radius R = 100, the sq circle, the tri hexagon and the tri circle, a centred pulse (and one off-centre at 0.5R), the same reference method.
-- The window is chosen so the reflection crosses the physical region **once**. A first smoke test at R = 30 read 3.6e-4, because the reflection had left through the absorbing edge a second time. At R = 100 the same rule reads 5.7e-2.
+- The window is chosen so the reflection crosses the physical region **once**. For the centred pulse that holds. For the 0.5R off-centre pulse, the reflection off the near edge has already reached the far edge (path 200 < 240), so part of it has left, and that reading is a slight underestimate *(added 01/10/2026)*. A first smoke test at R = 30 read 3.6e-4, because the reflection had left through the absorbing edge a second time. At R = 100 the same rule reads 5.7e-2.
 
 **Stability per wavenumber (`stability1d_MIRROR.py`)**
 - Random data, 20000 steps, Co = 0.5, 0.7 and 0.7071, k_y = 0, π/4, π/2, 3π/4 and π.
@@ -131,14 +156,15 @@ u[c] = (2 u[b] − u[a] + CC · lap(u[b])) − d (u[b] − u[a])        a = n−
 - **Stability:** the known **drift instability** at low frequency.
   - N = 3 grows linearly at k_y = 0 (to 5e5 in 1D) and blows up in the 2D noise run.
   - N = 2 creeps: max|u| 33 → 460 at the ring and corners over 20000 steps.
-  - Stabilised variants exist in the Liao literature; I cannot cite them precisely.
+  - Stabilised variants exist in the Liao literature. Liao & Liu 1992 (Earthquake Eng. Struct. Dyn.) analyse the MTF instabilities. I am fairly sure of that paper, but have not verified it, and cannot cite the stabilised forms precisely.
 - **Applicability:** its natural home is unstructured and masked grids, because it needs only values along the normal. The one-cell masked-shape rule T1 in §4.5 is its N = 1 case.
 
 **Bayliss–Turkel (1980, CPAM)**
 - **How it works:** an asymptotic expansion of outgoing waves in 1/r.
   - In 2D: B1 = (∂_t/c + ∂_r + 1/(2r)).
-  - B2 is the product (∂_t/c + ∂_r + 5/(2r)) · B1, which in 2D is the same thing as (∂_t/c + ∂_r + 5/(2r))(∂_t/c + ∂_r + 1/(2r)).
-- **Where it fits:** exact for a radial wave from the centre of a circular boundary, so it is the natural condition for the **circle** flavor when the source is central.
+  - B2 = (∂_t/c + ∂_r + 5/(2r)) · B1. In general B_m multiplies m such factors, the j-th with (4j − 3)/(2r).
+- **Where it fits:** B_m cancels the first m terms of the far-field expansion of an outgoing wave, so it is the natural condition for the **circle** flavor when the source is near the centre. In 2D it is only asymptotically accurate, even for a perfectly radial wave: a cylindrical wave has infinitely many terms. Only in 3D is B1 exact, for f(t − r)/r.
+  - *corrected 01/10/2026: the earlier text called B1 "exact for a radial wave from the centre"; that holds in 3D, not in 2D.*
 - **Status here:** not measured as such. T1 with the cylindrical factor √((r − c·dt)/r) is a B1-like discrete version, and it measured 5.7e-2 (centred) and 7.0e-2 (0.5R off-centre) on a staircase circle. The staircase and the interpolation dominate, not the condition's order. A B2 would need second normal differences through the staircase, and I would not expect it to beat the ~5 % floor without a cut-cell edge.
 
 ### 4.2 Absorbing layers without matching ("sponges")
@@ -162,6 +188,9 @@ u[c] = (2 u[b] − u[a] + CC · lap(u[b])) − d (u[b] − u[a])        a = n−
 - Cerjan with L = 40 gives ~9e-3 at 0°, 5e-2 at 45°, 0.48 at 75°.
 
 **On the broadband 2D pulse:** sponge40 gives 2.2e-2 (centre) and 4.5e-2 (corner). A sponge has no corner problem.
+- That pulse is σ = 3, so most of its energy is at λ ≈ 10–30 cells.
+- With σ = 12, the slider maximum, the same sponge gives 0.20 at the centre and at a (40,40) corner pulse. CPML10 gives 3.3e-5 (centre) and CPML20 gives 1.8e-6.
+- *added 01/10/2026 (`ScratchCLAUDE/AbsorbCLAUDE/checks_MIRROR.py`).*
 
 **Masked shapes, the whole point of a sponge here.** The damping needs no normal direction: d(cell) = d_max·((L − dist)/L)^p, where dist is the distance to the nearest outside cell centre in physical coordinates. On a broadband pulse at R = 100:
 
@@ -172,6 +201,15 @@ u[c] = (2 u[b] − u[a] + CC · lap(u[b])) − d (u[b] − u[a])        a = n−
 | tri circle | 5.3e-2 | 1.7e-2 |
 
 The same numbers as the square box: the lattice and the staircase do not matter, because the wave has been damped before it reaches the edge.
+
+*Corrected 01/10/2026.* These runs used the **app** damping form and the default σ = 3 pulse. Re-run with both forms and three widths (L = 40, d_max 0.2, p = 2):
+
+| shape | σ = 3 | σ = 6 | σ = 12 |
+|---|---|---|---|
+| sq circle, app form / centred | 1.65e-2 / 1.65e-2 | 5.7e-2 / 5.6e-2 | 0.164 / 0.162 |
+| tri hexagon, app form / centred | 1.62e-2 / 1.60e-2 | 5.6e-2 / 5.5e-2 | 0.160 / 0.158 |
+
+The damping form changes stability, not reflection. The pulse width changes reflection tenfold: the sponge's weakness is long waves.
 
 **The damping form matters.**
 - The app's form −d(u − u_prev) is a backward difference. Its amplification polynomial z² − (2 − d − Co²λ)z + (1 − d) is stable only for Co²λ_max ≤ 4 − 2d.
@@ -187,12 +225,13 @@ The same numbers as the square box: the lattice and the staircase do not matter,
 - What reflects is the discretisation, plus the Dirichlet end after a round trip through the layer. Both are controlled by grading the profile (σ ∝ s^p with p = 2–3) and by the target R₀.
 
 **Variants**
-- **Split-field (Berenger 1994).** Split u into u^x + u^y, each damped by its own σ. It was designed for first-order systems (Maxwell). For our second-order scalar scheme it would mean either rewriting in velocity–pressure form or splitting u itself. The split form is only weakly well-posed. Not recommended here.
+- **Split-field (Berenger 1994).** Split u into u^x + u^y, each damped by its own σ. It was designed for first-order systems (Maxwell). For our second-order scalar scheme it would mean either rewriting in velocity–pressure form or splitting u itself. The split form is only weakly well-posed (Abarbanel & Gottlieb 1997, JCP; fairly sure). Not recommended here.
 - **Unsplit / convolutional CPML (Roden & Gedney 2000; Komatitsch & Martin 2007 for seismics).** Replace ∂_x by ∂_x + ψ_x, where ψ is a recursive convolution: ψ^{n} = b·ψ^{n−1} + a·(∂_x u)^n, with b = e^{−(σ + α)dt} and a = σ/(σ + α)·(b − 1).
   - For the second-order equation it is applied twice: ψ at the faces (for ∂_x u) and ζ at the cells (for ∂_x(∂_x u + ψ)). That is two memory arrays per direction, in the frame only.
   - This is the form prototyped here (`cpml` in `abc1d`/`abc2d`/`gpu_cost`).
   - Related second-order-equation PMLs: Komatitsch & Tromp 2003 (GJI; fairly sure); Pasalic & McGarry 2010 (SEG abstract; unsure of the exact reference).
-- **Complex-frequency-shifted PML (CFS; Kuzuoglu & Mittra 1996).** The stretch becomes 1 + σ/(α + iω), and optionally κ. The α > 0 shift absorbs evanescent and low-frequency content better and cures late-time growth, at the price of less absorption for very long waves.
+- **Complex-frequency-shifted PML (CFS; Kuzuoglu & Mittra 1996).** The stretch becomes κ + σ/(α + iω). With α > 0 (and κ ≥ 1) evanescent waves are absorbed better and the late-time and grazing behaviour improves. The price is that propagating waves with ω ≪ α are absorbed less.
+  - *corrected 01/10/2026: the earlier text said α > 0 absorbs "low-frequency content better" and, in the same sentence, absorbs very long waves less. Only the second half is right.*
   - Measured: α = 0.05 was the best 20-cell setting. It helped the tuning grid's geometric mean slightly, but it costs at grazing λ = 32 (1.1e-4 at 75°).
 - **Second-order-in-time wave-equation PMLs with auxiliary fields (Grote & Sim 2010, "Efficient PML for the wave equation", arXiv; fairly sure).** In 1D: u_tt + σu_t = ∇·(c²∇u + φ) + ψ, with a face field φ and a cell field ψ. In 2D a vector φ and one scalar, plus a σ_xσ_y·u term.
   - Prototyped in 1D (`gs`) with a straightforward time discretisation.
@@ -231,7 +270,7 @@ The same numbers as the square box: the lattice and the staircase do not matter,
 - The layer is derived from the lattice equations themselves, so there is no discretisation reflection at all, only the round trip.
 - Attractive for a project that treats the lattice as the object. As far as I know it is derived for the square grid only.
 
-**Here:** not prototyped. CPML already reaches 1e-4 in 10 cells and 1e-6 in 20. GPU memory is not the constraint, and the frame is 1–2 % of an N = 1025 grid. The payoff would be thinner layers, which only matters at small N. Effort: 2–3 days.
+**Here:** not prototyped. CPML already reaches 1e-4 in 10 cells and 1e-6 in 20. GPU memory is not the constraint. The frame is 4L/N of the cells: 4–8 % of an N = 1025 grid at L = 10–20, and 1–2 % at N = 4097. *(corrected 01/10/2026: the earlier text said "1–2 % of an N = 1025 grid".)* The payoff would be thinner layers, which only matters at small N. Effort: 2–3 days.
 
 ### 4.5 One cell thick on a staircase edge: transport along the normal (measured, new here)
 
@@ -250,8 +289,16 @@ The same numbers as the square box: the lattice and the staircase do not matter,
 | tri circle | 5.1e-2 | 6.3e-2 |
 | tri hexagon | 5.7e-2 | 6.4e-2 |
 
-- Stable on the sq circle: 20000 steps at Co 0.5 and 0.7, and 5000 steps at 0.7071.
-- On the **tri hexagon: stable at Co 0.5 (20000 steps) and 0.6 (5000 steps), slow growth at 0.7, blow-up at 0.75 and 0.8.** Probably the corners of the hexagon, where the nearest face, and so the normal, switches.
+- **Stability** (white noise, R = 40; re-run 01/10/2026 for 100000 steps, `ScratchCLAUDE/AbsorbCLAUDE/checks_MIRROR.py`):
+  - Sq circle: stable at Co 0.7 and 0.7071. max|u| falls from 0.14 / 0.42 at step 10000 to 0.005 / 0.014 at step 100000.
+  - Tri hexagon:
+    - Co 0.5 decays: 0.46 → 0.17.
+    - Co 0.55 **grows** slowly: 0.39 → 2.6.
+    - Co 0.6: 0.49 → 5.0e3.
+    - Co 0.65: 1.5 → 6.0e9.
+    - Co 0.7: 38 → 1.0e26.
+  - At Co 0.55–0.6 the growth only shows after ~30000 steps, so short runs look stable. The cause is probably the hexagon corners, where the nearest face, and so the normal, switches. That is not isolated.
+  - *corrected 01/10/2026: the earlier text said "stable at 0.6 (5000 steps), slow growth at 0.7". No saved run backed the 0.6, 0.7, 0.75 or 0.7071 statements.*
 - The second-order version (T2, Liao N = 2 with direct interpolation) is **worse (0.21–0.31) and unstable**, as the 1D inconsistency of direct interpolation predicts.
 
 **Verdict:** a one-cell option for flavor shapes. It reflects about as much as Mur1 does on average, at no memory cost, and costs L cells less than the sponge. The sponge is 3–4× better at L = 40 and has no Co restriction.
@@ -261,9 +308,10 @@ The same numbers as the square box: the lattice and the staircase do not matter,
 **How they work**
 - Higdon's product, rewritten with auxiliary functions φ_1..φ_P that live **on the boundary only**. Each recursion step is a first-order one-way relation, so arbitrary order costs P boundary lines of aux data and no high derivatives. References:
   - Hagstrom & Warburton 2004 (Wave Motion) covers the auxiliary-variable formulation and the **corner compatibility conditions**;
-  - Givoli & Neta 2003 is a closely related scheme (fairly sure of authors and year; unsure of the venue);
+  - Givoli & Neta 2003 (J. Comput. Phys.; fairly sure) is a closely related scheme;
   - the review is Givoli 2004 (Wave Motion).
-- Complete radiation BCs (CRBC; Hagstrom & Warburton 2009, SIAM J. Numer. Anal.; Hagstrom, Warburton & Givoli 2010, J. Comput. Appl. Math.; fairly sure) add evanescent parameters. With optimal parameters, the error bound is **uniform in time** for a given order: about 1e-4 at P ≈ 5–8 over long times, by the authors' estimates, which I have not reproduced.
+- Complete radiation BCs (CRBC; Hagstrom & Warburton 2009, SIAM J. Numer. Anal.; Hagstrom, Warburton & Givoli 2010, J. Comput. Appl. Math.; fairly sure) add evanescent parameters. The error bound holds over a chosen time interval T. To reach a tolerance tol, the number of terms grows only like log(1/tol)·log(cT/δ), where δ is the distance from the source to the boundary. So long runs need only a few more terms.
+  - *corrected 01/10/2026: the earlier text called the bound "uniform in time" and quoted "about 1e-4 at P ≈ 5–8". The bound depends on T, and I cannot confirm that figure.*
 
 **Here:**
 - (a) The rectangle is the ideal geometry: flat faces, the published corner conditions apply, and the memory is P·4N values.
@@ -290,7 +338,7 @@ This is the masked-shape row of §4.2, with the implementation details:
 - **Grow the mask outward by L cells.** Keep the physical shape unchanged and put the ramp in the added band. If the ramp is put *inside* the shape instead, the visible shape loses L cells and the resonances change.
 - **Distance.** On the host, once per reset: the physical-coordinate distance from each cell centre to the nearest outside cell centre. `scipy.spatial.cKDTree` is available (scipy 1.18.1). A lattice BFS to depth ~1.2L first limits the query to the band. It works for any mask on either lattice.
 - **Profile.** p = 2, with d_max = 0.2 at L = 40 or 0.35 at L = 20. Use the centred form.
-- **Reflection:** 1.7e-2 at L = 40 and 5e-2 at L = 20, the same on every shape and lattice measured.
+- **Reflection:** 1.7e-2 at L = 40 and 5e-2 at L = 20 for σ = 3 pulses, the same on every shape and lattice measured. At L = 40, σ = 12 pulses reflect 0.16 (table in §4.2). For long-wave sources the sponge must be several of the longest wavelengths thick, or the CPML frame should be used.
 - **Physics caveat.** An absorbing edge turns a flavor drum into an open window: there are no standing modes, and the (m,n) mode sources lose their meaning. It should be a separate option ("open") next to Dirichlet, not a replacement.
 
 ---
@@ -315,7 +363,13 @@ This is the masked-shape row of §4.2, with the implementation details:
 | Liao2, direct interp. | 0.10 | 0.10 | 7.6e-02 | 5.2e-02 | 0.11 | 0.35 | 0.10 / 5.0e-02 / 2.5e-02 |
 | Liao3, direct interp. | 0.19 | 0.17 | 0.14 | 0.10 | 8.3e-02 | 0.22 | 0.18 / 0.15 / 0.19 |
 
-At Co = 0.7 the local rules are within a few % of these values. Mur1 improves at normal incidence: 2.1e-2 / 5.0e-3 / 1.2e-3.
+At Co = 0.7, the entries at 45° and beyond are within a few % of these values. The near-normal entries, which the lattice error dominates, drop by up to 3×:
+- Mur1 at 0°: 2.1e-2 / 5.0e-3 / 1.2e-3.
+- Mur2 at 30°: 5.4e-3.
+- Liao2 at 0°: 7.5e-4.
+- Higdon2 at 0°: 4.0e-3.
+
+*corrected 01/10/2026: the earlier text said "the local rules are within a few %" at Co 0.7.*
 
 ### 5.2 Layers, plane waves, Co = 0.5 (best tuned per family and width)
 
@@ -353,6 +407,8 @@ At Co = 0.7 the local rules are within a few % of these values. Mur1 improves at
 | **CPML 10** | 5.3e-05 | 1.8e-04 | 1.0e-04 | 2.6e-04 |
 | **CPML 20** | 2.5e-06 | 1.8e-06 | 2.5e-06 | 1.8e-06 |
 
+*Note 01/10/2026:* these are single-window readings with σ = 3. For the local rules the centre column is a lower bound; the highest readings over other windows are up to 2.6× higher (§3).
+
 **Corners are where local rules lose.** Every one-cell rule stays at 2–20 % on the corner pulse, whatever its straight-wall order, while CPML has no corner problem (the frame corners carry both σ's).
 
 ---
@@ -377,6 +433,14 @@ At Co = 0.7 the local rules are within a few % of these values. Mur1 improves at
 | sponge 40, centred form | 0.19 → 0.015 | 0.13 → 0.006 |
 | CPML 5 / 10 / 20 | 0.4 → 0.04–0.05 | 0.6–1.0 → 0.05–0.21 |
 
+**Longer runs (added 01/10/2026)**, 100000 steps, same box, `ScratchCLAUDE/AbsorbCLAUDE/checks_MIRROR.py`. All stable:
+- CPML10 at Co 0.7: 0.83 → 0.042.
+- CPML10 at Co 0.7071: 1.8 → 0.22, slowly falling but not monotone.
+- CPML20 (α 0.05) at Co 0.7: 0.64 → 0.017.
+- CPML20 (α 0.05) at Co 0.7071: 1.56 → 0.15.
+- Mur2 diag at Co 0.7: 0.29 → 4.9e-4.
+- Higdon2 ε.005 (diag corner) at Co 0.7: 0.23 → 3.4e-4.
+
 **1D per wavenumber** (`stability1d_MIRROR.py`, Co = 0.5, 0.7 and 0.7071). Every flag is at **k_y = 0**, with two exceptions at k_y = π at the CFL limit itself:
 
 | rule | behaviour at k_y = 0 |
@@ -388,11 +452,15 @@ At Co = 0.7 the local rules are within a few % of these values. Mur1 improves at
 | Liao3 | linear growth to 5e5–5e6 |
 | Higdon3 ε.02 | decays slowly, from a transient of 600 (still 22 after 20000 steps at Co 0.5) |
 
-Mur1 is clean everywhere. The two exceptions: at Co = 0.7071 and k_y = π, Liao2 and Liao3 stay above the initial amplitude (15 → 9 and 19 → 5). They decay, but slowly. This is the classical GKS picture (Gustafsson, Kreiss & Sundström 1972; Trefethen 1982 on group velocity): **zero-frequency, zero-group-velocity modes that one-way products of order ≥ 2 do not damp.**
+Mur1 is clean everywhere. The two exceptions: at Co = 0.7071 and k_y = π, Liao2 and Liao3 stay above the initial amplitude (15 → 9 and 19 → 5). They decay, but slowly. The pattern fits the GKS picture of boundary instabilities (Gustafsson, Kreiss & Sundström 1972; Trefethen 1982 on group velocity): **zero-frequency, zero-group-velocity modes that one-way products of order ≥ 2 do not damp.** That reading is not derived here.
 
 **The damping form and the CFL limit** (`cfl_damping_MIRROR.py`)
 - Backward-difference damping gives Co_max(d) = Co_max(0)·√(1 − d/2).
 - Checked at d = 0.02, 0.2 and 0.5, 0.005 below and 0.005 above the predicted limits of 0.7036, 0.6708 and 0.6124: stable below, blow-up above. The centred form stays stable up to 1/√2.
+- At d = 0.02 that check did not discriminate, because its "above" point (0.7086) is also above 1/√2. Re-checked 01/10/2026 (`ScratchCLAUDE/AbsorbCLAUDE/cfl_gap_MIRROR.py`, 64² torus, 20000 steps, d = 0.02):
+  - the app form is stable at Co 0.7030 and blows up at 0.7050 (1.8e50 by step 1000) and at 0.7065;
+  - the centred form is stable at all three.
+  - The claim stands.
 - **This applies to the app's global damping slider too** (max 0.02). The live CFL row does not account for it (request to the app/core owners).
 
 ---
@@ -417,8 +485,8 @@ CUDA, K = 8 steps per launch, L = 20, µs per step. The noise is about ±15 %, s
 
 \* below plain: noise.
 
-- An **f64 divide per cell doubles the step at N = 4097**. This reproduced 3 times (1729, 2028 and 2078 µs). Consumer GPUs run f64 at a small fraction of the f32 rate. Precompute 1/(1 + d/2).
-- The generic-rule kernel took **37–60 s to compile cold**, against ~1–3 s for the others. Specialise per rule instead of unrolling a coefficient table.
+- An **f64 divide per cell doubles the step at N = 4097**. This reproduced 3 times: 1729 and 2078 µs in `results_gpu_cost_MIRROR.txt`, and 1930 µs (×2.05) in a re-run on 01/10/2026. *(corrected 01/10/2026: the earlier text listed "2028", which no saved output contains.)* Consumer GPUs run f64 at a small fraction of the f32 rate. Precompute 1/(1 + d/2).
+- The generic-rule kernel took **37–60 s to compile cold**, against ~1–3 s for the others. On 01/10/2026 it took 139 s, with the CPU busy. Specialise per rule instead of unrolling a coefficient table.
 - The prototype's CPML costs one extra parallel pass per step. That is the +11–19 % at N = 1025, consistent with the core's ~20 µs per pass.
 
 ### 7.2 Fitting the fused k_run
@@ -456,7 +524,8 @@ CUDA, K = 8 steps per launch, L = 20, µs per step. The noise is about ±15 %, s
 2. **Distance-ramp sponge as a general "open edge" (½ day).**
    - Works for the rectangle, every flavor shape and both lattices.
    - Mask-code storage, centred form, L = 40 and d_max = 0.2 by default (L = 20 and d_max = 0.35 for small N).
-   - Expect ~2 % reflection on the app's pulses (5 % at L = 20).
+   - Expect ~2 % reflection on the default σ = 3 pulse (5 % at L = 20). Expect ~6 % at σ = 6 and ~16 % at σ = 12, the slider maximum. *(corrected 01/10/2026: the earlier text said "~2 % on the app's pulses" without the width.)*
+   - On the full rectangle, CPML (item 3) is the better open edge at every pulse width.
    - Tests: port `masked_MIRROR.py`'s reference-run measurement to the core, plus a noise run at Co 0.7 (tri: 0.8).
 3. **CPML frame for the full rectangle, sq5 (1 day).**
    - L = 10 (p = 3, f = 2, α = 0) as the default, L = 20 (α = 0.05) as "high".
@@ -464,15 +533,15 @@ CUDA, K = 8 steps per launch, L = 20, µs per step. The noise is about ±15 %, s
    - Single-pass ψ ping-pong, frame-packed aux arrays. Keep Mur1 as the "1-cell" option.
    - Tests: the 1D-exact plane-wave table (port `abc1d` numbers as expectations), the 2D pulse, and 20000-step noise at Co 0.5 and 0.7, f32 and f64.
 4. **Optional:**
-   - Mur2 with the diag corner as a cheap improvement to the 1-cell ring (½ day). It gains ~2.5× on the centre pulse and ~2× on the corner pulse.
-   - T1 for flavor shapes as the 1-cell open edge (½ day; limit Co ≤ 0.65 on the tri hexagon until the corner growth is understood).
+   - Mur2 with the diag corner as a cheap improvement to the 1-cell ring (½ day). It gains ~2.5× on the centre pulse at the r = 230 window, ~5× on the best lower bound (§3), and ~2× on the corner pulse.
+   - T1 for flavor shapes as the 1-cell open edge (½ day). On the tri lattice, allow it only at Co ≤ 0.5 until the corner growth is understood: it grows at 0.55 over 100000 steps. *(corrected 01/10/2026: the earlier text said "limit Co ≤ 0.65", which blows up.)*
 5. **Not planned:** Higdon/Liao order 3, Hagstrom–Warburton/CRBC, PMDL, DtN or Kirchhoff. They are either unstable here or bring gains CPML already delivers, at several times the effort.
 6. **Later (prism-like media phase):** re-check the PML's stability once the medium is anisotropic.
 
 ## 9. Not measured / open
 
 - Square 9-point: every measurement here is sq5. The sponge carries over directly. The CPML needs the mixed derivative or a 5-point frame. Mur1 on sq9 exists in the app but is unmeasured here.
-- T1 on the tri hexagon grows at Co ≥ 0.7. The cause is presumably the hexagon corners (the normal switches), but that is not isolated.
+- T1 on the tri hexagon grows at Co ≥ 0.55 (100000-step runs). The cause is presumably the hexagon corners (the normal switches), but that is not isolated. The tri circle was not noise-tested.
 - CPML with the app's *global* damping d > 0 inside the frame: untested, but it should compose, since both are per-cell linear terms.
 - A PML on the triangular lattice: open research here.
 - The sponge profiles were tuned on a small grid (p ∈ {1, 2, 3}, 7 values of d_max). Optimised profiles might gain a factor of 2–3, not orders of magnitude.
@@ -514,13 +583,16 @@ CUDA, K = 8 steps per launch, L = 20, µs per step. The noise is about ±15 %, s
 - Chern 2019 (JCP)
 - Hagstrom & Warburton 2004 (Wave Motion) and 2009 (SIAM J. Numer. Anal.)
 - Hagstrom, Warburton & Givoli 2010 (J. Comput. Appl. Math.)
+- Givoli & Neta 2003 (J. Comput. Phys.)
+- Abarbanel & Gottlieb 1997 (JCP), on the weak well-posedness of split-field PML
+- Liao & Liu 1992 (Earthquake Eng. Struct. Dyn.), on MTF instabilities (not verified)
 - Grote & Keller 1995 (SIAM J. Appl. Math.)
 - Alpert, Greengard & Hagstrom 2000 and 2002
 - Ting & Miksis 1986 (JASA)
 - Ryaben'kii, Tsynkov & Turchaninov 2001 (JCP)
 
 **Unsure:**
-- Givoli & Neta 2003: the venue.
+- The CRBC accuracy figures (no number is quoted any more).
 - Pasalic & McGarry 2010 (SEG): the exact reference.
 - Which Guddati paper coined "PMDL".
 - Whether Higdon introduced the ε terms.

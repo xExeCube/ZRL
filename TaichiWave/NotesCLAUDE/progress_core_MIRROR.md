@@ -69,3 +69,27 @@ Work happens on copies in ScratchCLAUDE/DevCLAUDE/; each live file is replaced i
   and re-promoted (text only). Moved my first-run scratch (atomic_probe*, smoke, xcheck_baseline) into DevCLAUDE.
 - DONE. NotesCLAUDE/solids_MIRROR.md final. Open: README update (not my file) -> requested; app integration
   (painting UI, preset toggles, record toggle, default source for 'unlicensed') -> requested.
+
+## 01/10/2026 round 3 (source snapping, damped CFL) -- Claude Opus 5.5
+- RESUMED: the cut-off first attempt left a dev copy ScratchCLAUDE/CoreCLAUDE/membrane_core_MIRROR.py (co_limit(damped),
+  snap_source + main_region via scipy.ndimage.label); live file unchanged (== membrane_core_backup_0110_MIRROR.py).
+  Continuing on that copy: src_moved = requested cell SOLID (not any move), incremental main region while painting.
+- DONE (dev copy): src_moved = requested cell SOLID (snap_source returns (i, j, moved, how, solid_req)); incremental
+  main region inside paint strokes (update_solids(bbox) -> recache_source(approx_ok=True); exact relabel on any other
+  recache). VERIFIED snap_probe (N=1025 plate): D left stroke (mid + inner edge) and A left stroke -> main region
+  (label 1), src_moved True; the web app's walk had dropped them into the D / A counters (labels 2 / 4). 2 ms/click cached.
+- VERIFIED damped CFL (cfl_damped_MIRROR.py, cuda f64, N=161, impulse, 8000 steps, Co = 0.998 / 1.003 C_max(d)):
+  sq5 / sq9 / tri x d = 0.02, 0.2, 0.5: all 9 stable below (<= 1.6e-6) and divergent above (>= 6.9e113 or inf).
+  sq5 d=0.02: C_max = 0.70356; Co 0.70567 -> inf (the reported 0.705 blow-up).
+- VERIFIED dev identity_tests (cuda f64): ALL PASS incl. new 2b damped CFL flip (sq5/sq9/tri, d = 0.2) and 2c source
+  snapping (D + A left strokes -> main region, web walk -> counters; free counter cell kept; stroke-box incremental;
+  no-solids walk unchanged). PROMOTED core + identity tests (atomic os.replace). Backup: ScratchCLAUDE/CoreCLAUDE/
+  membrane_core_backup_0110_MIRROR.py. Next: crosscheck_js cpu/cuda, ledger CFL fix + crosscheck_ledger.
+- VERIFIED live (promoted) core: crosscheck_js 27/27 cpu f64 and 27/27 cuda f64 (+ patch neumann-corner; no new
+  harness patch needed: co_limit and solid snapping change no field). Logs ScratchCLAUDE/CoreCLAUDE/xc_{cpu,cuda}_0110_MIRROR.txt.
+- VERIFIED live identity_tests cuda f64: ALL PASS (41 checks, 104.6 s). main_region labelling cost (scipy, numpy
+  timing): 0.043 s at N=2049, 0.69 s at 8193 -- paid once per mask change when a source lands on a solid; paint
+  strokes use the incremental update instead.
+- STATUS: tasks 1-4 done. Open (other owners): alignment_MIRROR.py:1092-1093 -> m.co_limit(damped=False) (web-app
+  clamp); app: call m.recache_source() at stroke end (exact main region), C_max readout label "(damped)";
+  README: the two new port deviations.

@@ -19,3 +19,12 @@ Owner area: ResearchCLAUDE/WallsCLAUDE/ + NotesCLAUDE/rigid_vs_pinned_walls_MIRR
 - 30/09 verified: energy_leak rerun on the final lib is identical to the 29/09 output (except timings).
 - 30/09 done: part 2 reruns (matched rasterisation, 30 and 45 deg) -> pinned within +-3%, rigid sq5 +25..33% (not shrinking lam 8->16), sq9 +4..27% (R1 worse than R0), tri within +-10% (= its disc reference). Note sections 0, 3.10 (sq9/tri table), 3.11, 5.2, 5.6 updated.
 - STATUS: note complete. Remaining open items are listed in the note (impedance on tri, R1 encoding, cut cells).
+
+## 01/10/2026 v3 fact-check started
+- findings file: ScratchCLAUDE/ReviewCLAUDE/findings_walls_v3_MIRROR.md
+- 01/10 v3: Bessel values, energy identity (independent operator), CFL argument checked; see findings_walls_v3
+- 01/10 v3: leaks + circle rerun checked
+- 01/10 v3: checks rerun, effective-radius fits; running a true resolution test for the rotated square (side 22, lam 16)
+- 01/10 v3: note edited for checks 1-8 (energy, CFL proof, leaks, circle, effective radii, physics, literature); waiting on chain rerun + resolution test
+- 01/10 v3: chain rerun identical; resolution test rerunning with side 21
+- 01/10 v3 DONE. Reruns identical: checks, energy_leak, circle_eigs, chain_reflection, scatter sq5. New: v3_energy (independent operator + energy identity + adversarial lambda_max), v3_leaklinks, v3_series (radius fits), v3_resolution (true resolution test). Main corrections: CFL proof wording, 22->19 checks, cut-cell order 1.35-1.8 not 2, effective-radius interpretations, Mur wording, Colella citation, Z-form sq9 phase, and "rigid staircase excess does not shrink with resolution" -> it does (+25/33% -> +17/18% at 1.9x cells).

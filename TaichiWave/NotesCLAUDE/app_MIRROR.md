@@ -1,6 +1,6 @@
 # The Taichi app: controls, what changed in round 2, and how it was verified
 
-*Generated from scratch — Claude Opus 5.5 — 30/09/2026*
+*Generated from scratch — Claude Opus 5.5 — 30/09/2026. Round 4 / v1.0 (05/10/2026): the key and panel tables below are updated, and the last section, *Round 4 / v1.0*, describes the new controls. Edited by Claude Opus 5.5 — 05/10/2026; the 3D fit of the triangular array and the final test counts 06/10/2026.*
 
 `membrane_app_MIRROR.py` is the primary app since 29/09/2026 (the web app is frozen). Round 2 does the user's feedback of 29/09/2026:
 - visibility;
@@ -20,8 +20,8 @@ Every number below was measured on 30/09/2026 on the user's machine (i9-9900K, R
 | `app_camera_MIRROR.py` | `OrbitCam` (fixed target, clamps) and `CamPose` (GGUI's lookAt + perspective, `world_to_screen`, `screen_to_ray`, `screen_to_plane`). Also `View2D` (2D zoom/pan, pixel ↔ physical) and the world ↔ physical ↔ grid conversions. Pure math: no Taichi. |
 | `app_input_MIRROR.py` | `Frame` (one frame of input), `poll_window()` (the live GGUI window → Frame) and `DigitPoller` (Win32 digits for the text entry). |
 | `app_solids_MIRROR.py` | `SolidsUI`: painting (begin / extend / end), objects (add / select / edit / delete), text entry, scene files, the Unlicensed toggles, and the walls-and-solids panel. |
-| `app_tests_MIRROR.py` | Headless tests (plain script): 54 checks on CUDA. |
-| `ScratchCLAUDE/AppCLAUDE/` | Shots, probes and logs. `shots_MIRROR.py` renders every `--shot` variant (38). |
+| `app_tests_MIRROR.py` | Headless tests (plain script): 54 checks on CUDA on 30/09; 109 since v1.0 (06/10/2026). |
+| `ScratchCLAUDE/AppCLAUDE/` | Shots, probes and logs. `shots_MIRROR.py` renders every `--shot` variant (38). The v1.0 step's shots and logs: `ScratchCLAUDE/Round4CLAUDE/AppCLAUDE/` (`shots_r4_MIRROR.py`, 21 variants). |
 
 ## Controls
 
@@ -39,11 +39,11 @@ Letters only: GGUI 1.7.4 names no digit or punctuation key (see *GGUI facts*).
 | X | wireframe |
 | H | hide / show all panels |
 | L | lattice |
-| B | boundary |
-| G | domain shape (the cycle includes `unlicensed`) |
+| B | boundary: the next one that acts on this lattice and shape (05/10/2026). The triangular `array`: dirichlet, neumann, periodic (Mur skipped). A triangular web-app shape: no change, a note says why |
+| G | domain shape (the cycle includes `unlicensed` and `array`) |
 | M | medium |
 | O | source |
-| C | reset the view (orbit, and the 2D zoom/pan) |
+| C | reset the view (orbit, and the 2D zoom/pan; the triangular `array` is zoomed to fit the panel-free strip in 2D, and in 3D the camera moves back so it fills the window as the square does, 06/10/2026) |
 | F | freelook on / off |
 | Z / SHIFT+Z | zoom in / out |
 | arrows | 3D: orbit 5° per press · 2D: pan |
@@ -89,26 +89,27 @@ All round-1 keys are kept with their meaning. The new ones use letters that were
 
 | panel | where | contents |
 |---|---|---|
-| main (left, 25%) | always shown | every round-1 control; a **view** section (3D, wireframe, mesh detail, freelook, zoom, azimuth, elevation, 2D zoom, reset view); a **look** section; panel toggles; readouts (cells, solid cells, E, max\|u\|, ms/step, frame ms, 3D mesh size) |
+| main (left, 25%) | always shown | the version line (`ZRL wave membrane v1.0 (05/10/2026)`); every round-1 control; the boundary block and the **edge** button (05/10/2026); the source note, the drive warning, the phase lag; a **view** section (3D, wireframe, mesh detail, freelook, zoom, azimuth, elevation, 2D zoom, reset view); a **look** section; panel toggles; readouts (cells, solid cells, E, max\|u\|, ms/step, frame ms, 3D mesh size) |
 | walls and solids [I] | right, top | see below |
 | alignment [J] | right, bottom | `alignment_MIRROR.gui_section` |
 | ledger [K] | bottom centre | `ledger_MIRROR.gui_section` |
 
 **Look section:**
-- background;
+- background; palette (click: next preset), *edit the custom palette*, surface opacity, grid lines (3D) — see *Palettes and transparency* below;
 - exposure, zero level, contrast;
 - auto colour gain, colour gain, height scale;
 - 3D shading, the array outside the domain, solid height;
 - 2D hatch;
-- solid colour and outside colour.
+- page colour (outside the array; picking one overrides the background preset until Y cycles it), solid colour and outside colour.
 
 **Walls-and-solids panel:**
-- draw mode, eraser, brush (cells);
+- draw mode, eraser, **brush wall** (pinned / rigid, 05/10/2026), brush (cells);
 - stroke count and update latency;
 - undo, clear painted walls;
-- the Unlicensed plate's lettering and screw-head toggles, or a *switch to the plate* button;
+- **wall types** (05/10/2026): the explainer, the legend, the pinned / rigid cell counts, *walls kernel ON (n cells)* or *off*, the **edge** button, *draw the edge type*;
+- the Unlicensed plate's lettering and screw-head toggles and the **plate lettering wall**, or a *switch to the plate* button;
 - add rect / circle / n-gon / text;
-- the object list, select < >, and editing of the selected object: enabled, anchor, x, y, rotation, and its size (w, h / r / n / cap height, fit width, stretch, letter spacing, font style);
+- the object list (a rigid object is tagged RIGID), select < >, and editing of the selected object: enabled, **wall**, anchor, x, y, rotation, and its size (w, h / r / n / cap height, fit width, stretch, letter spacing, font style);
 - text entry and text presets;
 - delete;
 - save scene, and the scene files list with load.
@@ -265,10 +266,20 @@ The command is `python membrane_app_MIRROR.py --shot out.png [options]`.
 | `--segment` | the segmentation colours used by the contrast tests |
 | `--scene file.json` | load a scene; a bare name looks in ScenesCLAUDE |
 | `--plate-text 0/1`, `--plate-screws 0/1` | the Unlicensed toggles |
+| `--plate-wall pinned/rigid` | the plate lettering's wall type (05/10/2026) |
+| `--brush-wall pinned/rigid` | the wall type of `--walls-test`'s stroke (05/10/2026) |
+| `--win W,H` | the window size, e.g. `2560,1377` for a maximised window (05/10/2026) |
+| `--version` | print `ZRL wave membrane v1.0 (05/10/2026)` and exit (05/10/2026) |
 | `--walls-test` | paint a zig-zag wall through the real input path in the chosen view, and print the cursor round-trip error and the update latency |
 | `--brush cells` | brush size |
 | `--marker x,y,z` | a magenta particle at a world point |
 | `--panels main,solids,align,ledger` | show those panels in the image. One warm-up frame is rendered first, so ImGui has laid them out. |
+| `--palette NAME` | teal-red / greyscale / cool-warm / cyclic / hot-cold / custom |
+| `--stops "t:r,g,b;..."` | a custom palette (sets `--palette custom`), e.g. `--stops "-1:0.1,0.45,0.95;0:0.2,0.16,0.26;1:1,0.55,0.1"` |
+| `--opacity a` | surface opacity (3D real alpha; 2D: the field mixed toward the page) |
+| `--grid g`, `--grid-every k`, `--grid-col r,g,b`, `--grid-field` | 3D grid lines: opacity, a line every k mesh vertices, colour, or the field's colours |
+| `--bg-col r,g,b` | a custom page colour |
+| `--settings file.json` | load a palette settings file (shots ignore `look_settingsMIRROR.json` otherwise) |
 
 `ScratchCLAUDE/AppCLAUDE/shots_MIRROR.py` renders all 38 variants: **38/38 OK** (final re-run 30/09/2026 late, against the live core, solids and ledger modules) (`shots_log_MIRROR.txt`, `shot_*_MIRROR.png`, `contact_sheet_MIRROR.png`). They cover:
 - 3D orbits: az 45 / el 25, az −135 / el 60, top at el 89, below at el −25;
@@ -311,6 +322,11 @@ The 3D cost is mostly GGUI's own per-frame vertex upload. At 1025, split: its `c
 Each is measured, with its probe in ScratchCLAUDE/AppCLAUDE.
 
 **Rendering**
+- **Alpha (01/10/2026, `ScratchCLAUDE/VisualsCLAUDE/*probe*MIRROR.py`).**
+  - `scene.mesh` takes a vec4 `per_vertex_color` and blends it (source-alpha over; green A 0.5 over red gave (0.50, 0.50, 0)). Depth is still written and nothing is sorted: drawn front first, a translucent quad hides the one behind it.
+  - `show_wireframe=True` draws only the triangle edges (no fill), in the vertex colours, alpha-blended. A degenerate triangle (a, b, b) draws its edge a-b, but twice: alpha 0.6 showed as 0.84 = 1 - 0.4^2.
+  - `scene.particles` blends. `scene.lines`, `canvas.lines` and `canvas.triangles` ignore alpha (opaque).
+  - Calls draw in call order across kinds: a `scene.lines` call made before a translucent mesh shows through it. A point light keeps the alpha.
 - **Colours are written linearly:** 0.2 → PNG 51, 0.5 → 127. Palette numbers are display values. set_image column py = 0 is the image's bottom row.
 - **A mesh vertex whose normal is 0 renders BLACK**, even with no point light. An unlit frame right after a new N was all black. The app fills the normals with +Y on allocation.
 - **`scene.mesh()` with a ti.field index buffer calls `to_numpy()` on it every call:** 12 ms, and ~50 ms per frame more than a numpy array at 2.1M triangles. The app passes a numpy prefix of exactly the drawn length. Round 1 paid this cost.
@@ -337,3 +353,176 @@ Each is measured, with its probe in ScratchCLAUDE/AppCLAUDE.
   - *Clear painted walls*, the plate toggles and scene loads do a full re-rasterisation: ~3 s at N = 8193 with the lettering.
   - `m.domain_cells()` is a full-grid sum: 2.3 ms at N = 2049. The panel recounts at most twice a second.
 - **The recorder feeds the auto gain.** The auto colour gain reads the recorder's history (`m.record`, default on). With the recorder off it falls back to `m.amax`, which only changes at seed and drop.
+
+## Review v3 changes (Claude Opus 5.5, 01/10/2026)
+- **Resized / maximised window.** `Viewer.win_real` is read from `window.get_window_shape()` every frame and drives
+  the 3D aspect (cursor ray, orbit drag). `Viewer.win` is the 2D image buffer; it follows the window once the new
+  size has held 0.3 s (`RESIZE_SETTLE`; `Renderer.resize` keeps one buffer per size). Until then GGUI stretches
+  the old buffer, and the 2D mapping (screen fractions of the buffer) stays exact. Before: 11-14 cells (N = 257)
+  paint error in 3D and a 1.16x-wide 2D circle at 2560 x 1377.
+- **Auto colour gain cap.** The peak is floored at 1e-3 x the run's largest |u| (`AUTO_REL_FLOOR`), so a field that
+  has died away fades out instead of showing amplified round-off. When the cap applies, the panel says "capped at 1000x".
+- **2D picture centred in the free strip** between the visible side panels (`View2D.ox`, `Viewer.free_centre`).
+  The picture shifts when panels are toggled; with H (no panels) it is centred in the window.
+- **N slider** applies its value once it has rested 0.35 s (`N_SETTLE`). Each N change costs a rebuild of ~1 s in 3D.
+- **Typing:** adding an object closes the text entry, Return never writes text onto a non-text object, and Return
+  brings hidden panels back.
+- **Cell counts** in the main panel are recounted only when the masks or the solid count change. Before, a 36 ms
+  sum every 0.5 s at N = 8193 caused a periodic stutter.
+- **`--walls-test`** with the path behind the camera prints "walls-test skipped: ..." instead of crashing.
+- **imgui.ini** cannot move or resize panels (GGUI re-applies the coded rect every frame), but it does keep a
+  panel's collapsed state between sessions, and that also applies to `--shot --panels` images.
+- Tests: CUDA f64 **61/61** (`ScratchCLAUDE/AppCLAUDE/app_tests_cuda_v3_MIRROR.txt`). Shots: **38/38 OK**
+  (`shots_v3_stdout_MIRROR.txt`).
+
+## Typed slider values and the source-moved note (Claude Opus 5.5, 01/10/2026)
+- **Typing a slider's value (pick mode).** Each panel's first row is a button *type a value: click here, then a
+  slider*. After it, the next slider you click opens an entry under that slider; the click itself does not change
+  the value. The entry takes digits `. - e` (`1e-3` works), BackSpace, Return (apply) and Escape (cancel). The value
+  is clamped to the slider's range (the panel flashes "outside lo .. hi, clamped to ..."); int sliders round. A
+  bad number ("1e") keeps the entry open with a red message. While the entry is open every key goes to it (no
+  hotkey fires, freelook's W/A/S/D/Q/E are off, the Win32 digit poller is on). While only armed, hotkeys still work
+  and Escape (or the button again) stops pick mode. The value goes back through the slider's own code path, so
+  N still waits for `N_SETTLE` and the sliders that restart the run still restart it.
+- **Why pick mode.** GGUI 1.7.4 has no `same_line()` and no text-input widget, so a button cannot share a slider's
+  row. A button under every slider (the first build) made the panels much longer: the main panel went from 67 to
+  87 rows, the solids panel from 37 to 43. Pick mode costs one row per panel. The per-slider buttons are still
+  there behind the main-panel checkbox *a "type" button under every slider* (off by default).
+- **ImGui's own Ctrl+click on a slider** (type into the slider in place) may or may not work in GGUI 1.7.4. GGUI
+  has no names for digit keys in its own key table (see *GGUI facts*), but Dear ImGui may get characters
+  through its own GLFW callbacks, so this is unknown and cannot be tested headless (no OS window). The user is
+  testing it. If it works, pick mode is a fallback; the two do not interfere while pick mode is off (a Ctrl+click changes no value
+  until the in-place entry is applied, and then the slider just reports the new value).
+- **Source-moved note.** Under source x / y, an amber line "source moved out of a solid to (x, y)" appears when the
+  requested source point lies in a solid (for example (0, 0) on the Unlicensed plate's A counter). It says "into
+  the domain" when the point was outside the domain. It uses the core's `m.src_moved` when the core has it; until
+  then it compares the requested cell (`round_cell`) with the cell actually used (`m.src`).
+- Tests: `t_typed`, `t_src_note` (headless `FakeG` / `FakeW` drive the real panel code; scripted slider clicks and
+  `Frame` key events). Runner for just these: `ScratchCLAUDE/AppCLAUDE/run_typed_MIRROR.py`.
+
+## Directional sources in the panel (01/10/2026, Claude Opus 5.5)
+
+With `beam` or `packet` selected (key O), the source section shows *beam angle (deg)*, *beam width w (cells)* and *aim the energy*. For the beam, it also shows *one-sided*, the freq slider and a readout (λ, cells driven/clipped, phase-front angle, a warning under 8 cells per wavelength). For the packet, it shows *packet length L* and *packet wavelength*. The beam's parameters apply live; the packet's relaunch it. *draw the emitter* toggles the overlay (aperture in cyan, arrow in orange) in both views. Pick-mode typing works on all the new sliders (app_tests `t_beam`). Design and measurements: [beam_MIRROR.md](beam_MIRROR.md).
+
+## Palettes and transparency (01/10/2026, Claude Opus 5.5)
+
+User request 01/10/2026: customizable gradient colours, and grid/mesh transparency like the web app's surface-opacity slider.
+
+### Palettes
+
+A palette is a list of colour **stops** `(t, rgb)` over t in [-1, 1], linear between stops, with stops at -1, 0 and +1 (at most 17). The colour of a field value u is the palette at `t = sign(x)|x|^(1/contrast)` with `x = u * colour gain` clamped to [-1, 1], times exposure, clipped at 1. Host (`palette_np`) and kernel (`palette`, a loop over the stops in the parameter block) are the same function. 2D and 3D both use it.
+
+| preset | stops | zero level |
+|---|---|---|
+| teal-red (default) | the web app's teal and red ends, grey zero | 0.22 |
+| greyscale | black, grey, white | 0.45 |
+| cool-warm | Moreland's perceptually uniform diverging map (matplotlib `coolwarm`, 9 samples) | 0.87 |
+| cyclic | matplotlib `twilight` (17 samples): x = -1 and +1 are the same colour, dark at 0, blue on the negative half, red on the positive half | 0.21 |
+| hot-cold | dark zero; negative blue -> cyan -> ice; positive red -> yellow -> white | 0.06 |
+| custom | the user's stops (default blue / dark violet / orange) | from its zero stop |
+
+- **Zero level:** the brightness (max channel) of the zero stop. The slider rescales the zero stop and keeps its hue, so it works on every palette. Choosing a preset loads that preset's own zero level. With teal-red this is exactly the 30/09 formula `Z + (end - Z)|x|^(1/contrast)`: 1.7e-16 on the host. The web-app check (zero 0.05) still passes.
+- **Contrast is the curve** (a gamma on |x|). Exposure, auto gain and colour gain apply on top, unchanged.
+- **Editor** (look section -> *edit the custom palette*):
+  - one colour picker per stop, and a position slider for each interior stop (typed values work);
+  - *remove stop k*, *add a stop* on the negative or positive side (it starts at the midpoint of the widest gap, in the colour already shown there);
+  - *copy the current palette into custom*, *reset the custom palette*.
+  - Any edit switches the view to the custom palette. Picking the zero colour sets the zero level.
+- **Page, solid and outside colours** are each separately editable. Solid and outside existed already. The page colour is new (*page colour (outside the array)*); Y (the background preset) clears it.
+
+### Settings file
+
+`look_settingsMIRROR.json`, in the project folder. It holds the palette name, the custom stops, the zero level, opacity, grid settings and the page colour.
+- A live run loads it at start and saves it once a change has rested 0.5 s; a colour-picker drag does not write every frame. It also saves on close.
+- A broken or missing file keeps the defaults; the panel shows why.
+- `--shot` runs ignore it, so shots stay reproducible, unless `--settings` names a file. `--no-settings` turns it off for a live run.
+
+### Transparency: real alpha, measured
+
+GGUI 1.7.4 blends RGBA vertex colours (see *GGUI 1.7.4 facts*), so this is real blending. Screen-door and fake blends were not needed.
+- **Surface opacity** (3D): the field cells' vertices carry alpha = opacity; solids and the floor stay opaque.
+  - GGUI does not sort, so with opacity < 1 the triangles are drawn floor first, then domain triangles back to front. The order is the triangle centroids projected on the horizontal view direction, cached per 1/32 of a turn of azimuth. A new sector sorts in ~20 ms at mesh 513 (2 x 512^2 triangles).
+  - The overlay lines (domain edges, beam emitter, brush ring) go before the surface, so they show through it.
+  - Through a translucent crest you see the far side of the ring.
+- **2D:** the same slider mixes the field toward the page colour. That is what the 3D surface shows over empty space. The measured pixels are identical in the two views.
+- **Grid lines** (3D, *grid lines (opacity, 0 = off)*):
+  - a second wireframe pass of degenerate triangles along both lattice index axes, a line every k mesh vertices (the panel shows it in cells), following the surface vertex by vertex;
+  - colour: the picked grid colour, or the field's own colours brightened;
+  - slid 0.2 % of their distance toward the eye, so they win the depth test against their own surface.
+  - Each edge is drawn twice, so the per-pass alpha is `1 - sqrt(1 - g)`.
+  - The grid is drawn after the surface. Drawn first, a faint line would blend over the page and show darker than the surface. So grid lines behind a crest stay hidden; the panel says so.
+  - Only the vertices on grid lines are uploaded: +4 ms. A full-mesh copy cost +30 ms at mesh 513.
+- **X (wireframe)** is unchanged: GGUI's own edges of the surface in the field colours, now with the surface alpha.
+
+Measured (`app_tests_MIRROR.py` section 10, unlit top view, 8-bit):
+- surface: pixel = a * surface + (1 - a) * page within 0.6 at a = 1, 0.5, 0, in 3D and 2D;
+- grid: line pixel = g * colour + (1 - g) * surface, (got, wanted) = (116, 115.8), (175, 175.4), (255, 255) at g = 0.3, 0.6, 1;
+- back-to-front order: correlation of draw rank with -(eye distance) 0.987-0.990 at 4 views;
+- frame at N = 1025, mesh 513, including the ~50 ms readback: opaque 69.5 ms, opacity 0.5 67.4 ms, with the grid 73.3 ms (full run; the sector sort 19 ms).
+
+**Limits:**
+- Sorting is per triangle along the horizontal view, not per pixel, so two translucent sheets crossing within one triangle can blend in the wrong order. On a height field this is rare.
+- Grid lines are 3D only, and they also cross raised solids.
+- Line width is GGUI's (1 px).
+
+**Shots:** `ScratchCLAUDE/VisualsCLAUDE/shots_visualsMIRROR.py` renders 24 variants, **24/24 OK**:
+- every preset and two custom palettes, each in 2D and 3D (`sheet_palettes_MIRROR.png`);
+- opacity 1, 0.6 and 0.3 in 2D and 3D, plus grid combinations and the plate at opacity 0.5 (`sheet_opacity_MIRROR.png`).
+
+**Tests:** `app_tests_MIRROR.py --arch cuda` gives **88/88**: 71 before, plus section 10 (`ScratchCLAUDE/VisualsCLAUDE/app_tests_cuda_MIRROR.txt`).
+
+## Scale mode (02/10/2026)
+
+*Added by Claude Opus 5.5, 02/10/2026.* Full description: [scale_MIRROR.md](scale_MIRROR.md).
+
+- **Scale button.** `scale: cells … -> domain` (main panel, above the speed slider) switches the size units without a reset. `Viewer.set_scale()` converts steps/frame ↔ crossings/s at `FPS_NOMINAL` = 60.
+- **Domain-mode sliders.** `crossings / s` replaces `steps / frame`. `Viewer.frame_steps()` carries the fractional steps, and the main loop calls it. The fraction sliders `sigma / r_in`, `lambda / r_in`, `beam w / r_in`, `packet L / r_in` and `packet lambda / r_in` come from `Viewer.scale_size_slider()`.
+- **Readout and warnings.** The status line shows the crossings, and amber notes come from `m.scale_warnings()`.
+- **Auto height.** In the look section, off by default, both modes. `height_scale()` = hs / `auto_peak()`, the same peak as the auto colour gain; `colour_gain()` now calls `auto_peak()`, with no behaviour change.
+- **CLI:** `--scale`, `--cps`, `--auto-height`. `--set` accepts the None-valued fraction fields (as floats).
+- **Tests:** `app_tests_MIRROR.py` `t_scale`, 7 checks (95/95).
+
+
+## Round 4 / v1.0 (05/10/2026)
+
+*Added by Claude Opus 5.5, 05/10/2026.* The panel wiring of the round-4 core work (hand-offs: [walls_MIRROR.md](walls_MIRROR.md) section 11, [vertex_choppiness_MIRROR.md](vertex_choppiness_MIRROR.md) section 7.4) and the version. Progress log: [progress_round4_app_MIRROR.md](progress_round4_app_MIRROR.md).
+
+### Version
+- `VERSION = '1.0'`, `VERSION_DATE`, `APP_NAME` in `membrane_core_MIRROR.py`; the viewer imports them. Window title `ZRL wave membrane v1.0`; the main panel's first line; `--version`; the `--shot` log line (`wrote out.png: ZRL wave membrane v1.0, N=... bc <effective> edge <edge> ...`).
+
+### Boundary, edge, `array` (main panel)
+- **boundary:** the effective bc (`bc_info()`), plus `(<requested> n/a here)` on a fallback; the button `boundary [B]: <bc> (click: <next>)`; the ring in words (grey), e.g. *rigid ring (link removal, zero normal slope)*, *rhombic torus (wraps along both lattice vectors)*.
+  - The triangular `array`: a grey line *mur: not on tri yet (absorbing-boundary round)*; amber, with *falls back to the clamped ring*, while mur is requested.
+  - A triangular web-app shape: the button reads *does not apply to this shape*, and a grey note says to use the edge control (the `array` shape has the three bcs). B flashes the same note and changes nothing.
+  - Changing the bc resets the run, as before.
+- **edge:** `edge: <pinned|rigid> (click: <other>)` for masked shapes, with a grey line (*pinned: u = 0, echo inverted* / *rigid: zero slope, echo upright*). It calls `Membrane.set_edge()`: the link words are rebuilt and the **field is kept** (no reset; checked in app_tests). On `array` and the full square: grey text *edge: n/a - the array / the full square has no mask edge: the boundary (B) rules*. The same control sits in the walls panel.
+- **`array`:** the radius slider and the rotation slider and button become grey text. In 2D the whole triangular rhombus (3c wide: 1.47 window heights at zoom 1) is zoomed to fit the strip the panels leave (`Viewer.fit_2d()`: on entering it, on C, and in `--shot`; leaving it restores zoom 1 unless the user zoomed since).
+- **The 3D fit** (06/10/2026, `Viewer.fit_3d()`): the default camera frames the square ([-1, 1]^2 in world units); the rhombus is 3 wide, so its near corners fell off the window (seen in `r4shot_layout_max_3d`). On entering the triangular `array`, on C, and at start-up / in `--shot` without `--camera`, the orbit camera moves back along its azimuth and elevation until no rhombus corner lies further from the window centre (in x or y) than the square's corners do at the default distance. At the default angles that is distance 3.870 (the zoom slider reads 0.749); az 45: 3.794; el 70: 4.149 (`ScratchCLAUDE/Round4CLAUDE/AppCLAUDE/probe_fit3d_MIRROR.py`). Leaving the array restores the default distance unless the user zoomed since. A run started on the array (`--set lattice=tri shape=array`) now gets both fits at once.
+
+### Wall types (walls panel, renderer)
+- **brush wall**, the selected object's **wall**, the **plate lettering wall** (Unlicensed only): pinned <-> rigid buttons. An object edit re-rasterises its box; the plate toggle redoes the grid.
+- Explainer: *pinned = held at zero, reflects inverted (a membrane post). rigid = zero slope, reflects upright (sound off a hard object, water off a quay).*
+- Legend: *pinned solid (u = 0)* in the solid colour, *rigid solid (du/dn = 0), striped in 2D* in the rigid colour, *rigid edge: line; torus seam: dashed*. The legend uses coloured words: ImGui's default font has no box glyph.
+- Counts: `walls_info()` (two whole-grid counts, ~0.1 s at N = 8193 per walls_MIRROR.md section 6) is cached on the masks, the scene, the edge and the bc. While painting, or during an object drag (two solid edits less than `EDIT_SETTLE` = 0.3 s apart), the last counts stay shown until the edits rest; a single click edit updates them at once.
+- **Renderer:** `Look.rigid` = (0.22, 0.72, 1.00), a neon cyan-blue: CIE L* 71.0 against the pinned off-white's 85.4 (`app_render_MIRROR.lstar` of the two colours), and 52/255 apart by luma on the rendered 8-bit pixels (app_tests section 11), so the two differ in lightness too. `k_image` / `k_verts` read the core's class codes `m.C` (low two bits: 1 pinned, 2 rigid); a 1x1 stand-in with `hasC = 0` while the core keeps none (every solid pinned). In 2D rigid cells carry dark diagonal stripes (2 px of every 8 at 0.55). Measured in app_tests (8-bit, unlit): pinned (214, 214, 204), rigid (56, 183-184, 255), stripes on 45 of 169 pixels of a patch.
+- **Edge overlay** (*draw the edge type*, on by default): a rigid edge (masked shape) and a rigid ring (the triangular `array` with neumann; the square's Neumann ring too) as a line in the rigid colour along `shape_poly()`; a torus seam (square periodic, the rhombic torus) as a dashed violet line (`ar.TORUS_COL`). Cached per shape / bc / edge.
+
+### Vertex sources and the drive (main panel)
+- **vertex inset** button: *vertex inset: wall (3 sigma from both walls)* / *vertex inset: radial (the web app's)*; it cycles `mc.VTX_INSETS` and resets. `wall` is the default.
+- *seed pulses under the driven vertices (the web app)*: shown only while *drive the vertices* is on; bound to `p.vtx_drive_bump`; it resets.
+- **Source note** (`m.source_note()['lines']`): under the inset button for vertex sources, under source x / y for point sources. Levels: warn = amber, dim = grey, ok / info = the normal colour. A clip line that is not a warning drops its long parenthesis (and reads *nothing* at exactly 0); the amber one keeps the core's full text with *try vertex inset: wall*. The old bottom line *pulse clipped at t = 0* is gone. The core caches the note; while painting or during an object drag the last note stays shown (its clearance search is O(clearance^2)); any other change recomputes at once.
+- *not an exact eigenmode here: ...* (`m.mode_note()`) in amber under the source buttons for the drum-mode source.
+- **Drive warning** (`m.drive_warnings()`): amber under the freq slider, where the domain-mode `scale_warnings()` print (the two never both show).
+- **Phase lag** (`m.phase_lag()['lines']`): in the readouts while a gaussian is seeded (src `pulse`, or `vtx` with its bumps).
+
+### Text width
+- `TEXT_WRAP` 54 -> **52**: a long panel shows ImGui's scrollbar, and wrapped lines of 54 characters lost their last two characters under it (seen in the shots). The alignment panel keeps its wrap of 52.
+
+### Tests and shots
+- `app_tests_MIRROR.py` section 11 (`t_round4`, 14 checks): **109/109 on CUDA f64 and on Vulkan f32** (95 + 14; 06/10/2026, `ScratchCLAUDE/Round4CLAUDE/AppCLAUDE/app_app_tests_cuda_fit3d_MIRROR.log` and `..._vulkan_f32_fit3d_MIRROR.log`; 108/108 on 05/10 before the 3D-fit check). It covers the version (incl. `--version` and a `--shot` subprocess), B per lattice and shape, the edge (field kept), `array` (greyed sliders, the 2D fit, the 3D fit at three camera angles), wall types and the plate, the legend and counts (and their drag wait), the scene round trip with wall types, rigid vs pinned pixels in 2D and 3D, the edge overlay, the vertex / drive / phase-lag readouts, and the panel rectangles (no overlap and inside the window at 1600x1000, 2560x1377 and 1280x720) plus real GGUI frames with all four panels.
+- `ScratchCLAUDE/Round4CLAUDE/AppCLAUDE/shots_r4_MIRROR.py`: 21 `--shot` variants, 21/21 OK on 06/10 (`r4shot_*_MIRROR.png`, log `shots_r4_log_MIRROR.txt`, contact sheet `contact_r4shots_MIRROR.png`), each looked at: rigid vs pinned objects (2D, 3D, 3D lit), a rigid and a pinned n6 edge (the echo upright vs inverted), the triangular torus and rigid ring (2D, 3D at the default, fitted camera; the 3D array with the main panel) and the Mur fallback, the source note with the radial and the wall inset, driven vertices, the drive warning, the rigid plate lettering, a rigid `--walls-test` stroke, and the layout at 1600x1000 and 2560x1377 (2D, 3D) with all four panels.
+- `ScratchCLAUDE/Round4CLAUDE/AppCLAUDE/run_r4_MIRROR.py` runs section 11 alone (~15 s).
+
+### Open
+- ~~The 3D default camera shows the triangular `array` wider than the window~~ fixed 06/10/2026 (`fit_3d()`, above). As with the square (its near corners at x = 0.143 of the window at the default camera), the rhombus's near acute corner (x = 0.145) lies under the main panel while that panel is open: the orbit target is the domain centre, drawn at the window centre.
+- With both side panels open, a full-radius shape (square, plate) is wider than the 800 px strip between them in 2D, and its sides go under the panels. That was so before v1.0 (zoom 1 fits the array's height); only the triangular `array` gets a fit.

@@ -58,6 +58,9 @@ GGUI: `gui_section(w, viewer)` draws the panel into an open `sub_window` `w`; `v
 `.reset()`, optionally `.flash(msg)`; the state lives in `viewer.align_panel` (an `AlignPanel`: `.cls`,
 `.edge_col`, `.snap_i`, `.wrap`; `.data(m)` = the cached panel content). `gui_text(s)` maps the text to
 ImGui's Latin-1 font (em dash -> '--', lambda -> 'lambda', ...).
+Every cached panel line (note, straightness header and rows, the '[PASS]/[n/a] ...' ledger claims) is
+wrapped at `.wrap` chars, default 52 (ImGui's 7 px font in a 400 px panel holds 54); checked in a real
+offscreen GGUI window by `ScratchCLAUDE/AlignCLAUDE/align_wrap_ggui_MIRROR.py` (01/10/2026).
 
 JS number formatting, exact: `js_round`, `js_hypot` / `js_hypot_np` (V8's formula, bitwise),
 `js_num_str` (Number::toString), `js_to_fixed`, `js_to_exponential`, `fmt(x, d=6)`, `js_max`.
@@ -183,3 +186,17 @@ rot == alpha - 90").
   scans would cut it; not needed at <= 4097.
 - The panel's straightness list and level letters are port-only and have no JS reference; they are derived
   from al_rep fields that are cross-checked.
+
+## The 'array' shape (05/10/2026)
+
+*Added by Claude Opus 5.5 — 05/10/2026.*
+
+- **Model `arr`:** the domain is the whole lattice array. Its edges are the array's rows:
+  - 0° and 90° on the square lattice (the full square);
+  - 0° and 60° on the triangular one: the 60° rhombus whose long diagonal lies at 30°, i.e. the web app's 60° rhombus at its conformant rotation.
+- **Rotation does not apply.** `al_rot_deg` is 0 and `al_set_rot` refuses ("the lattice array is fixed — rotation does not apply").
+- **On either lattice:** 4/4 rows, ALL. The flavor pick is a tie, so the current lattice stays.
+- **The two ledger rows:**
+  - 7c (measured period): PASS with period 1 on every edge;
+  - 7c-bis: n/a, "its walls ARE the array edge … governed by the boundary control".
+- **Cross-check:** `crosscheck_alignment_MIRROR.py` does not include 'array' (the web app has no such shape). `tri_modes_tests_MIRROR.py` test 10a checks it.

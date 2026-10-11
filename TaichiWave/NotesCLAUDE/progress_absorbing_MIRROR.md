@@ -32,3 +32,9 @@ Owner files: `ResearchCLAUDE/AbsorbingBoundariesCLAUDE/`, `NotesCLAUDE/absorbing
 - DONE cfl_damping_MIRROR.py: Co_max(d) = Co_max(0) sqrt(1 - d/2) for the app form, verified at d = 0.02/0.2/0.5 (+-0.005).
 - DONE NotesCLAUDE/absorbing_boundaries_MIRROR.md (the note; every number cross-checked against the json/txt results).
 - STATUS 30/09/2026: task complete. Open items are listed in section 9 of the note.
+
+## Fact-check v3 (01/10/2026, Claude Opus 5.5)
+- Started. Findings log: ScratchCLAUDE/ReviewCLAUDE/findings_absorbing_v3_MIRROR.md.
+- 01/10: F1 (CFL damping, confirmed with in-gap run), F2 (tables vs json), F3 (1D bench sound), F6 (literature) logged; literature + §3/§5.1/§6/frame-% corrections applied to the note. Sims running: ScratchCLAUDE/AbsorbCLAUDE/checks_MIRROR.py, GPU rerun.
+- 01/10: F4 (T1 tri hex unstable >= 0.55, 100k runs), F5 (sigma dependence of sponge), F7 (100k-step CPML/Mur2/Higdon2 stable), F8 (2D window lower bound) logged and applied to the note. Pending: cpml20a 100k noise, GPU f64 N=4097 rerun.
+- 01/10: DONE. F9 (GPU, re-run f64 4097 confirms x2.05 divide), F10 (fit to solver). Note corrected; findings complete.

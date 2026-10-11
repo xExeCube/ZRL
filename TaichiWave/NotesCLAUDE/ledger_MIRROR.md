@@ -57,7 +57,7 @@ Other public names:
 
 ## FIXES: faults in the web app's ledger
 
-These are the JS bugs found while porting. They are applied by default. `build_ledger(m, compat=True)` turns them off and gives the web app's exact logic, which is what the cross-check compares. Every row a fix changes names it in `Row.fixes`. In the cross-check, 144 rows change, all attributed, and none changes without naming a fix.
+These are the JS bugs found while porting. They are applied by default. `build_ledger(m, compat=True)` turns them off and gives the web app's exact logic, which is what the cross-check compares. Every row a fix changes names it in `Row.fixes`. In the cross-check, 144 rows change (156 with `cfl-damped`, 01/10/2026), all attributed, and none changes without naming a fix.
 
 | id | rows changed | what the web app does wrong |
 |---|---|---|
@@ -67,6 +67,7 @@ These are the JS bugs found while porting. They are applied by default. `build_l
 | `lens-text` | 8 | The refraction label says "the slab (c/2)" for the lens medium, which is 0.55 c. |
 | `mirror-live` | 24 | Before step 6, or when the field has diverged or is zero, the mirror row said "needs a pulse, impulse or vertex source" even when the source was one. |
 | `cfl-nan` | 2 | Once the field is all NaN, `record()`'s max skips NaN and `S.amax` reads 0, so a diverged run over the limit said "not yet" (red). A non-finite energy now counts as diverged. |
+| `cfl-damped` | 12 | (01/10/2026, Claude Opus 5.5) With damping the update's `-d (u - u_prev)` term lowers the stability limit to C_max(d) = C_max(0)·√(1 − d/2) (0.7036 on sq5 at d = 0.02; verified numerically on sq5, sq9 and tri, d = 0.02 / 0.2 / 0.5: stable at 0.998 C_max(d), divergent at 1.003). The web app grades Co against C_max(0), so Co = 0.705 at d = 0.02 blew up under a row that read FAIL instead of the expected divergence (RED OK). The row now uses `m.co_limit()` (damped); `_Ctx.co_limit()` returns the web app's `co_limit(damped=False)`, which the cone and mode rows keep. Cross-check 01/10/2026: 12 rows attributed (every d > 0 run's CFL label), status agreement still 3435/3435 in compat mode. |
 
 ## Port-only decisions (solids, the 'unlicensed' plate, the recorder)
 
@@ -190,3 +191,24 @@ No row may FAIL in any of these runs unless the check names it.
 - `Membrane` setup for n6 with vertex sources at N = 8193 took 18.8–19.9 s. That is the core, not the ledger.
 - The reciprocity row is "not yet wired" in the web app, and so in the port.
 - In the mirror row for the plate, the web app's detail text ("the triangle and pentagon have NO 8-fold orbit…") is kept word for word. It reads oddly for the plate but is not wrong.
+
+## Walls and the triangular-lattice modes (05/10/2026)
+
+*Added by Claude Opus 5.5 — 05/10/2026. The full account is in [walls_MIRROR.md](walls_MIRROR.md), §13.6.*
+
+- **New FIX `tri-energy`.** On the triangular lattice the energy row grades `m.hist['Etri']` = kin/(2Co²) + (gx² + gy² + gz²)/3, the triangular operator's own energy. The web app's E (gx and gy only) is the square lattice's functional.
+  - Measured with `ScratchCLAUDE/Round4CLAUDE/TriModesCLAUDE/tri_energy_row_MIRROR.py`, drift of E → Etri: the rigid rhombic ring 4.0e-2 → 1.1e-3; a packet in the hexagon 1.28e-1 → 3.3e-3; the web app's rhombus 60° at r 0.8 with an impulse 9.0e-3 → 1.1e-3.
+  - Shapes with a 6-fold symmetric field (n3, n6, circle) give equal values.
+  - Every web-app row this changes names the fix.
+- **The recorder** also sums the third direction (HIST column 6). On the rhombic torus it sums every cell with wrapped differences.
+- **The walls (§9 of walls_MIRROR.md):**
+  - energy and boundary rows stay graded with rigid walls (port text);
+  - the symmetry premises also check the type map when a solid is rigid;
+  - a masked square with a rigid edge makes the eigenmode rows n/a;
+  - `edge()` returns 'rigid' for a rigid mask edge.
+- **The `array` shape:**
+  - the square lattice: the full square's rows;
+  - the triangular lattice: conformance (N−2)² / N², staircase exact, mirror only on the torus, 6-fold only on the torus (taken mod N);
+  - the cone and the front clearance wrap on the rhombic torus;
+  - Mur falls back to the clamped ring (edge-kind with the reason).
+- **`crosscheck_ledger_MIRROR.py` port-only checks: 26** (11 new, O–W).
