@@ -1,9 +1,14 @@
 """ZRL 2D wave membrane -- Taichi port: SOLID OBJECTS and PAINTED WALLS.
 
-Every solid is PINNED: u = 0 in a solid cell, the rule the domain mask already applies (a hard,
-phase-inverting Dirichlet wall). Rigid (Neumann) walls are held off by the user (29/09/2026).
-The core composes the solver's mask as  M = domain AND NOT solid  (Membrane.domain_mask_np,
-Membrane.solid_np); this module only decides which cells are solid.
+Wall types (round 4, 04/10/2026, NotesCLAUDE/walls_MIRROR.md): every object and every painted
+stroke carries wall = 'pinned' (u = 0, the default: a hard, phase-inverting Dirichlet wall, the
+rule the domain mask applies) or 'rigid' (zero normal slope, Neumann: the core removes the links
+into the wall, so a wave comes back upright -- sound off a hard object, ripples off a quay). The
+Unlicensed plate's lettering and screws follow SolidScene.plate_wall, 'pinned' by default.
+Rasterisation yields a TYPE map (0 free, 1 pinned, 2 rigid): objects in order, then the strokes
+in order, each overwriting what it covers with its type; an eraser stroke frees what it covers.
+The core composes the solver's mask as  M = domain AND type == 0  (Membrane.domain_mask_np,
+Membrane.solid_np = the type map); this module only decides which cells are solid, and how.
 
     scene = SolidScene()
     scene.add(SolidObject('circle', x=0.3, y=0.1, r=0.05))       # grid units: base_half
@@ -26,8 +31,9 @@ Walls are SEALED when the brush's physical radius r is at least MIN_BRUSH = 1.0 
 link between two free cells on opposite sides of a painted curve crosses the curve at a point P,
 and both ends are more than r from P, so the link is longer than 2r. The longest links are 1
 (sq5, tri) and sqrt(2) (sq9 diagonals), so r > 0.5 (sq5, tri) / r > 0.7071 (sq9) already seals;
-1.0 keeps a margin. A ONE-CELL diagonal staircase wall, by contrast, leaks through the sq9
-diagonal links and the triangular lattice's (1,-1) links (solids_tests_MIRROR.py measures it).
+1.0 keeps a margin. A ONE-CELL diagonal staircase wall leaked through the sq9 diagonal links and
+the triangular lattice's (1,-1) links until 04/10/2026; the core's corner blocking now seals it
+too, for both wall types (solids_tests_MIRROR.py and walls_tests_MIRROR.py measure 0.0).
 
 Text is rendered with PIL at high resolution in the object's own frame and sampled at each cell
 (bilinear, threshold 50%). The enclosed counters of letters (inside D, A, P, R ...) become sealed
@@ -52,6 +58,8 @@ FALLBACK_FONTS = ('ARIALNB.TTF', 'ARIALN.TTF')       # used only when the DEFAUL
 DEFAULT_VARIATION = 'SemiBold SemiCondensed'
 KINDS = ('rect', 'circle', 'ngon', 'text')
 ANCHORS = ('grid', 'domain')
+WALL_TYPES = ('pinned', 'rigid')
+WALL_CODE = {'pinned': 1, 'rigid': 2}          # the type map's values (0 = free)
 MIN_BRUSH = 1.0             # minimum physical brush radius in cells (seals sq5, sq9 and tri; see above)
 EPS = 1e-9                  # the domain predicates' slack (insideNgon's +1e-9)
 EMPTY_BOX = (0, 0, 0, 0)    # an update box that covers no cell (m.update_solids does nothing)
@@ -70,12 +78,22 @@ TAU = 2 * PI
 #               tracking 0.30 cap and the fitted stretch comes out at ~0.63;
 #   CA EXEMPT : Bahnschrift 'SemiBold', natural 7.32 cap heights vs the cover's 1.107/0.1375 =
 #               8.05, so tracking 0.09 and the stretch comes out at ~1.0.
+# RE-MEASURED 01/10/2026 (Claude Opus 5.5) on the user's cover ScratchCLAUDE/GovernmentPlates.jpg,
+# perspective removed by a homography from the inner light area's 4 corners to (+-1, +-0.5) R
+# (ScratchCLAUDE/SolidsCLAUDE/plate_cover_MIRROR.py; 1 cover px ~ 0.01 R, corner jitter SD <= 0.004 R).
+# Changed only where the cover disagrees by >= 1.5 cover px:
+#   CA EXEMPT y 0.319 -> 0.3375;  DEATH x 0 -> -0.0425 (the cover's DEATH sits LEFT of centre),
+#   height 0.525 -> 0.545, fit_w 1.574 -> 1.595, tracking 0.30 -> 0.20 (cover letters 0.235 R wide
+#   with 0.075-0.13 gaps; 0.30 made them 0.19-0.25 with 0.105-0.165 gaps);  screws y 0.4375 -> 0.476
+#   (they sit in the frame's notches; the gap to the plate edge is 0.004 R, ~2 cells at N = 1025).
+# Kept: CA EXEMPT x/height/fit_w, DEATH y, screw x (0.642 measured, left/right differ by 1.6 px), and
+# the core's corner radius 0.065 (cover 0.047 +- 0.004, < 1 px on the diagonal).
 PLATE_TEXT = (
-    dict(text='CA EXEMPT', x=0.0, y=0.319, height=0.1375, fit_w=1.107, variation='SemiBold', tracking=0.09),
-    dict(text='DEATH', x=0.0, y=-0.0875, height=0.525, fit_w=1.574, variation='SemiBold SemiCondensed',
-         tracking=0.30),
+    dict(text='CA EXEMPT', x=0.0, y=0.3375, height=0.1375, fit_w=1.107, variation='SemiBold', tracking=0.09),
+    dict(text='DEATH', x=-0.0425, y=-0.0875, height=0.545, fit_w=1.595, variation='SemiBold SemiCondensed',
+         tracking=0.20),
 )
-PLATE_SCREWS = ((0.628, 0.4375), (-0.628, 0.4375), (-0.628, -0.4375), (0.628, -0.4375))
+PLATE_SCREWS = ((0.628, 0.476), (-0.628, 0.476), (-0.628, -0.476), (0.628, -0.476))
 PLATE_SCREW_R = 0.02
 
 
@@ -108,22 +126,34 @@ class SolidObject:
     tracking: float = 0.0
     fit_w: float = 0.0
     name: str = ''
+    wall: str = 'pinned'        # 'pinned' | 'rigid' (04/10/2026)
 
     def __post_init__(self):
         if self.kind not in KINDS:
             raise ValueError(f'SolidObject kind {self.kind!r}: must be one of {KINDS}')
         if self.anchor not in ANCHORS:
             raise ValueError(f'SolidObject anchor {self.anchor!r}: must be one of {ANCHORS}')
+        if self.wall not in WALL_TYPES:
+            raise ValueError(f'SolidObject wall {self.wall!r}: must be one of {WALL_TYPES}')
 
 
 @dataclass
 class Stroke:
     """A painted wall (erase=False) or an eraser stroke (erase=True): the union of the capsules
     of radius `radius` around its polyline. Points and radius in GRID units; the physical radius
-    is never below MIN_BRUSH cells."""
+    is never below MIN_BRUSH cells. wall: the brush's wall type (ignored by an eraser)."""
     points: list = field(default_factory=list)
     radius: float = 0.01
     erase: bool = False
+    wall: str = 'pinned'
+
+    def __post_init__(self):
+        if self.wall not in WALL_TYPES:
+            raise ValueError(f'Stroke wall {self.wall!r}: must be one of {WALL_TYPES}')
+
+    def value(self):
+        """What the stroke writes into the type map: 0 (eraser), 1 (pinned) or 2 (rigid)."""
+        return 0 if self.erase else WALL_CODE[self.wall]
 
 
 # ---- unit conversions (m = the core's Membrane) -----------------------------------------------
@@ -151,17 +181,26 @@ def cell_to_grid(m, i, j):
     return phys_to_grid(m, *m.cell_xy(i, j))
 
 
+def _dom_rot(m):
+    """The domain's rotation as its objects see it: m.dom_rot() (0 for the 'array' shape, which ignores
+    rotation, 05/10/2026), p.rot for a core without it."""
+    f = getattr(m, 'dom_rot', None)
+    return f() if f is not None else m.p.rot
+
+
 def domain_to_phys(m, dx, dy):
-    """Domain units (dom_R, turning with p.rot) -> physical."""
+    """Domain units (dom_R, turning with the domain's rotation m.dom_rot(): p.rot, 0 for 'array') -> physical."""
     R = m.dom_R()
-    co, si = math.cos(m.p.rot), math.sin(m.p.rot)
+    rot = _dom_rot(m)
+    co, si = math.cos(rot), math.sin(rot)
     x, y = dx * R, dy * R
     return x * co - y * si, x * si + y * co
 
 
 def phys_to_domain(m, x, y):
     R = m.dom_R()
-    co, si = math.cos(m.p.rot), math.sin(m.p.rot)
+    rot = _dom_rot(m)
+    co, si = math.cos(rot), math.sin(rot)
     return (x * co + y * si) / R, (-x * si + y * co) / R
 
 
@@ -340,7 +379,7 @@ def object_frame(m, o):
     u = unit_scale(m, o.anchor)
     th = math.radians(o.rot_deg)
     if o.anchor == 'domain':
-        rot = m.p.rot
+        rot = _dom_rot(m)
         co, si = math.cos(rot), math.sin(rot)
         x, y = o.x * u, o.y * u
         return x * co - y * si, x * si + y * co, th + rot, u
@@ -498,11 +537,14 @@ class SolidScene:
     scene.m. Methods that change the scene return the affected cell box (i0, i1, j0, j1) for
     m.update_solids(box) (None = redo the whole grid, or nothing attached)."""
 
-    def __init__(self, objects=None, strokes=None, plate_text=True, plate_screws=True):
+    def __init__(self, objects=None, strokes=None, plate_text=True, plate_screws=True, plate_wall='pinned'):
         self.objects = list(objects or [])
         self.strokes = list(strokes or [])
         self.plate_text = plate_text
         self.plate_screws = plate_screws
+        if plate_wall not in WALL_TYPES:
+            raise ValueError(f'plate_wall {plate_wall!r}: must be one of {WALL_TYPES}')
+        self.plate_wall = plate_wall    # the Unlicensed lettering + screws (04/10/2026)
         self.version = 0                # bumped by every edit through the methods below
         self.m = None
         self._cur = None                # the stroke being painted
@@ -511,7 +553,8 @@ class SolidScene:
     # ---- cache signature (the core re-rasterises when it changes) --------------------------
     def signature(self):
         return (self.version, len(self.strokes), sum(len(s.points) for s in self.strokes),
-                tuple(astuple(o) for o in self.objects), bool(self.plate_text), bool(self.plate_screws))
+                tuple(astuple(o) for o in self.objects), bool(self.plate_text), bool(self.plate_screws),
+                self.plate_wall, tuple(s.value() for s in self.strokes))
 
     def _bump(self):
         self.version += 1
@@ -529,10 +572,11 @@ class SolidScene:
         if self.plate_text:
             for t in PLATE_TEXT:
                 out.append(SolidObject('text', anchor='domain', font=DEFAULT_FONT, stretch=1.0,
-                                       name='plate: ' + t['text'], **t))
+                                       name='plate: ' + t['text'], wall=self.plate_wall, **t))
         if self.plate_screws:
             for k, (x, y) in enumerate(PLATE_SCREWS):
-                out.append(SolidObject('circle', x=x, y=y, r=PLATE_SCREW_R, anchor='domain', name=f'plate: screw {k + 1}'))
+                out.append(SolidObject('circle', x=x, y=y, r=PLATE_SCREW_R, anchor='domain', name=f'plate: screw {k + 1}',
+                                       wall=self.plate_wall))
         return out
 
     def all_objects(self, m):
@@ -543,8 +587,9 @@ class SolidScene:
         return not self.all_objects(m) and not any(not s.erase for s in self.strokes)
 
     def rasterize(self, m, i0, i1, j0, j1, incremental=True):
-        """The solid mask (uint8 [i1-i0, j1-j0], 1 = solid) of the half-open cell box: objects
-        (union), then the strokes in order (draw = union, erase = subtract).
+        """The TYPE map (uint8 [i1-i0, j1-j0]: 0 free, 1 pinned, 2 rigid) of the half-open cell
+        box: the objects in order, then the strokes in order, each writing its type over what it
+        covers (an eraser writes 0). With pinned walls only this is the old union / subtract mask.
 
         Incremental path (01/10/2026, Claude Opus 5.5): right after begin_stroke/extend_stroke,
         while m's mask is still the one from just before that edit (m._solid_key equals the key
@@ -564,23 +609,23 @@ class SolidScene:
             if m.solid_np is not None:
                 out[...] = m.solid_np[i0:i1, j0:j1]
             ax, ay, bx, by = inc['seg']
-            self._apply_capsule(m, out, reg, (ax, ay, bx, by), inc['r'], not inc['erase'])
+            self._apply_capsule(m, out, reg, (ax, ay, bx, by), inc['r'], inc['val'])
             return out
         for o in self.all_objects(m):
             bb = object_cell_bbox(m, o)
             sub = _intersect(bb, reg) if bb is not None else None
             if sub is not None:
-                self._apply(m, out, reg, sub, lambda X, Y, o=o: object_inside(m, o, X, Y), True)
+                self._apply(m, out, reg, sub, lambda X, Y, o=o: object_inside(m, o, X, Y), WALL_CODE[o.wall])
         for st in self.strokes:
             if not st.points:
                 continue
             seg, r = _stroke_segments(m, st)
             # prefilter: segments whose capsule box meets the region (in physical space)
             for k in self._segments_near(m, seg, r, reg):
-                self._apply_capsule(m, out, reg, tuple(seg[k]), r, not st.erase)
+                self._apply_capsule(m, out, reg, tuple(seg[k]), r, st.value())
         return out
 
-    def _apply_capsule(self, m, out, reg, a, r, draw):
+    def _apply_capsule(self, m, out, reg, a, r, val):
         """One segment's capsule into out (the box reg); a large box is visited tile by tile."""
         bb = segment_cell_bbox(m, (a[0], a[1]), (a[2], a[3]), r)
         sub = _intersect(bb, reg)
@@ -588,10 +633,10 @@ class SolidScene:
             return
         pred = lambda X, Y: capsule_inside(X, Y, *a, r)
         if (sub[1] - sub[0]) * (sub[3] - sub[2]) <= 16 * TILE * TILE:
-            self._apply(m, out, reg, sub, pred, draw)
+            self._apply(m, out, reg, sub, pred, val)
             return
         for tb in capsule_tiles(m, sub, *a, r):
-            self._apply(m, out, reg, tb, pred, draw)
+            self._apply(m, out, reg, tb, pred, val)
 
     @staticmethod
     def _segments_near(m, seg, r, reg):
@@ -612,8 +657,9 @@ class SolidScene:
         return np.nonzero(hit)[0]
 
     @staticmethod
-    def _apply(m, out, reg, sub, pred, draw):
-        """out[sub] |= pred (draw) or &= ~pred (erase), in row chunks of <= CHUNK cells."""
+    def _apply(m, out, reg, sub, pred, val):
+        """out[sub] = val where pred holds (val: 0 erase, 1 pinned, 2 rigid), in row chunks of
+        <= CHUNK cells."""
         i0, i1, j0, j1 = sub
         step = max(1, CHUNK // max(1, j1 - j0))
         for a in range(i0, i1, step):
@@ -621,14 +667,11 @@ class SolidScene:
             X, Y = m._grid_xy(a, b, j0, j1)
             ins = pred(X, Y)
             view = out[a - reg[0]:b - reg[0], j0 - reg[2]:j1 - reg[2]]
-            if draw:
-                view |= ins.astype(np.uint8)
-            else:
-                view &= (~ins).astype(np.uint8)
+            np.copyto(view, np.uint8(val), where=ins)
 
     def rasterize_full(self, m):
-        """The whole grid's solid mask, or None if the scene makes no solid cell (then the core
-        runs exactly the web app's path)."""
+        """The whole grid's type map (0 free, 1 pinned, 2 rigid), or None if the scene makes no
+        solid cell (then the core runs exactly the web app's path)."""
         if self.empty(m):
             return None
         out = self.rasterize(m, 0, m.N, 0, m.N, incremental=False)
@@ -688,12 +731,17 @@ class SolidScene:
         out += list(enumerate(self.objects))
         return out
 
-    def set_preset(self, plate_text=None, plate_screws=None):
-        """Toggle the Unlicensed preset's parts; returns None (redo the whole grid)."""
+    def set_preset(self, plate_text=None, plate_screws=None, plate_wall=None):
+        """Toggle the Unlicensed preset's parts, or set their wall type ('pinned' | 'rigid');
+        returns None (redo the whole grid)."""
         if plate_text is not None:
             self.plate_text = bool(plate_text)
         if plate_screws is not None:
             self.plate_screws = bool(plate_screws)
+        if plate_wall is not None:
+            if plate_wall not in WALL_TYPES:
+                raise ValueError(f'plate_wall {plate_wall!r}: must be one of {WALL_TYPES}')
+            self.plate_wall = plate_wall
         self._bump()
         return None
 
@@ -705,12 +753,12 @@ class SolidScene:
         r = brush_cells(self.m, radius)
         return segment_cell_bbox(self.m, (a[0] * h, a[1] * h), (b[0] * h, b[1] * h), r)
 
-    def begin_stroke(self, x, y, radius, erase=False):
+    def begin_stroke(self, x, y, radius, erase=False, wall='pinned'):
         """Start a painted wall (or an eraser stroke) at grid point (x, y); radius in grid units
-        (cells_to_grid converts a size in cells; below MIN_BRUSH cells it is raised to it).
-        Returns the cell box of the first dot."""
+        (cells_to_grid converts a size in cells; below MIN_BRUSH cells it is raised to it); wall:
+        the brush's wall type, 'pinned' or 'rigid'. Returns the cell box of the first dot."""
         prev = self._prev_key()
-        self._cur = Stroke([[float(x), float(y)]], float(radius), bool(erase))
+        self._cur = Stroke([[float(x), float(y)]], float(radius), bool(erase), wall)
         self.strokes.append(self._cur)
         self._bump()
         self._note_edit(prev)
@@ -731,7 +779,7 @@ class SolidScene:
             P = np.vstack([P, P])
         self._incr = dict(m=self.m, stroke=st, prev_key=prev_key, sig=self.signature(),
                           seg=tuple(np.hstack([P[0], P[1]])), r=brush_cells(self.m, st.radius),
-                          erase=st.erase)
+                          val=st.value())
 
     def extend_stroke(self, x, y):
         """Add a point to the current stroke; returns the cell box of the new segment. A point
@@ -773,19 +821,22 @@ class SolidScene:
         self._bump()
         return None
 
-    def add_stroke(self, points, radius, erase=False):
-        """A whole polyline at once (grid units); returns its cell box."""
-        st = Stroke([[float(x), float(y)] for x, y in points], float(radius), bool(erase))
+    def add_stroke(self, points, radius, erase=False, wall='pinned'):
+        """A whole polyline at once (grid units), of wall type `wall`; returns its cell box."""
+        st = Stroke([[float(x), float(y)] for x, y in points], float(radius), bool(erase), wall)
         self.strokes.append(st)
         self._bump()
         return self.stroke_bbox(st)
 
     # ---- save / load --------------------------------------------------------------------------
     def to_dict(self):
-        return {'format': 'zrl-membrane-solids', 'version': 1,
-                'plate_text': self.plate_text, 'plate_screws': self.plate_screws,
+        """Version 2 (04/10/2026) adds the wall types: objects' 'wall', strokes' 'wall', and
+        'plate_wall'. Version-1 files load with every wall pinned (what they meant)."""
+        return {'format': 'zrl-membrane-solids', 'version': 2,
+                'plate_text': self.plate_text, 'plate_screws': self.plate_screws, 'plate_wall': self.plate_wall,
                 'objects': [asdict(o) for o in self.objects],
-                'strokes': [{'points': s.points, 'radius': s.radius, 'erase': s.erase} for s in self.strokes]}
+                'strokes': [{'points': s.points, 'radius': s.radius, 'erase': s.erase, 'wall': s.wall}
+                            for s in self.strokes]}
 
     @classmethod
     def from_dict(cls, d):
@@ -793,9 +844,11 @@ class SolidScene:
             raise ValueError('not a ZRL membrane solids scene (format tag missing)')
         names = {f.name for f in fields(SolidObject)}
         objs = [SolidObject(**{k: v for k, v in o.items() if k in names}) for o in d.get('objects', [])]
-        strokes = [Stroke([list(map(float, p)) for p in s['points']], float(s['radius']), bool(s.get('erase', False)))
+        strokes = [Stroke([list(map(float, p)) for p in s['points']], float(s['radius']), bool(s.get('erase', False)),
+                          s.get('wall', 'pinned'))
                    for s in d.get('strokes', [])]
-        return cls(objs, strokes, d.get('plate_text', True), d.get('plate_screws', True))
+        return cls(objs, strokes, d.get('plate_text', True), d.get('plate_screws', True),
+                   d.get('plate_wall', 'pinned'))
 
     def save(self, path=None):
         """Write the scene as JSON; the default is ScenesCLAUDE/scene_<date-time>_MIRROR.json.
@@ -819,4 +872,4 @@ class SolidScene:
 
     def __repr__(self):
         return (f'SolidScene({len(self.objects)} objects, {len(self.strokes)} strokes, '
-                f'plate_text={self.plate_text}, plate_screws={self.plate_screws})')
+                f'plate_text={self.plate_text}, plate_screws={self.plate_screws}, plate_wall={self.plate_wall})')

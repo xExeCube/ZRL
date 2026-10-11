@@ -25,6 +25,44 @@ export const PATCHES = [
       '    U2[idx(0,0)]=U2[idx(1,1)]; U2[idx(0,n-1)]=U2[idx(1,n-2)]; ' +
       'U2[idx(n-1,0)]=U2[idx(n-2,1)]; U2[idx(n-1,n-1)]=U2[idx(n-2,n-2)];   /* PATCH neumann-corner */',
   },
+  {
+    id: 'vtx-drive-rest',
+    date: '05/10/2026',
+    rationale: 'With "drive the vertices" on, seed() puts a gaussian bump of 1 on every vertex and the ' +
+      'HARD drive then overwrites the bump centre with drive(0) = 0 at step 1: a one-cell dent of depth 1 ' +
+      'that radiates grid-scale waves (NotesCLAUDE/vertex_choppiness_MIRROR.md 4.7: at lambda 16 the chop ' +
+      'share at T 8 falls from 1.5-3.3% to 0.4-1.3% without it). Rule (Params.vtx_drive_bump = False, the ' +
+      'port default): driven vertices start from rest, like the continuous source -- no seeded bumps. The ' +
+      'patch reads S.vtxDriveBump, which only this harness sets (from Params.vtx_drive_bump); the web app ' +
+      'never defines it, so the original line runs whenever the key is absent or true.',
+    search: 'for(const v of VTX) addBump(v.i,v.j,1);',
+    replace: 'if(!(S.vtxDrive && S.vtxDriveBump===false)) for(const v of VTX) addBump(v.i,v.j,1);' +
+      '   /* PATCH vtx-drive-rest */',
+  },
+  {
+    id: 'neumann-clip',
+    date: '09/10/2026',
+    rationale: 'The 9-point stencil with the Neumann bc and a shape CLIPPED by the array (e.g. a circle at ' +
+      'radius 1.3): where the shape leaves the ring, an exterior ring cell (0, t) holds 0 next to a ghost ' +
+      '(0, t+1) = u(1, t+1). Cell (1, t) reads that ghost through its diagonal, but (1, t+1) reads the 0 at ' +
+      '(0, t): the operator is asymmetric (1/6 one way, 0 the other) and the run grows without bound (max|u| ' +
+      '6.7e21 after 200,000 steps, NotesCLAUDE/walls_MIRROR.md 14.2). The port (09/10/2026, the user\'s ' +
+      'decision; NotesCLAUDE/v1_decisions_MIRROR.md) blocks such a diagonal like a pinned ring solid: a sq9 ' +
+      'diagonal from an interior cell into a ring cell that is a ghost (in the mask, its partner in the mask; ' +
+      'not an array corner) reads 0 when its common neighbour ON the ring is not a ghost. Applied to the cells ' +
+      'next to the ring only, in the same summation order. With every ring cell a ghost (the full square) the ' +
+      'sum is unchanged; no other bc or stencil is touched.',
+    search: 'const dg=U1[k-n-1]+U1[k-n+1]+U1[k+n-1]+U1[k+n+1];',
+    replace: 'const dg=((S.bc===\'neumann\'&&!sqFull()&&(i===1||j===1||i===n-2||j===n-2))?((()=>{' +
+      'const R=(a,b)=>a===0||b===0||a===n-1||b===n-1;' +
+      'const F=(a,b)=>{if(!MASK[b*n+a])return false;if(!R(a,b))return true;' +
+      'return !!MASK[Math.min(Math.max(b,1),n-2)*n+Math.min(Math.max(a,1),n-2)];};' +
+      'const V=(a,b)=>{const p=i+a,q=j+b,v=U1[q*n+p];' +
+      'if(!R(p,q)||((p===0||p===n-1)&&(q===0||q===n-1))||!F(p,q))return v;' +
+      'return ((R(p,j)&&!F(p,j))||(R(i,q)&&!F(i,q)))?0:v;};' +
+      'return V(-1,-1)+V(1,-1)+V(-1,1)+V(1,1);})()):(U1[k-n-1]+U1[k-n+1]+U1[k+n-1]+U1[k+n+1]));' +
+      '   /* PATCH neumann-clip */',
+  },
 ];
 export const PATCHED = process.env.ZRL_JS_NOPATCH === '1' ? [] : PATCHES.map(p => p.id);
 if (process.env.ZRL_JS_NOPATCH !== '1') {

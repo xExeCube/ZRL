@@ -14,7 +14,10 @@ that module); this file is the interactive layer:
   - text entry (GGUI 1.7 has no text widget): a key-capture mode -- letters, space, BackSpace,
     Return (commit), Escape (cancel); digits via app_input_MIRROR.DigitPoller.
   - scenes: save to / load from ScenesCLAUDE/ (SolidScene.save / load).
-*Generated from scratch -- Claude Opus 5.5 -- 30/09/2026*
+  - wall types (round 4, 05/10/2026; NotesCLAUDE/walls_MIRROR.md section 11): the brush's type for new
+    strokes, each object's type, the plate lettering's type (plate_wall), a legend, the pinned / rigid
+    cell counts and whether the walls kernel runs, and the domain edge control (the viewer's gui_edge).
+*Generated from scratch -- Claude Opus 5.5 -- 30/09/2026; wall types added by Claude Opus 5.5 -- 05/10/2026*
 """
 import glob
 import math
@@ -31,6 +34,15 @@ KIND_DEFAULTS = {'rect': dict(w=0.30, h=0.05), 'circle': dict(r=0.07), 'ngon': d
 DIM = (0.55, 0.55, 0.60)
 GRID_CLAMP = 2.0          # stroke points are clamped to |g| <= 2 grid units (the array is |g| <= 1.73)
 BRUSH_MAX = 64.0          # cells
+AMBER = (0.95, 0.75, 0.3)
+# the two wall types in one line each (the user's wording, 05/10/2026)
+WALL_HELP = ('pinned = held at zero, reflects inverted (a membrane post). rigid = zero slope, reflects '
+             'upright (sound off a hard object, water off a quay).')
+
+
+def other_wall(w):
+    """The other wall type (the toggles' next value)."""
+    return 'rigid' if w == 'pinned' else 'pinned'
 
 
 def describe(o):
@@ -44,7 +56,8 @@ def describe(o):
     else:
         t = o.text if len(o.text) <= 14 else o.text[:13] + '~'
         size = f'"{t}" h {o.height:.3f}'
-    extra = ('' if o.anchor == 'grid' else ' dom') + ('' if o.enabled else ' off')
+    extra = (('' if o.anchor == 'grid' else ' dom') + ('' if o.enabled else ' off')
+             + (' RIGID' if getattr(o, 'wall', 'pinned') == 'rigid' else ''))
     return f'{size} ({o.x:+.2f},{o.y:+.2f}) {o.rot_deg:.0f}\xb0{extra}'
 
 
@@ -53,6 +66,7 @@ class SolidsUI:
         self.draw = False             # draw-wall mode: LMB paints
         self.erase = False            # eraser (SHIFT + LMB erases too)
         self.brush = 2.0              # brush radius in cells (the core raises it to >= MIN_BRUSH)
+        self.brush_wall = 'pinned'    # the wall type of NEW strokes (05/10/2026): 'pinned' | 'rigid'
         self.painting = False
         self.last = None              # last stroke point (grid units)
         self.sel = -1                 # selected object (index into scene.objects)
@@ -63,6 +77,8 @@ class SolidsUI:
         self.file_i = 0
         self.lat_ms = []              # wall time per painted segment: extend + update + sync
         self.seg_count = 0
+        self.edit_t = -1e9            # perf_counter() of the last solid edit, and of the one before: two edits
+        self.edit_prev = -1e9         # within EDIT_SETTLE s are a drag (the viewer's slow readouts wait for it)
 
     # ---- painting ---------------------------------------------------------------------------------
     def spacing(self, m):
@@ -72,21 +88,26 @@ class SolidsUI:
     def clamp(g):
         return max(-GRID_CLAMP, min(GRID_CLAMP, g[0])), max(-GRID_CLAMP, min(GRID_CLAMP, g[1]))
 
+    def mark_edit(self):
+        self.edit_prev, self.edit_t = self.edit_t, time.perf_counter()
+
     def _timed_update(self, m, bb):
         t0 = time.perf_counter()
         m.update_solids(bb)
         ti.sync()
-        self.lat_ms.append((time.perf_counter() - t0) * 1e3)
+        self.mark_edit()
+        self.lat_ms.append((self.edit_t - t0) * 1e3)
         del self.lat_ms[:-200]
 
     def begin(self, m, g, erase=False):
         g = self.clamp(g)
         sc = m.ensure_scene()
         t0 = time.perf_counter()
-        bb = sc.begin_stroke(g[0], g[1], so.cells_to_grid(m, self.brush), erase or self.erase)
+        bb = sc.begin_stroke(g[0], g[1], so.cells_to_grid(m, self.brush), erase or self.erase, wall=self.brush_wall)
         m.update_solids(bb)
         ti.sync()
-        self.lat_ms.append((time.perf_counter() - t0) * 1e3)
+        self.mark_edit()
+        self.lat_ms.append((self.edit_t - t0) * 1e3)
         self.painting = True
         self.last = g
         self.seg_count = 0
@@ -103,7 +124,8 @@ class SolidsUI:
         bb = sc.extend_stroke(g[0], g[1])
         m.update_solids(bb)
         ti.sync()
-        self.lat_ms.append((time.perf_counter() - t0) * 1e3)
+        self.mark_edit()
+        self.lat_ms.append((self.edit_t - t0) * 1e3)
         del self.lat_ms[:-200]
         self.last = g
         self.seg_count += 1
@@ -112,6 +134,12 @@ class SolidsUI:
     def end(self, m):
         if self.painting and m.scene is not None:
             m.scene.end_stroke()
+            # During a stroke the core keeps the source's "main region" up to date only
+            # incrementally (a sealing stroke or cells the eraser frees are not seen). Redo it
+            # exactly once the stroke is done -- but only when the source's placement depends on
+            # it (it was snapped); a source on a free cell never moves. ~0.7 s at N = 8193.
+            if getattr(m, '_snap_approx', False) and getattr(m, 'src_snap', 'none') != 'none':
+                m.recache_source()
         self.painting = False
         self.last = None
 
@@ -231,8 +259,8 @@ class SolidsUI:
         self.sel = len(sc.objects) - 1
         return sc
 
-    def set_preset(self, m, plate_text=None, plate_screws=None):
-        m.ensure_scene().set_preset(plate_text=plate_text, plate_screws=plate_screws)
+    def set_preset(self, m, plate_text=None, plate_screws=None, plate_wall=None):
+        m.ensure_scene().set_preset(plate_text=plate_text, plate_screws=plate_screws, plate_wall=plate_wall)
         self._timed_update(m, None)
 
     _var_cache = {}
@@ -258,6 +286,9 @@ class SolidsUI:
             viewer.set_draw(d)
         w.text('   LMB paints, SHIFT+LMB erases', color=DIM)
         self.erase = w.checkbox('eraser', self.erase)
+        if w.button(f'brush wall: {self.brush_wall}  (click: {other_wall(self.brush_wall)})##brushwall'):
+            self.brush_wall = other_wall(self.brush_wall)
+            viewer.flash(f'new strokes are {self.brush_wall} walls')
         b = w.slider_float('brush (cells)', self.brush, 1.0, BRUSH_MAX)
         if moved(b, self.brush):
             self.brush = b
@@ -274,6 +305,21 @@ class SolidsUI:
             viewer.flash(self.undo(m))
         if w.button('clear painted walls'):
             viewer.flash(self.clear(m))
+        # wall types (05/10/2026): explainer, legend, counts, the domain edge
+        w.text('')
+        w.text('wall types', color=(0.72, 0.62, 1.0))
+        for piece in viewer.wrapped(WALL_HELP):
+            w.text(piece, color=DIM)
+        L = viewer.look
+        w.text('legend:  pinned solid (u = 0)', color=tuple(L.solid))
+        w.text('         rigid solid (du/dn = 0), striped in 2D', color=tuple(L.rigid))
+        w.text('         rigid edge: line; torus seam: dashed', color=DIM)
+        wi = viewer.walls_counts()
+        w.text(f'pinned cells {wi["pinned_cells"]:,}   rigid cells {wi["rigid_cells"]:,}')
+        w.text(f'   walls kernel ON ({wi["wall_cells"]:,} cells)' if wi['active'] else
+               '   walls kernel off (the web app path)', color=DIM)
+        viewer.gui_edge(w)
+        viewer.show_edge = w.checkbox('draw the edge type (rigid line / torus seam)', viewer.show_edge)
         # the Unlicensed plate
         w.text('')
         if p.shape == 'unlicensed':
@@ -284,6 +330,9 @@ class SolidsUI:
             s = w.checkbox('screw heads', s2.plate_screws)
             if s != s2.plate_screws:
                 self.set_preset(m, plate_screws=s)
+            if w.button(f'plate lettering wall: {s2.plate_wall}  (click: {other_wall(s2.plate_wall)})##platewall'):
+                self.set_preset(m, plate_wall=other_wall(s2.plate_wall))
+                viewer.flash(f'plate lettering and screws: {s2.plate_wall} walls')
         else:
             w.text('the plate is the domain shape "unlicensed"', color=DIM)
             if w.button('switch to the Unlicensed plate'):
@@ -340,6 +389,9 @@ class SolidsUI:
         e = w.checkbox('enabled', o.enabled)
         if e != o.enabled:
             self.edit(m, enabled=e)
+        if w.button(f'wall: {o.wall}  (click: {other_wall(o.wall)})##objwall'):
+            self.edit(m, wall=other_wall(o.wall))
+            viewer.flash(f'object {self.sel}: {o.wall} wall')
         if w.button(f'anchor: {o.anchor}'):
             self.edit(m, anchor='domain' if o.anchor == 'grid' else 'grid')
         w.text('   grid: fixed to the array; domain: turns with it', color=DIM)
@@ -374,6 +426,8 @@ class SolidsUI:
             else:
                 w.text(f'text: "{o.text}"')
                 if w.button('type new text  [Return]'):
+                    if getattr(viewer, 'ne', None) is not None:
+                        viewer.ne.cancel()            # one entry at a time (typed values, 01/10/2026)
                     self.start_text(m)
             if w.button(f'preset: {TEXT_PRESETS[self.preset_i]}  (apply)'):
                 self.text = None

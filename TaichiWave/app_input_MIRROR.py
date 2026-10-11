@@ -130,3 +130,202 @@ class DigitPoller:
                 out.append(ch)
             self.prev[vk] = now
         return out
+
+
+# ---- typed slider values (user request 01/10/2026) --------------------------------------------
+# GGUI 1.7.4 has no text-input widget and no same_line(), so a button per slider costs a whole
+# panel row per slider (30 sliders: the panels grew by ~30 rows). The default is therefore a PICK
+# mode: ONE "type a value" button at the top of each panel arms it, and the next slider you click
+# (its value change is swallowed) opens the entry under that slider. The old per-slider buttons
+# stay available behind a main-panel checkbox. The entry is a key-capture mode
+# like the text objects' one: digits / '.' / '-' come from DigitPoller (GGUI names no digit keys),
+# 'e' from GGUI (1e-4), BackSpace edits, Return applies, Escape cancels, and every key is
+# consumed while it is open (no hotkey fires). The value is handed back to the panel code as the
+# slider's own return value on the next panel pass, so it goes through exactly the slider's code
+# path (moved() check, reset(), the N slider's settle wait, ...).
+# *Generated from scratch -- Claude Opus 5.5 -- 01/10/2026*
+NUM_CHARS = '0123456789.-+e'
+ENTRY_COL = (0.4, 0.9, 0.5)
+ENTRY_DIM = (0.55, 0.55, 0.60)
+
+
+def fmt_num(x, is_int=False):
+    return str(int(x)) if is_int else f'{x:.6g}'
+
+
+class NumEntry:
+    """The typed-value entry: at most one open at a time, keyed (panel, slider label)."""
+
+    def __init__(self):
+        self.target = None            # (panel, label) being typed; None: closed
+        self.text = ''
+        self.spec = None              # (lo, hi, is_int, value when opened)
+        self.pending = None           # ((panel, label), value, frame) waiting for its slider
+        self.frame = 0                # handle() frames (tick)
+        self.msg = ''                 # last error, shown under the entry
+        self.armed = False            # pick mode: the next slider clicked opens the entry
+
+    @property
+    def open(self):
+        return self.target is not None
+
+    def arm(self, on=True):
+        """Pick mode on/off (closes an open entry: one entry at a time)."""
+        self.cancel()
+        self.armed = bool(on)
+
+    def start(self, target, lo, hi, is_int, cur):
+        self.armed = False
+        self.target, self.text, self.msg = target, '', ''
+        self.spec = (lo, hi, bool(is_int), cur)
+
+    def cancel(self):
+        self.target, self.text, self.spec, self.msg = None, '', None, ''
+
+    def tick(self):
+        """Once per input frame: a value whose slider was not drawn for 3 frames is dropped (its
+        panel was hidden or the slider went away), so it can never apply late."""
+        self.frame += 1
+        if self.pending is not None and self.frame - self.pending[2] > 3:
+            self.pending = None
+
+    def chars(self, chars):
+        if self.open:
+            for ch in chars:
+                ch = '.' if ch == ',' else ch
+                if ch in NUM_CHARS and len(self.text) < 24:
+                    self.text += ch
+
+    def key(self, k):
+        """A key while open (or armed): returns (consumed, message). Always consumed while open;
+        while only armed, Escape disarms and other keys stay hotkeys."""
+        if not self.open:
+            if self.armed and k == 'Escape':
+                self.armed = False
+                return True, 'type a value: stopped'
+            return False, None
+        if k == 'Return':
+            return True, self.commit()
+        if k == 'Escape':
+            self.cancel()
+            return True, 'typed value cancelled'
+        if k == 'BackSpace':
+            self.text = self.text[:-1]
+        elif k == 'e':
+            self.chars('e')
+        return True, None
+
+    def commit(self):
+        """Parse, clamp to the slider's range, queue for the slider. Returns the message to show
+        (None when the value applied as typed). A bad number keeps the entry open."""
+        if not self.open:
+            return None
+        (panel, label), (lo, hi, is_int, cur) = self.target, self.spec
+        t = self.text.strip()
+        if not t:
+            self.cancel()
+            return f'{label}: nothing typed, kept {fmt_num(cur, is_int)}'
+        try:
+            x = float(t)
+            if x != x or x in (float('inf'), float('-inf')):
+                raise ValueError
+        except ValueError:
+            self.msg = f'"{t}" is not a number'
+            return f'{label}: {self.msg}'
+        msg = None
+        v = min(max(x, lo), hi)
+        if is_int:
+            v = int(round(v))
+            v = min(max(v, int(lo)), int(hi))
+        if v != x:
+            if x < lo or x > hi:
+                msg = (f'{label}: {t} is outside {fmt_num(lo, is_int)} .. {fmt_num(hi, is_int)}, '
+                       f'clamped to {fmt_num(v, is_int)}')
+            else:
+                msg = f'{label}: {t} rounded to {v}'
+        self.pending = ((panel, label), v, self.frame)
+        self.cancel()
+        return msg
+
+    def take(self, target):
+        if self.pending is not None and self.pending[0] == target:
+            v = self.pending[1]
+            self.pending = None
+            return v
+        return None
+
+
+class TypedGui:
+    """Wraps a GGUI sub-window: every slider_float / slider_int also gets the typed-value button
+    (or, while its entry is open, the entry lines); anything else goes straight to the window."""
+
+    def __init__(self, w, entry, panel, buttons=True, flash=None, on_start=None):
+        self._w, self._e, self._panel, self._buttons, self._flash = w, entry, panel, buttons, flash
+        self._on_start = on_start          # e.g. close the text objects' entry
+
+    def __getattr__(self, name):
+        return getattr(self._w, name)
+
+    def slider_float(self, text, old_value, minimum, maximum):
+        return self._slider(self._w.slider_float, text, old_value, minimum, maximum, False)
+
+    def slider_int(self, text, old_value, minimum, maximum):
+        return self._slider(self._w.slider_int, text, old_value, minimum, maximum, True)
+
+    def header(self):
+        """The panel's pick-mode button (one row per panel)."""
+        e = self._e
+        lab = ('>> click a slider to type its value  (here or Escape: stop)' if e.armed else
+               'type a value: click here, then a slider')
+        if self._w.button(f'{lab}##ne_arm/{self._panel}'):
+            e.arm(not e.armed)
+            if e.armed:
+                if self._on_start:
+                    self._on_start()
+                if self._flash:
+                    self._flash('type a value: click the slider you want to type (its value is kept)')
+
+    @staticmethod
+    def _changed(r, value, lo, hi, is_int):
+        if is_int:
+            return int(r) != int(value)
+        # the slider hands back an f32 copy: ignore that rounding
+        return abs(r - value) > 1e-6 * max(abs(hi - lo), abs(value), 1e-30)
+
+    def _slider(self, fn, label, value, lo, hi, is_int):
+        target = (self._panel, label)
+        e = self._e
+        typed = e.take(target)
+        r = fn(label, value if typed is None else typed, lo, hi)
+        if typed is not None:
+            r = typed                      # exact (the slider would hand back an f32 copy)
+        elif e.target == target:
+            r = value                      # frozen while its entry is open (a drag still held)
+        elif e.armed and self._changed(r, value, lo, hi, is_int):
+            r = value                      # pick mode: the click picks the slider, the value stays
+            e.start(target, lo, hi, is_int, value)
+            if self._on_start:
+                self._on_start()
+            if self._flash:
+                self._flash(f'typing {label}: digits . - e, Return applies, Escape cancels')
+        w = self._w
+        if e.target == target:
+            w.text(f'   type {label}: {e.text}_', color=ENTRY_COL)
+            w.text(f'   range {fmt_num(lo, is_int)} .. {fmt_num(hi, is_int)}, now {fmt_num(value, is_int)}'
+                   f'{"  (whole number)" if is_int else ""}', color=ENTRY_DIM)
+            if e.msg:
+                w.text(f'   {e.msg}', color=(0.95, 0.45, 0.4))
+            w.text('   digits . - e  BackSpace  Return  Escape', color=ENTRY_DIM)
+            if w.button(f'apply  [Return]##ne_apply/{self._panel}/{label}'):
+                msg = e.commit()
+                if msg and self._flash:
+                    self._flash(msg)
+            if w.button(f'cancel  [Escape]##ne_cancel/{self._panel}/{label}'):
+                e.cancel()
+        elif self._buttons and w.button(f'   ^ type a value##ne/{self._panel}/{label}'):
+            e.start(target, lo, hi, is_int, value)
+            if self._on_start:
+                self._on_start()
+            if self._flash:
+                self._flash(f'typing {label}: digits . - e, Return applies, Escape cancels')
+        return r

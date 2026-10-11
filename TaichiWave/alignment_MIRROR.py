@@ -39,6 +39,12 @@ Deviations (documented in NotesCLAUDE/alignment_MIRROR.md):
     has two extra lines (sizes; the direction rule). The scans read m.domain_mask_np, so the
     plate's lettering and screws (interior solids) are never taken for domain edges.
   - unknown shapes get no alignment model (empty lists, a one-line note), never an exception.
+  - 'array' (port only, 05/10/2026: the whole lattice array is the domain) has the model 'arr': its
+    edges ARE the array's lattice rows -- the square on the square lattice (dirs 0, 90), on the
+    triangular one the 60-degree rhombus whose long diagonal lies at 30 degrees (dirs 0, 60: the web
+    app's rhombus at rtheta 60 and its conformant rotation 30). Fixed like the exact square (rotation
+    and radius do not apply), so it is always 4/4 rows on either lattice; its walls are the array
+    edge, governed by the boundary control (the straightness rows say so instead of measuring).
   - al_set_rot(..., snap=0.05) reproduces the HTML slider's 0.05-degree snap (the default, used by
     the cross-check); the GGUI panel passes snap=None because the port's rotation slider is
     continuous, so an aligned angle that is not a multiple of 0.05 (a rhombus at an arbitrary
@@ -168,6 +174,8 @@ AL_COL = {'row': (0.0, 0.620, 0.525), 'diag': (0.282, 0.373, 0.780), 'rat': (0.7
           'irr': (0.886, 0.133, 0.067)}
 NB_TRI = [(1, 0), (-1, 0), (0, 1), (0, -1), (1, -1), (-1, 1)]
 UNL = 'unlicensed'
+ARR = 'array'                                       # port only (05/10/2026): the whole lattice array
+AL_ARRAY_DIRS = {'sq': [0, 90, 0, 90], 'tri': [0, 60, 0, 60]}   # shape_poly order (CCW from the corner (0, 0))
 _NGON = re.compile(r'^n\d+$')
 
 
@@ -203,6 +211,8 @@ def al_edge_dirs0(shape, rtheta_rad):
         return [0, 90, 0, 90]
     if shape == UNL:
         return [0, 90, 0, 90]
+    if shape == ARR:
+        return []                                    # lattice-dependent: al_dirs / AL_ARRAY_DIRS
     if shape == 'rhomb':
         h = rtheta_rad * 90 / PI                     # edges at rot -+ theta/2
         return [al_mod180(-h), al_mod180(h), al_mod180(-h), al_mod180(h)]
@@ -333,7 +343,7 @@ def al_best(lst, mode):
 def al_sym_period(shape, lat):
     """Rotations that differ by gcd(shape period, lattice period), or mirrored, are congruent.
     'unlicensed' (port only): a rectangle's period, 180."""
-    if shape in ('circle', 'square'):
+    if shape in ('circle', 'square', ARR):
         return 0
     if shape in ('rhomb', UNL):
         P = 180
@@ -389,6 +399,8 @@ def _model(m):
         return 'js'
     if s == UNL:
         return 'unl'
+    if s == ARR:
+        return 'arr'
     return 'unknown'
 
 
@@ -407,10 +419,10 @@ def _shape_poly(m):
 
 def _mask_ji(m):
     """The DOMAIN mask as the JS stores it, [j, i]. If the core keeps solids in the mask, a
-    domain-only copy (domain_mask_np) is preferred: interior solids are not domain edges."""
-    M = getattr(m, 'domain_mask_np', None)
-    if M is None:
-        M = m.mask_np
+    domain-only copy (domain_mask_np) is preferred: interior solids are not domain edges. 09/10/2026: with an
+    absorbing layer the OPEN domain (open_domain_np: the drawn shape, the array minus a frame), so the scans
+    describe the drawn edge, not the layer's outer end."""
+    M = _dom_mask(m)
     return np.ascontiguousarray(np.asarray(M).T != 0)
 
 
@@ -443,11 +455,21 @@ def al_lat(m):
 
 
 def al_rot_deg(m):
-    return 0 if m.p.shape == 'square' else m.p.rot * 180 / PI
+    return 0 if m.p.shape in ('square', ARR) else m.p.rot * 180 / PI
 
 
-def al_dirs(m):
+def al_dirs(m, lat=None):
+    """Edge directions (degrees) of the unrotated domain; 'array' depends on the lattice (lat, default
+    the current one)."""
+    if m.p.shape == ARR:
+        return list(AL_ARRAY_DIRS[lat or al_lat(m)])
     return [] if m.p.shape == 'circle' else al_edge_dirs0(m.p.shape, m.p.rtheta)
+
+
+def _full_array(m):
+    """The domain IS the lattice array: the full-grid square, or 'array' on either lattice."""
+    f = getattr(m, 'full_array', None)
+    return bool(f()) if f is not None else (m.sq_full() or m.p.shape == ARR)
 
 
 def al_aligned(e, cls='row'):
@@ -457,10 +479,10 @@ def al_aligned(e, cls='row'):
 def al_list(m, cls='row', lat=None):
     """Every rotation in [0, 90] with >= 1 edge aligned under the chosen definition."""
     lat = lat or al_lat(m)
-    d = al_dirs(m)
+    d = al_dirs(m, lat)
     if not d:
         return []
-    if m.p.shape == 'square':
+    if m.p.shape in ('square', ARR):
         c = al_count(d, 0, lat)
         L = [{'rot': 0, 'rows': c['rows'], 'diags': c['diags'], 'n': c['n']}]
     else:
@@ -553,6 +575,9 @@ def _cell_xy_np(m, I, J):
 
 
 def _dom_mask(m):
+    f = getattr(m, 'open_domain_np', None)            # 09/10/2026: the open domain (= domain_mask_np without a layer)
+    if f is not None and getattr(m, 'domain_mask_np', None) is not None:
+        return f()
     M = getattr(m, 'domain_mask_np', None)
     return getattr(m, 'mask_np', None) if M is None else M
 
@@ -718,7 +743,7 @@ def _al_edge_report(m):
             if abs((b[0] - a[0]) * (y - a[1]) - (b[1] - a[1]) * (x - a[0])) / L < 1e-6:
                 return True
         return False
-    sq_full = m.sq_full()
+    sq_full = _full_array(m)                         # the full square, or 'array' (its edges ARE the array edge)
     E = []
     for k in range(mm):
         a, b = P[k], P[(k + 1) % mm]
@@ -871,6 +896,12 @@ def al_note_lines(m, cls='row', L=None, edge_col=False):
     if p.shape == 'square':
         out.append(('the exact square IGNORES rotation (fixed at 0°) — '
                     '"square, rotatable" is the n = 4 polygon that turns', 'dim'))
+    if p.shape == ARR:
+        out.append(('array (port only): the domain is the whole lattice array — '
+                    + ('the full square' if lat == 'sq' else
+                       'a 60° rhombus whose long diagonal lies at 30° (the 60° rhombus at its conformant rotation)')
+                    + '; its edges ARE lattice rows on either lattice, rotation and radius do not apply, and its '
+                    'walls are governed by the boundary control', 'dim'))
     out.append((f'rot {fmt(rot, 2)}° on the {AL_NAME[lat]} lattice: {k}/{n} edges aligned '
                 f"({c['rows']} row, {c['diags']} diag)" + (' — ALL' if all_ else ''),
                 'hi' if all_ else 'accent' if k else 'link'))
@@ -1007,6 +1038,8 @@ def al_set_rot(m, deg, snap=0.05):
     the exact angle (the port's continuous slider). The caller resets the membrane."""
     if m.p.shape == 'square':
         return False, 'the exact square is fixed at 0° — use "square, rotatable"'
+    if m.p.shape == ARR:
+        return False, 'the lattice array is fixed — rotation does not apply'
     if snap:
         v = _slider(deg, 0, 90, snap)
         m.p.rot = v * PI / 180
@@ -1089,9 +1122,12 @@ def al_flavor(m, cls='row', snap=0.05):
     pk = al_flavor_pick(m, cls)
     if pk['lat'] != al_lat(m):
         m.p.lattice = pk['lat']
+        # the DAMPED limit on purpose (port deviation, 01/10/2026): the web app clamps to the
+        # undamped one, which leaves a damped run unstable after the switch. With damping 0
+        # (every alignment cross-check config) the two are identical.
         if m.p.Co > m.co_limit():
             m.p.Co = _slider(js_round(m.co_limit() * 0.95 * 200) / 200, 0.05, 1.00, 0.005)
-    if pk['best'] and m.p.shape != 'square':
+    if pk['best'] and m.p.shape not in ('square', ARR):
         ok, msg = al_set_rot(m, pk['best']['rot'], snap)
         if msg:
             msgs.append(msg)
@@ -1176,8 +1212,12 @@ def al_ledger_rows(m):
                   if badj else ' · rule and mask agree on every edge'))
     elif m.p.shape == 'circle':
         txt = 'the circle has no edges'
-    elif m.sq_full():
+    elif m.sq_full() and m.p.shape != ARR:
         txt = 'the full-grid square: its walls ARE the array edge, governed by the boundary control'
+    elif m.p.shape == ARR:
+        txt = ('the lattice array: its walls ARE the array edge (lattice rows), governed by the boundary control'
+               + ((' (the rhombic torus has no wall)' if m.tri() else ' (the torus has no wall)')
+                  if getattr(m, 'torus', lambda: False)() else ''))
     elif (lambda P: bool(P) and not fits_inside(m, P))(_shape_poly(m)) and not any(not e['arr'] for e in RE):
         txt = 'every flavor edge is clipped away at this radius: the wall is the array edge'
     else:
@@ -1244,7 +1284,7 @@ class AlignPanel:
         self.cls = 'row'
         self.edge_col = False
         self.snap_i = -1
-        self.wrap = 64
+        self.wrap = 52            # chars; ImGui 7 px font in the app's 400 px panel (was 64, 01/10/2026)
         self._key = None
         self._data = None
 
@@ -1260,13 +1300,16 @@ class AlignPanel:
         for line, ck in D['note']:
             out += [(piece, col(ck)) for piece in (textwrap.wrap(gui_text(line), self.wrap) or [''])]
         if D['straight']:
-            out.append(('straightness, per edge (level A row / B diag / C other):', _COLKEY['dim']))
+            out += [(piece, _COLKEY['dim']) for piece in   # 56 chars: wrapped too (01/10/2026)
+                    textwrap.wrap('straightness, per edge (level A row / B diag / C other):', self.wrap)]
             for s in D['straight']:
                 out += [(piece, AL_COL[s['cls']]) for piece in textwrap.wrap(gui_text(s['text']), self.wrap)]
         for lab, status, txt, tier in D['ledger']:
-            out.append((gui_text(f'[{status}] ' + lab.replace('edge alignment: ', '')),
-                        (0.4, 0.9, 0.5) if status == 'PASS' else (0.95, 0.4, 0.4) if status == 'FAIL'
-                        else _COLKEY['dim']))
+            # wrapped like the rest (01/10/2026, Claude Opus 5.5): the '[n/a] ...' claims ran past the panel
+            c = ((0.4, 0.9, 0.5) if status == 'PASS' else (0.95, 0.4, 0.4) if status == 'FAIL'
+                 else _COLKEY['dim'])
+            out += [(piece, c) for piece in textwrap.wrap(gui_text(f'[{status}] ' + lab.replace('edge alignment: ', '')),
+                                                          self.wrap, subsequent_indent='  ')]
         return out
 
     def data(self, m):

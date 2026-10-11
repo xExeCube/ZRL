@@ -468,7 +468,11 @@ def main():
     cfg_path = os.path.join(scratch, f'align_configs_{tag}_MIRROR.json')
     out_path = os.path.join(scratch, f'align_js_{tag}_MIRROR.jsonl')
     mc.init_taichi(a.arch, quiet=True)
-    m = mc.Membrane(mc.Params(N=161))
+    # the web app's vertex inset (the port's default is 'wall' since 05/10/2026; the configs never set it,
+    # and the JS side keeps S.vtxInset = 'radial')
+    # and the web app's drive frequency (the port's default is 0.03125 since 09/10/2026; the panel's wavelength
+    # readouts read it)
+    m = mc.Membrane(mc.Params(N=161, vtx_inset='radial', freq=mc.WEBAPP_FREQ))
     if a.unl:
         return 0 if unl_checks(m, big=a.big) else 1
     C = configs_ext(m) if a.ext else configs(a.quick)

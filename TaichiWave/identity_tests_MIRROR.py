@@ -9,6 +9,9 @@ import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
+ROOT = os.environ.get('ZRL_ROOT')                 # dev runs: the live folder (solids_MIRROR)
+if ROOT:
+    sys.path.insert(1, ROOT)
 import membrane_core_MIRROR as mc
 
 D = math.pi / 180
@@ -115,6 +118,104 @@ def main():
             res.append(x if np.isfinite(x) else math.inf)   # overflowed to inf/nan = diverged
         ok(f'CFL flip {lat}{st if lat == "sq" else ""} at C_max = {cmax:.4f}', res[0] < 1 and res[1] > 1e6,
            f'max|u| after 3000 steps: {res[0]:.2e} at 0.995 C_max, {res[1]:.2e} at 1.01 C_max')
+
+    # 2b. DAMPED CFL (port deviation, 01/10/2026). With the damping term -d (u - u_prev) the
+    #     amplification roots satisfy g^2 - (2 - d - Co^2 lam) g + (1 - d) = 0, so
+    #     C_max(d) = C_max(0) sqrt(1 - d/2); co_limit() reports it (damped=False = the web app's).
+    for lat, st, cmax in (('sq', 5, mc.CO_LIMIT_5), ('sq', 9, mc.CO_LIMIT_9), ('tri', 5, mc.CO_LIMIT_T)):
+        d = 0.2
+        res, lims = [], None
+        for f in (0.995, 1.01):
+            prm = dict(N=161, lattice=lat, stencil=st, src='impulse', damp=d, shape='n6' if lat == 'tri' else 'square')
+            m = mc.Membrane(mc.Params(**prm))
+            lims = (m.co_limit(), m.co_limit(damped=False))
+            m = mc.Membrane(mc.Params(Co=lims[0] * f, **prm))
+            m.step(3000)
+            x = np.abs(m.field()).max()
+            res.append(x if np.isfinite(x) else math.inf)
+        m0 = mc.Membrane(mc.Params(N=161, lattice=lat, stencil=st, shape='n6' if lat == 'tri' else 'square'))
+        form = (abs(lims[0] - cmax * math.sqrt(1 - d / 2)) < 1e-15 and lims[1] == cmax and m0.co_limit() == cmax)
+        ok(f'damped CFL flip {lat}{st if lat == "sq" else ""} at d = {d}: C_max(d) = {lims[0]:.4f}',
+           form and res[0] < 1 and res[1] > 1e6,
+           f'C_max(0) {cmax:.4f} x sqrt(1 - d/2); max|u| after 3000 steps: {res[0]:.2e} at 0.995, {res[1]:.2e} at 1.01 C_max(d)'
+           + ('' if form else ' -- co_limit() FORMULA MISMATCH'))
+
+    # 2c. SOURCE SNAPPING with solids (user decision 01/10/2026): a source requested on a solid
+    #     cell goes to the nearest free cell of the MAIN free region, never into a sealed letter
+    #     counter (the web app's walk toward the centre fell into the D's and the A's).
+    from scipy import ndimage
+    m = mc.Membrane(mc.Params(N=1025, shape='unlicensed', src='cont'))
+    sol = m.solid_np.astype(bool) & m.domain_mask_np.astype(bool)
+    lab, _ = ndimage.label(sol, structure=np.ones((3, 3)))
+    objs = ndimage.find_objects(lab)
+    letters = sorted((sl[0].start, k + 1, sl) for k, sl in enumerate(objs) if sl[1].stop - sl[1].start > m.N * 0.15)
+    main = m.main_region()
+    fl, fn = ndimage.label(m.mask_np.astype(bool), structure=m.stencil_structure())
+    ml = int(np.bincount(fl[main])[1:].argmax()) + 1 if main is not None else -1
+    ir = m.inner_R()
+
+    def req(i, j):
+        x, y = m.cell_xy(i, j)
+        m.p.sx, m.p.sy = x / ir, y / ir
+        m.recache_source()
+        return m.src
+
+    def web_walk(i, j):
+        if m.mask_np[i, j]:
+            return (i, j)
+        x, y = m.cell_xy(i, j)
+        t = 0.96
+        while t >= 0:
+            ii, jj = m.round_cell(*m.xy_to_cell(x * t, y * t))
+            if m.mask_np[ii, jj]:
+                return (ii, jj)
+            t -= 0.02
+        return None
+
+    for nm, k in (('D', 0), ('A', 2)):
+        if len(letters) < 5:
+            ok(f'source snap: click on the {nm}', False, f'plate letters not found ({len(letters)} components)')
+            break
+        sl = letters[k][2]
+        cav = [c for c in np.unique(fl[sl]) if c and c != ml]
+        if not cav:
+            ok(f'source snap: click on the {nm}', False, 'no sealed counter found')
+            continue
+        cc = int(cav[np.argmax([np.count_nonzero(fl[sl] == c) for c in cav])])
+        I, J = np.nonzero(fl == cc)
+        ci, cj = int(np.median(I)), int(np.median(J))
+        row = np.nonzero(lab[:, cj] == letters[k][1])[0]
+        left = row[row < ci]
+        run = [int(left.max())]
+        while run[-1] - 1 in set(left.tolist()):
+            run.append(run[-1] - 1)
+        for where, (ri, rj) in (('left stroke, middle', ((run[0] + run[-1]) // 2, cj)),
+                                ('left stroke, edge by the counter', (run[0], cj))):
+            s_ = req(ri, rj)
+            w_ = web_walk(ri, rj)
+            hop = int(m.hops(np.array([s_[0] - ri]), np.array([s_[1] - rj]))[0])
+            good = (m.src_moved and m.src_snap == 'solid' and bool(m.mask_np[s_[0], s_[1]])
+                    and fl[s_[0], s_[1]] == ml)
+            ok(f'source snap: click on the {nm} ({where})', good,
+               f'requested ({ri},{rj}) solid -> ({s_[0]},{s_[1]}), {hop} hops, main region; src_moved {m.src_moved}; '
+               f'the web-app walk -> {w_} ({"its counter" if w_ is not None and fl[w_] == cc else "main" if w_ is not None and fl[w_] == ml else "none"})')
+    # a free request stays put (even inside a counter) and is not "moved"
+    s_ = req(ci, cj)
+    ok('source snap: a free cell (inside the counter) is kept', s_[:2] == (ci, cj) and not m.src_moved and not s_[2],
+       f'({ci},{cj}) -> {s_[:2]}, src_moved {m.src_moved}')
+    # a paint stroke elsewhere uses the incremental main region and keeps the snapped source
+    s0 = req((run[0] + run[-1]) // 2, cj)
+    m.update_solids((10, 60, 10, 60))
+    s1 = m.src
+    approx = m._main_cache is not None and not m._main_cache[2]
+    m.recache_source()
+    ok('source snap: stroke box elsewhere -> incremental main region, same source', s1 == s0 and approx
+       and m.src == s0 and m._main_cache[2], f'{s0} -> {s1} (approx {approx}) -> exact {m.src}')
+    # without solids: the web app's walk exactly, never src_moved
+    m = mc.Membrane(mc.Params(N=161, shape='n6', src='cont', sx=0.99, sy=0.6))
+    i0, j0 = m.round_cell(*m.xy_to_cell(0.99 * m.inner_R(), 0.6 * m.inner_R()))
+    ok('source snap: no solids -> the web-app walk, src_moved False', not m.has_solids and m.src[:2] == web_walk(i0, j0)
+       and not m.src_moved and m.src_snap == 'walk', f'({i0},{j0}) outside -> {m.src[:2]}, how {m.src_snap}')
 
     # 3. SYMMETRY of a centred pulse: 8-fold on the square lattice, 6-fold on the triangular
     m = mc.Membrane(mc.Params(N=B, src='pulse', sigma=4))
@@ -289,6 +390,20 @@ def main():
         ok(f'recorder never changes the field ({lat}{st if lat == "sq" else ""})', same and len(m1.hist['E']) == 300
            and not m2.hist['E'],
            f'300 steps: fields {"bit-identical" if same else "DIFFER"}; history {len(m1.hist["E"])} vs {len(m2.hist["E"])} entries')
+
+    # -- directional sources (beam phase, 01/10/2026): a beam or packet along a mirror line of the square
+    #    lattice keeps that mirror symmetry exactly (aperture, phases, back slab and FFT split all respect it)
+    for st in (5, 9):
+        for src in ('beam', 'packet'):
+            for ang in (0.0, 45.0, 90.0):
+                m = mc.Membrane(mc.Params(N=161, stencil=st, src=src, beam_angle=ang, beam_width=7, freq=0.04,
+                                          pk_lambda=12, pk_len=8, Co=0.5))
+                m.step(150)
+                u = m.field()
+                mir = u[:, ::-1] if ang == 0.0 else (u.T if ang == 45.0 else u[::-1, :])
+                r = float(np.abs(u - mir).max() / max(np.abs(u).max(), 1e-300))
+                ok(f'{src} at {ang:.0f} deg, sq{st}: mirror-symmetric about its axis', r < (1e-5 if f32 else 1e-12)
+                   and np.abs(u).max() > 0.05, f'residual {r:.1e}')
 
     print(f'\n{"ALL PASS" if not FAILS else f"{len(FAILS)} FAILED: " + ", ".join(FAILS)} '
           f'({a.arch} {"f32" if f32 else "f64"}, {time.perf_counter() - T0:.1f} s)')

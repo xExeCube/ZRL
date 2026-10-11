@@ -89,13 +89,15 @@ def configs():
     add('sq5_n12_mur_cont_tri', N=161, shape='n12', bc='mur', src='cont', wave='tri', freq=0.04)
     add('sq5_n6_slab_cont', N=161, shape='n6', medium='slab', src='cont', freq=0.08, sx=-0.2)
     add('sq5_n6_mur_pulse', N=161, shape='n6', bc='mur')
-    add('sq5_n6_vtx_rot0', N=161, shape='n6', src='vtx')
+    # vertex sources: the web app's radial inset and (driven) seeded bumps, set explicitly since the port's
+    # defaults differ (05/10/2026); the saved dump ledger_js_full_MIRROR.jsonl was made with them
+    add('sq5_n6_vtx_rot0', N=161, shape='n6', src='vtx', vtx_inset='radial')
     add('sq5_n5_vtxwall_clip', N=161, shape='n5', rot=17.3 * D, rad=1.2, src='vtx', vtx_inset='wall')
-    add('sq5_n5_vtx_rot0', N=161, shape='n5', src='vtx')
+    add('sq5_n5_vtx_rot0', N=161, shape='n5', src='vtx', vtx_inset='radial')
     add('sq5_n3_pulse_x', N=161, shape='n3', sx=0.3)
     add('sq5_n4_slit_square_damp', N=161, shape='n4', rot=45 * D, src='slit', wave='square', freq=0.05, damp=0.01)
     add('sq5_n8_vtxdrive_saw', N=161, shape='n8', rot=22.5 * D, rad=1.4, src='vtx', vtx_drive=True,
-        vtx_inset='wall', wave='saw', freq=0.03, damp=0.002)
+        vtx_inset='wall', wave='saw', freq=0.03, damp=0.002, vtx_drive_bump=True)
     add('sq5_rhomb_neu', N=161, shape='rhomb', rtheta=40 * D, rot=17 * D, bc='neumann', sy=0.4)
     add('sq5_rhomb_rot0_impulse', N=161, shape='rhomb', rtheta=50 * D, src='impulse')
     add('sq5_sqr05_neu_pulse', N=161, shape='square', rad=0.5, bc='neumann', sx=0.6, sy=0.6)
@@ -114,7 +116,8 @@ def configs():
     add('tri_circle_lens_off', N=161, lattice='tri', shape='circle', rad=1.3, medium='lens', sx=0.5)
     add('tri_n12_cont_saw', N=161, lattice='tri', shape='n12', src='cont', wave='saw', freq=0.05)
     add('tri_n5_slit', N=161, lattice='tri', shape='n5', rot=12 * D, src='slit', freq=0.06)
-    add('tri_square_slab_vtx', N=161, lattice='tri', shape='square', rad=0.9, medium='slab', src='vtx', sigma=1.5)
+    add('tri_square_slab_vtx', N=161, lattice='tri', shape='square', rad=0.9, medium='slab', src='vtx', sigma=1.5,
+        vtx_inset='radial')
     add('tri_n6_vtxwall_conf', N=161, lattice='tri', shape='n6', rot=30 * D, src='vtx', vtx_inset='wall')
     add('tri_n6_rot0_mur', N=161, lattice='tri', shape='n6', bc='mur')
     add('tri_Co085_over', N=161, lattice='tri', shape='n6', rot=30 * D, Co=0.85, src='impulse', cps=(0, 50, 300),
@@ -125,7 +128,7 @@ def configs():
 
 
 def js_keys(p):
-    ren = {'vtx_drive': 'vtxDrive', 'vtx_inset': 'vtxInset'}
+    ren = {'vtx_drive': 'vtxDrive', 'vtx_inset': 'vtxInset', 'vtx_drive_bump': 'vtxDriveBump'}
     return {ren.get(k, k): v for k, v in p.items()}
 
 
@@ -201,9 +204,17 @@ def visible_same(a, b):
     return (a.name, a.badge, a.note, a.tag, a.dsg) == (b.name, b.badge, b.note, b.tag, b.dsg)
 
 
+def web_base():
+    """Every config starts from the port's defaults with the web app's own values of the two defaults the port
+    changed on 09/10/2026: the drive frequency 0.12 (mc.WEBAPP_FREQ; the port's is 0.03125) and HARD driven vertices
+    (vtx_soft=False; the web app has no soft ones). So the configs, and the saved web-app dump
+    ScratchCLAUDE/LedgerCLAUDE/ledger_js_full_MIRROR.jsonl made with them, are those of v1.0."""
+    return mc.Params(freq=mc.WEBAPP_FREQ, vtx_soft=False)
+
+
 def run_port(c, seed_dir=None):
     """The port through the same checkpoints: {checkpoint: (rows_compat, rows_fixed, dbg, ms)}."""
-    base = mc.Params()
+    base = web_base()
     m = mc.Membrane(mc.Params(**{**base.__dict__, **c['p']}))
     if c.get('same_seed') and seed_dir:
         n = m.N
@@ -398,6 +409,122 @@ def port_checks(verbose=False):
     m.step(1300)
     expect('recorder off from the start, mode (2,3)', lg.build_ledger(m),
            {'energy': (lg.NA, 'recorder'), 'disp': (lg.NA, 'recorder'), 'mode': (lg.PASS, '')})
+    # ---- 05/10/2026: the triangular-lattice modes ('array' shape) and the walls ---------------------
+    TRI = dict(lattice='tri', shape='array')
+    # O. the rhombic torus, centred pulse: the 6-fold orbit and the mirror hold mod N (its period lattice is
+    # 6-fold), the energy is graded on the triangular functional, the mask IS the lattice
+    m = mk(src='pulse', bc='periodic', **TRI)
+    expect('tri array: rhombic torus, centred pulse', lg.build_ledger(m),
+           {'sym6': (lg.PASS, 'mod N'), 'mirror': (lg.PASS, 'mod N'), 'energy': (lg.PASS, 'tri-energy'),
+            'conform': (lg.PASS, 'rhombic torus'), 'stair': (lg.PASS, 'whole rhombic array'), 'bc': (lg.PASS, 'wrapping'),
+            'align': (lg.PASS, ''), 'straight': (lg.NA, 'ARE the array edge')})
+    # P. the rhombic torus, impulse: the light cone with the hexagonal norm's nearest image
+    m = mk(src='impulse', bc='periodic', **TRI)
+    expect('tri array: rhombic torus, impulse (light cone wraps)', lg.build_ledger(m),
+           {'cone': (lg.PASS, 'containment still holds'), 'sym6': (lg.PASS, ''), 'energy': (lg.PASS, '')})
+    # Q. the rigid ring: closed, conservative, R = +1; the rhombus has no mirror and no 6-fold orbit
+    m = mk(src='pulse', bc='neumann', **TRI)
+    expect('tri array: rigid ring, centred pulse', lg.build_ledger(m),
+           {'energy': (lg.PASS, 'rigid'), 'mirror': (lg.NA, 'rhombus'), 'sym6': (lg.NA, '2-fold'),
+            'bc': (lg.PASS, 'RIGID'), 'conform': (lg.PASS, '(N−2)²'), 'mode': (lg.NA, 'triangular')})
+    # R. Mur on the triangular array: not available, falls back to the clamped ring (bc_info says so)
+    m = mk(src='pulse', bc='mur', **TRI)
+    bi = m.bc_info()
+    expect('tri array: Mur falls back to the clamped ring', lg.build_ledger(m),
+           {'energy': (lg.PASS, 'not available'), 'bc': (lg.PASS, 'not available'), 'wake': (lg.NA, 'ABSORBING')})
+    out.append(('tri array Mur: bc_info flags the fallback', bi['fallback'] and bi['effective'] == 'dirichlet'
+                and bool(bi['reason']), str({k: bi[k] for k in ('requested', 'effective', 'fallback')})))
+    # S. 'array' on the square lattice is the full square: the same statuses as 'square' at rad 1
+    a, b = mk(src='pulse', bc='periodic', shape='array'), mk(src='pulse', bc='periodic', shape='square')
+    ra, rb = lg.build_ledger(a), lg.build_ledger(b)
+    same = [x.status for x in ra] == [y.status for y in rb] and np.array_equal(a.field(), b.field())
+    out.append(("sq 'array' == the full square (statuses, field)", same, 'ok' if same else
+                '; '.join(f'{x.key}: {x.status} vs {y.status}' for x, y in zip(ra, rb) if x.status != y.status)))
+    # T. a rigid mask edge with Mur selected: the edge is closed and conservative (no Mur ring reached)
+    m = mk(src='pulse', bc='mur', shape='circle', rad=0.8, edge='rigid')
+    expect('sq circle, rigid edge, Mur selected', lg.build_ledger(m),
+           {'energy': (lg.PASS, 'rigid'), 'bc': (lg.PASS, 'rigid mask edge')})
+    # U. the masked square with a rigid edge: sin.sin is not its eigenmode
+    m = mk(src='mode', shape='square', rad=0.7, mm=2, mn=3, edge='rigid', steps=300)
+    expect('masked square, rigid edge, mode (2,3)', lg.build_ledger(m),
+           {'mode': (lg.NA, 'RIGID edge'), 'disp': (lg.NA, 'fixed edge')})
+    # V. an 8-fold symmetric free mask whose TYPES are not symmetric (left pinned, right rigid): the orbit
+    # rows are n/a; the same arrangement all rigid stays graded; the energy is graded either way
+    T = sym.copy()
+    T[N // 2 + 1:, :] *= 2
+    m = mk(solid=T, src='pulse')
+    expect('8-fold free mask, asymmetric pinned / rigid types', lg.build_ledger(m),
+           {'sym8': (lg.NA, 'pinned / rigid'), 'energy': (lg.PASS, 'rigid')})
+    m = mk(solid=sym * 2, src='pulse')
+    expect('8-fold symmetric RIGID solids, centred pulse', lg.build_ledger(m),
+           {'sym8': (lg.PASS, ''), 'mirror': (lg.PASS, 'types'), 'energy': (lg.PASS, 'rigid')})
+    # W. the triangular hexagon with a rigid edge, impulse: 6-fold, the cone and the energy graded
+    m = mk(src='impulse', lattice='tri', shape='n6', rot=30 * D, edge='rigid')
+    expect('tri hexagon, rigid edge, impulse', lg.build_ledger(m),
+           {'sym6': (lg.PASS, ''), 'cone': (lg.PASS, ''), 'energy': (lg.PASS, 'rigid')})
+    # ---- 10/10/2026: the absorbing boundaries (port-only; NotesCLAUDE/absorbing_MIRROR.md) --------------------
+    # The rows describe the OPEN domain; a closed-domain premise is n/a with the reason; no row may FAIL.
+    ABSN = 'absorbing'
+    # X1. the CPML frame on the full square, centred pulse: symmetric boundary, open-domain counts, little comes back
+    m = mk(src='pulse', bc='cpml', shape='array')
+    expect('sq CPML frame, centred pulse', lg.build_ledger(m),
+           {'sym8': (lg.PASS, 'CPML'), 'mirror': (lg.PASS, 'CPML'), 'energy': (lg.NA, 'removes energy'),
+            'eopen': (lg.PASS, ''), 'bc': (lg.PASS, 'CPML'), 'stair': (lg.PASS, 'absorbing frame'),
+            'spectra': (lg.NA, 'open window'), 'cfl': (lg.PASS, '')})
+    # X2. the sponge frame, sq9, the drum-mode source: no standing modes
+    m = mk(src='mode', mm=2, mn=3, bc='sponge', stencil=9, shape='array', steps=600)
+    expect('sq9 sponge frame, mode (2,3)', lg.build_ledger(m),
+           {'mode': (lg.NA, ABSN), 'disp': (lg.NA, ABSN), 'spectra': (lg.NA, 'open window'),
+            'energy': (lg.NA, 'removes energy'), 'eopen': (lg.PASS, '')})
+    # X3. Mur 2nd order, impulse: the light cone, the wake with the absorbing boundary
+    m = mk(src='impulse', bc='mur2')
+    expect('sq Mur2, impulse', lg.build_ledger(m),
+           {'cone': (lg.PASS, ''), 'energy': (lg.NA, 'removes energy'), 'eopen': (lg.PASS, ''),
+            'bc': (lg.NA, 'needs a pulse')})
+    m = mk(src='pulse', sx=0.3, sy=0.2, bc='mur2')
+    expect('sq Mur2, off-centre pulse (boundary row)', lg.build_ledger(m), {'bc': (lg.PASS, 'Mur ring, 2nd order')})
+    m = mk(src='pulse', bc='mur2', steps=700)
+    expect('sq Mur2, centred pulse (wake)', lg.build_ledger(m),
+           {'wake': (lg.STATED, 'tail/peak'), 'sym8': (lg.PASS, ''), 'mirror': (lg.PASS, '')})
+    # X4. the open edge on the sq circle (the layer's damping map is checked for the orbit)
+    m = mk(src='pulse', shape='circle', rad=0.7, edge='open')
+    expect('sq circle, open edge, centred pulse', lg.build_ledger(m),
+           {'energy': (lg.NA, 'removes energy'), 'eopen': (lg.PASS, 'open edge'), 'bc': (lg.PASS, 'open edge'),
+            'spectra': (lg.NA, 'open window'), 'stair': (lg.STATED, 'OPEN domain')})
+    # X5. the open edge on the tri hexagon at 30 deg, impulse: the open domain is the drawn hexagon (conforming)
+    m = mk(src='impulse', lattice='tri', shape='n6', rot=30 * D, rad=0.6, edge='open')
+    expect('tri hexagon, open edge, impulse', lg.build_ledger(m),
+           {'cone': (lg.PASS, ''), 'eopen': (lg.PASS, ''), 'energy': (lg.NA, 'removes energy')})
+    # X6. the triangular array's sponge frame: the open rhombus is (N - 2 Ld)^2 lattice points
+    m = mk(src='pulse', bc='sponge', **TRI)
+    expect('tri array, sponge frame, centred pulse', lg.build_ledger(m),
+           {'conform': (lg.PASS, 'absorbing frame'), 'stair': (lg.PASS, 'absorbing frame'),
+            'energy': (lg.NA, 'removes energy'), 'eopen': (lg.PASS, ''), 'bc': (lg.PASS, 'sponge frame'),
+            'sym6': (lg.NA, '2-fold')})
+    # X7. CPML on the triangular array falls back to the clamped ring: a closed drum, the reason in the energy row
+    m = mk(src='pulse', bc='cpml', **TRI)
+    rows = lg.build_ledger(m)
+    expect('tri array: CPML falls back to the clamped ring', rows,
+           {'energy': (lg.PASS, 'PML on the triangular lattice'), 'bc': (lg.PASS, '')})
+    out.append(("tri array CPML: no 'eopen' row (nothing absorbs)", 'eopen' not in by(rows), 'ok'))
+    # X8. a masked circle with bc cpml: the bc falls back (the shape's absorbing boundary is edge 'open')
+    m = mk(src='pulse', bc='cpml', shape='circle', rad=0.8)
+    expect('sq circle, bc cpml (falls back), pinned edge', lg.build_ledger(m),
+           {'energy': (lg.PASS, ''), 'bc': (lg.PASS, '')})
+    # X9. a driven source with the CPML frame: the linearity row may settle; 'eopen' is n/a (driven)
+    m = mk(src='cont', freq=0.05, bc='cpml', shape='array', steps=1300)
+    expect('sq CPML frame, continuous drive', lg.build_ledger(m), {'eopen': (lg.NA, 'driven')})
+    # X10. the recorder off for part of an open-edge run: the history rows (eopen too) are n/a
+    m = mc.Membrane(mc.Params(N=N, src='pulse', shape='circle', edge='open'))
+    m.step(300)
+    m.record = False
+    m.step(300)
+    m.record = True
+    expect('open edge, recorder off for part of the run', lg.build_ledger(m),
+           {'eopen': (lg.NA, 'recorder'), 'energy': (lg.NA, '')})
+    # X11. an off-centre pulse in the sq9 CPML frame: no orbit, the mirror n/a, no FAIL anywhere
+    m = mk(src='pulse', sx=0.4, sy=0.2, bc='cpml', stencil=9, shape='array')
+    expect('sq9 CPML frame, off-centre pulse', lg.build_ledger(m), {'sym8': (lg.NA, 'offset'), 'eopen': (lg.PASS, '')})
     return out
 
 
@@ -438,7 +565,7 @@ def main():
     if a.quick:
         for c in C:
             c['checkpoints'] = [k for k in c['checkpoints'] if k <= 300]
-    base = mc.Params()
+    base = web_base()
     if a.jsonl:
         out_path = a.jsonl
         tmp = os.path.dirname(os.path.abspath(a.jsonl))

@@ -42,8 +42,29 @@ Port-only situations (the JS has no case for them; decided row by row, 30/09/202
   - the RECORDER switched off (m.record = False) for some steps: the history rows (HIST_ROWS: energy,
     boundary, wake, dispersion, linearity) are n/a with the reason instead of grading a gapped series
     (the history is complete iff it has one entry per step, capped).
+  - WALLS and the TRIANGULAR-LATTICE MODES (05/10/2026, NotesCLAUDE/walls_MIRROR.md sections 9 and 13):
+    rigid solids and a rigid edge conserve the energy like pinned ones (the energy row stays graded,
+    its port text says so); the symmetry rows also check the TYPE map (left pinned / right rigid is
+    not symmetric); the masked square with a rigid edge has cos.cos modes, so the eigenmode rows are
+    n/a; the 'array' shape is the full square on the square lattice (every row as for it) and the
+    whole rhombic array on the triangular one: conformance counts (N-2)^2 (N^2 on the torus) lattice
+    points, the staircase is exact, the mirror holds on the torus only, the 6-fold orbit holds on the
+    torus (its period lattice is 6-fold) and is checked with the wrap there, as are the light cone
+    (the hexagonal norm's nearest image) and the front clearance (the seam); Mur on the triangular
+    array falls back to the clamped ring (the rows say so: edge-kind). Every web-app configuration
+    keeps the web app's logic.
   - f32 builds (Vulkan, --f32): the exact-identity tolerances are the web app's f64 ones scaled to
     single precision (TOL_F32, measured); the cone's underflow threshold is 1e-30 instead of 1e-290.
+  - ABSORBING BOUNDARIES (09-10/10/2026, NotesCLAUDE/absorbing_MIRROR.md): Mur 2nd order, the CPML and
+    sponge frames of the full array and a masked shape's OPEN edge (a sponge outside the drawn edge) are
+    port-only. The rows describe the OPEN domain (the drawn shape, the array minus a frame): the recorder
+    sums it only, the counts (conformance, staircase) count it, the front clearance stops at the layer.
+    Rows whose premise is a closed, lossless domain go n/a with the reason (energy, the drum spectrum, the
+    eigenmode and dispersion rows); the boundary row reads "absorbing edge: little comes back", the wake
+    and linearity rows accept them as the absorbing boundary; the symmetry rows check their premise on
+    the layer's damping map cell by cell (a quantised distance ramp need not be symmetric). One extra row,
+    'eopen' ("energy inside the open domain does not grow"), is added for these boundaries only, so every
+    web-app configuration keeps the web app's row list.
 
 FIXES (applied unless build_ledger(..., compat=True)): JS ledger faults found while porting. The
 cross-check runs compat=True for value-for-value agreement, and compat=False to list what the fixes
@@ -103,6 +124,18 @@ FIXES = {
     'cfl-nan': 'CFL row past the limit: once the field is ALL NaN, record()\'s max skips NaN and '
                'S.amax reads 0, so the row said "not yet" (red) after a divergence; here a non-finite '
                'energy also counts as diverged.',
+    'cfl-damped': 'CFL row with damping (01/10/2026): the damping term -d (u - u_prev) of the update lowers the limit to '
+                  'C_max(d) = C_max(0) sqrt(1 - d/2) (0.7036 on sq5 at d = 0.02); the web app graded Co against '
+                  'C_max(0), so a run between the two blew up under a "stable" PASS row (a false FAIL once it '
+                  'diverged). Here the row uses the damped limit (membrane_core co_limit()).',
+    'tri-energy': ("Energy row on the TRIANGULAR lattice (05/10/2026): record()'s energy sums the forward "
+                   "differences along the index axes (1,0) and (0,1) only -- the SQUARE lattice's functional. On "
+                   "the triangular lattice that is not the conserved quantity: it sloshes with the direction of "
+                   "the field's gradients (a directed packet, the rhombic array's anisotropic modes), while "
+                   "the solver conserves its exact discrete energy to ~1e-15. The port also records the third "
+                   "link direction (1,-1) (membrane_core rec_fold, m.hist['Etri']) and grades "
+                   "E = kin/(2 Co^2) + (1/3)(gx^2 + gy^2 + gz^2), the triangular operator's own Dirichlet "
+                   "form -(u, L u) / 2."),
 }
 
 
@@ -157,9 +190,10 @@ _GEO = weakref.WeakKeyDictionary()
 def _geo_key(m):
     p = m.p
     sc = m.scene
-    return (m.N, p.lattice, p.stencil, p.shape, p.rot, p.rad, p.rtheta, p.bc, p.src, p.sx, p.sy, p.sigma,
+    return (m.N, p.lattice, p.stencil, p.shape, p.rot, p.rad, p.rtheta, p.bc, p.edge, p.src, p.sx, p.sy, p.sigma,
             p.vtx_inset, id(m.mask_np), id(m.domain_mask_np), None if sc is None else sc.version,
-            m.n_solid, tuple(m.src[:2]), tuple(tuple(v[:2]) for v in m.vtx))
+            m.n_solid, tuple(m.src[:2]), tuple(tuple(v[:2]) for v in m.vtx),
+            id(getattr(m, 'abs_np', None)))          # 10/10/2026: an absorbing layer's codes (the open domain)
 
 
 class _Geo(dict):
@@ -205,16 +239,32 @@ def _cell_xy_np(m, I, J):
     return (da + db * 0.5, db * S3H) if m.tri() else (da, db)
 
 
+def _open_free(m):
+    """The free cells of the OPEN domain (10/10/2026): mask_np without an absorbing layer's cells (Membrane.open_mask),
+    mask_np itself without a layer."""
+    f = getattr(m, 'open_mask', None)
+    return f() if f is not None else m.mask_np
+
+
 def _clearance(m, G, i, j):
     """The web app's clearanceFrom(i, j): physical distance to the nearest masked-out cell (the free
-    mask: solids count as walls), the array edge too on the full-grid square; baseHalf if none."""
+    mask: solids count as walls), the array edge too on the full-grid square; baseHalf if none.
+    10/10/2026: with an absorbing layer, the nearest cell outside the OPEN domain (the layer counts as the
+    wall: inside it the front is damped, so it is no longer the free front these rows measure)."""
     n = m.N
     best = math.inf
     if m.sq_full():
         best = min(i, j, n - 1 - i, n - 1 - j)
+    elif _tri_torus(m):
+        # the rhombic torus (05/10/2026): as the full square's array edge, the seam -- the lines of
+        # constant i and j are S3H apart, so the physical distance to the nearest is S3H x the index
+        best = S3H * min(i, j, n - 1 - i, n - 1 - j)
     if m.mask_np[i, j] == 0:
         return 0.0
-    BI, BJ = G.get_or('bnd', lambda: _boundary_cells(m.mask_np))
+    if getattr(m, 'abs_np', None) is not None:
+        BI, BJ = G.get_or('bnd_open', lambda: _boundary_cells(_open_free(m)))
+    else:
+        BI, BJ = G.get_or('bnd', lambda: _boundary_cells(m.mask_np))
     if BI.size:
         px, py = m.cell_xy(i, j)
         X, Y = _cell_xy_np(m, BI, BJ)
@@ -222,6 +272,26 @@ def _clearance(m, G, i, j):
         if d < best:
             best = d
     return best if math.isfinite(best) else m.base_half()
+
+
+def _full(m):
+    f = getattr(m, 'full_array', None)
+    return bool(f()) if f is not None else m.sq_full()
+
+
+def _torus(m):
+    f = getattr(m, 'torus', None)
+    return bool(f()) if f is not None else (m.p.bc == 'periodic' and not m.tri())
+
+
+def _tri_torus(m):
+    """The rhombic torus (the triangular 'array' with bc periodic, 05/10/2026)."""
+    return m.tri() and _torus(m)
+
+
+def _wrap_cone(m):
+    """The light cone wraps: the full square's torus (the web app) or the rhombic torus."""
+    return _torus(m) and _full(m)
 
 
 def _clear(m, G):
@@ -249,8 +319,8 @@ def _cone_wall(m, G):
     def f():
         n, p = m.N, m.p
         si, sj = int(m.src[0]), int(m.src[1])
-        if not m.tri() and p.bc == 'periodic' and m.sq_full():
-            return (n - 1) // 2
+        if _wrap_cone(m):
+            return (n - 1) // 2              # the cone meets itself (the rhombic torus' periods are N long in the hex norm too)
         if m.mask_np[si, sj] == 0:
             return 0
         best = min(si, sj, n - 1 - si, n - 1 - sj)
@@ -273,8 +343,27 @@ def _mirror_ij(m, i, j):
     return (i + (j - c), 2 * c - j) if m.tri() else (i, 2 * c - j)
 
 
+def _type_in(m):
+    """The solid TYPE map inside the domain (0 free / outside, 1 pinned, 2 rigid), or None when no
+    solid is rigid: then the free-cell mask decides the symmetry alone (05/10/2026)."""
+    T = getattr(m, 'solid_np', None)
+    if T is None:
+        return None
+    T = np.where(m.domain_mask_np != 0, T, 0).astype(np.uint8)
+    return T if (T == 2).any() else None
+
+
+def _tri_maps(m):
+    c = (m.N - 1) // 2
+    I, J = np.meshgrid(np.arange(m.N), np.arange(m.N), indexing='ij')
+    return c, I - c, J - c
+
+
 def _mask_mirror(m, M):
     n = m.N
+    if m.tri() and _tri_torus(m):
+        c, A, B = _tri_maps(m)                # (a, b) -> (a + b, -b), mod n on the torus
+        return bool(np.array_equal(M, M[(c + A + B) % n, (c - B) % n]))
     if not m.tri():
         return bool(np.array_equal(M, M[:, ::-1]))
     c = (n - 1) // 2
@@ -295,6 +384,12 @@ def _mask_rot(m, M, per):
     M[i, j] = M[2c - j, i + j - c] for one application -- a column of M against a shifted row."""
     n = m.N
     c = (n - 1) // 2
+    if _tri_torus(m):                         # mod n on the rhombic torus (its period lattice is 6-fold)
+        _, A, B = _tri_maps(m)
+        P, Q = A.copy(), B.copy()
+        for _ in range(per):
+            P, Q = -Q, P + Q
+        return bool(np.array_equal(M, M[(c + P) % n, (c + Q) % n]))
     R = M
     for _ in range(per):                      # R := R o rot (the rotated mask, then compare)
         out = np.zeros_like(R)
@@ -317,6 +412,26 @@ class _Ctx:
         self.G = _geo(m)
         self.solids = bool(m.has_solids)
         self.unl = m.p.shape == 'unlicensed'
+        # 05/10/2026: the 'array' shape, the triangular modes, rigid walls
+        self.arr = m.p.shape == 'array'
+        self.full = _full(m)
+        self.torus = _torus(m)
+        self.tri_torus = self.tri and self.torus
+        bi = m.bc_info() if hasattr(m, 'bc_info') else {'fallback': False, 'reason': None}
+        self.bc_fallback, self.bc_reason = bool(bi.get('fallback')), bi.get('reason')
+        T = getattr(m, 'solid_np', None)
+        self.rigid_solids = bool(self.solids and T is not None and ((T == 2) & (m.domain_mask_np != 0)).any())
+        self.edge_rigid = getattr(m.p, 'edge', 'pinned') == 'rigid' and not self.full
+        self.rigid_ring = self.tri and self.arr and not self.torus and m.p.bc == 'neumann'
+        # 10/10/2026: the absorbing boundaries. absorbing = what absorbs ('mur' / 'mur2' / 'cpml' / 'sponge' on the
+        # full array, 'open' for a masked shape's sponge edge) or None; port_abs = a port-only one (every row
+        # but the web app's Mur takes the port's logic, in both modes: the web app has no case for them)
+        f = getattr(m, 'absorbing', None)
+        self.absorbing = f() if f is not None else None
+        self.port_abs = self.absorbing in ('mur2', 'cpml', 'sponge', 'open')
+        f = getattr(m, 'abs_layer', None)
+        self.layer = f() if f is not None else None
+        self.abs_np = getattr(m, 'abs_np', None)
         self._U = None
         self.step = int(m.step_n)
         self.drops = int(m.drops)
@@ -348,7 +463,9 @@ class _Ctx:
         return self._U
 
     def co_limit(self):
-        return self.m.co_limit()
+        """The web app's undamped C_max (the light cone / mode rows' geometry, and the CFL row in
+        compat mode); the CFL row uses the damped limit under the 'cfl-damped' fix."""
+        return self.m.co_limit(damped=False)
 
     def src_centred(self):
         return abs(self.p.sx) < 1e-9 and abs(self.p.sy) < 1e-9
@@ -357,7 +474,44 @@ class _Ctx:
         return self.G.get_or('fits', lambda: al.fits_inside(self.m, self.m.shape_poly()))
 
     def cells_domain(self):
-        return self.G.get_or('cells_dom', lambda: int(np.count_nonzero(self.m.domain_mask_np)))
+        """The domain's cell count (solids included); 10/10/2026: the OPEN domain's (an absorbing layer excluded)."""
+        def f():
+            g = getattr(self.m, 'open_domain_np', None)
+            return int(np.count_nonzero(g() if g is not None else self.m.domain_mask_np))
+        return self.G.get_or('cells_dom', f)
+
+    def frame_Ld(self):
+        """An absorbing FRAME's index depth (the first open row), else 0 (10/10/2026)."""
+        lay = self.layer
+        return int(lay['Ld']) if (lay is not None and lay.get('where') == 'frame') else 0
+
+    def abs_text(self):
+        """The absorbing boundary in words (10/10/2026)."""
+        lay, a = self.layer, self.absorbing
+        if a == 'open':
+            return f'the open edge (a sponge {fmt(lay["L"], 0)} cells wide outside the drawn edge)'
+        if a == 'cpml':
+            return f'the CPML frame ({lay["Lc"]} cells, {lay["level"]})'
+        if a == 'sponge':
+            return f'the sponge frame ({fmt(lay["L"], 0)} cells)'
+        if a == 'mur2':
+            return 'the Mur ring, 2nd order'
+        return 'the Mur ring'
+
+    def layer_sym(self, kind, fold=0):
+        """The symmetry rows' premise for an absorbing LAYER (10/10/2026): its damping map (the mask codes) is
+        invariant under the orbit, checked cell by cell (a quantised distance ramp of a rotated n-gon need not
+        be). True without a layer. kind: 'sym8' | 'mirror' | 'rot' (fold)."""
+        A = self.abs_np
+        if A is None:
+            return True
+        def f():
+            if kind == 'sym8':
+                return _mask_sym8(A)
+            if kind == 'mirror':
+                return _mask_mirror(self.m, A)
+            return _mask_rot(self.m, A, 6 // fold)
+        return self.G.get_or(f'layersym_{kind}{fold}', f)
 
     def tol(self, f64, kind):
         return f64 if self.fp64 else TOL_F32[kind]
@@ -365,19 +519,47 @@ class _Ctx:
     def edge(self):
         """What bounds the domain (FIX edge-kind): 'clamped' (the mask wall / the tri ring),
         p.bc for the full-grid square, 'mixed-<bc>' when a masked domain's free cells reach the
-        square lattice's ring (part flavor wall, part array edge)."""
+        square lattice's ring (part flavor wall, part array edge). 05/10/2026: 'rigid' for a masked
+        domain with edge = 'rigid' (it reflects and does not absorb, as the clamped one); the
+        triangular 'array': the bc it runs (dirichlet / neumann = the rigid ring / periodic; Mur falls
+        back to dirichlet). 10/10/2026: 'open' for a masked shape's absorbing edge; the full square the bc it
+        RUNS (bc_effective: mur2 / cpml / sponge, or a fallback), a masked shape that reaches the ring
+        'mixed-' + the bc it runs (mur2 / cpml / sponge fall back to dirichlet there)."""
         def f():
             m, p = self.m, self.p
+            eff = m.bc_effective() if hasattr(m, 'bc_effective') else p.bc
+            if self.tri and self.arr:
+                return eff
+            if self.absorbing == 'open':
+                return 'open'
             if self.tri:
-                return 'clamped'
+                return 'rigid' if self.edge_rigid else 'clamped'
             if m.sq_full():
-                return p.bc
+                return eff
             M = m.domain_mask_np
             ring = M[0, :].any() or M[-1, :].any() or M[:, 0].any() or M[:, -1].any()
             if not ring:
-                return 'clamped'
-            return 'mixed-' + p.bc
+                return 'rigid' if self.edge_rigid else 'clamped'
+            return 'mixed-' + eff
         return self.G.get_or('edge', f)
+
+    def mur_port(self, what):
+        """The port remark when Mur is selected but no Mur ring bounds the domain (FIX edge-kind)."""
+        if self.tri and self.arr:
+            return (self.bc_reason or mc.TRI_MUR_REASON) + ' (FIX edge-kind)'
+        kind = 'rigid' if self.edge_rigid else 'clamped'
+        return what.replace('clamped', kind)
+
+    def wall_port(self):
+        """What the walls are, for the rows that grade a closed domain (energy, boundary)."""
+        parts = []
+        if self.rigid_solids or self.edge_rigid or self.rigid_ring:
+            parts.append('pinned and rigid walls both conserve the energy (a rigid wall does no work: its links are '
+                         'removed); a rigid wall reflects upright (R = +1)')
+        if self.tri_torus:
+            parts.append("the rhombic torus has no wall; its recorder sums every cell with wrapped differences (the "
+                         "square torus keeps the web app's interior-only sum)")
+        return ' · '.join(parts)
 
 
 # ---- the residuals ----------------------------------------------------------------------------
@@ -426,6 +608,8 @@ def mirror_residual(m, U):
     b = np.arange(1, c + 1, 2)[:, None]
     a = np.arange(-c, c + 1, 2)[None, :]
     i, j, i2, j2 = c + a, c + b, c + a + b, c - b
+    if _tri_torus(m):
+        i2 = i2 % n                          # the rhombic torus: every pair, mod n (05/10/2026)
     ok = (i >= 0) & (i < n) & (i2 >= 0) & (i2 < n)
     i, j, i2, j2 = (np.broadcast_to(x, ok.shape)[ok] for x in (i, j, i2, j2))
     return _jsmax(np.abs(U[i, j] - U[i2, j2]))
@@ -446,6 +630,8 @@ def sym_rot_residual(m, U, fold):
         for _ in range(per):
             p, q = -q, p + q
         i2, j2 = c + p, c + q
+        if _tri_torus(m):
+            i2, j2 = i2 % n, j2 % n          # the rhombic torus: its period lattice is 6-fold (05/10/2026)
         inr = (i2 >= 0) & (i2 < n) & (j2 >= 0) & (j2 < n)
         if np.any(np.abs(v[~inr]) > 1e-12):
             return None
@@ -548,11 +734,12 @@ def _cnorm(da, db, kind):
 
 @ti.kernel
 def k_orbit(U: ti.types.ndarray(ndim=3), s: ti.i32, mode: ti.template(), per: ti.i32, fold: ti.i32,
-            OUT: ti.types.ndarray(ndim=2)):
+            OUT: ti.types.ndarray(ndim=2), wrap: ti.i32):
     """max |u(p) - u(g p)| over an orbit, sampled as the web app samples it. mode 0: the octant orbit
     (symmetryResidual); 1: mirror, square lattice; 2: mirror, triangular lattice (a,b) -> (a+b, -b);
     3: the triangular rotation (a,b) -> (-b, a+b) applied `per` times per hop, fold-1 hops
-    (symRotResidual; column 2 flags a partner off the array with |v| > 1e-12 -> null)."""
+    (symRotResidual; column 2 flags a partner off the array with |v| > 1e-12 -> null). wrap = 1 (the
+    rhombic torus, 05/10/2026): modes 2 and 3 take the partner mod n, so every pair is compared."""
     n = U.shape[1]
     c = (n - 1) // 2
     for k in range(RSLOT):
@@ -601,6 +788,8 @@ def k_orbit(U: ti.types.ndarray(ndim=3), s: ti.i32, mode: ti.template(), per: ti
                 a = -c + 2 * ka
                 b = 2 * kb + 1
                 i2 = c + a + b
+                if wrap:
+                    i2 = ((i2 % n) + n) % n
                 if i2 >= 0 and i2 < n:
                     d = ti.abs(U[s, c + a, c + b] - U[s, i2, c - b])
                     if d >= 0:
@@ -620,6 +809,9 @@ def k_orbit(U: ti.types.ndarray(ndim=3), s: ti.i32, mode: ti.template(), per: ti
                         p = np_
                     i2 = c + p
                     j2 = c + q
+                    if wrap:
+                        i2 = ((i2 % n) + n) % n
+                        j2 = ((j2 % n) + n) % n
                     if i2 < 0 or i2 >= n or j2 < 0 or j2 >= n:
                         if ti.abs(v) > 1e-12:
                             nul = 1.0
@@ -633,6 +825,28 @@ def k_orbit(U: ti.types.ndarray(ndim=3), s: ti.i32, mode: ti.template(), per: ti
         ti.atomic_max(OUT[slot, 0], ti.cast(w, mc.ACC_DT))
         ti.atomic_max(OUT[slot, 1], ti.cast(nan, mc.ACC_DT))
         ti.atomic_max(OUT[slot, 2], ti.cast(nul, mc.ACC_DT))
+
+
+@ti.func
+def _cnorm_w(da, db, kind, n, h, wrap):
+    """The cone norm of an index offset; wrap: the torus' nearest image -- each axis into [-h, h]
+    (exact for the square lattice's norms), and on the triangular lattice (kind 2) also the six
+    neighbouring images (+-n, 0), (0, +-n), (+-n, -+n), whose hexagonal norm can be smaller (05/10/2026)."""
+    r = 0
+    if wrap:
+        a = (da + n + h) % n - h
+        b = (db + n + h) % n - h
+        r = _cnorm(a, b, kind)
+        if kind == 2:
+            r = ti.min(r, _cnorm(a - n, b, kind))
+            r = ti.min(r, _cnorm(a + n, b, kind))
+            r = ti.min(r, _cnorm(a, b - n, kind))
+            r = ti.min(r, _cnorm(a, b + n, kind))
+            r = ti.min(r, _cnorm(a - n, b + n, kind))
+            r = ti.min(r, _cnorm(a + n, b - n, kind))
+    else:
+        r = _cnorm(da, db, kind)
+    return r
 
 
 @ti.kernel
@@ -664,10 +878,7 @@ def k_cone(U: ti.types.ndarray(ndim=3), s: ti.i32, si: ti.i32, sj: ti.i32, mstep
             if not (v == 0):                    # NaN counts, as "v !== 0" does in the JS
                 da = i - si
                 db = j - sj
-                if wrap:
-                    da = (da + n + h) % n - h
-                    db = (db + n + h) % n - h
-                r = ti.cast(_cnorm(da, db, kind), float)
+                r = ti.cast(_cnorm_w(da, db, kind, n, h, wrap), float)
                 rmax = ti.max(rmax, r)
                 if r > mstep:
                     cnt += 1.0
@@ -697,10 +908,7 @@ def k_cone(U: ti.types.ndarray(ndim=3), s: ti.i32, si: ti.i32, sj: ti.i32, mstep
         for i in range(g * gs, ti.min(n, (g + 1) * gs)):
             da = i - si
             db = j - sj
-            if wrap:
-                da = (da + n + h) % n - h
-                db = (db + n + h) % n - h
-            if ti.cast(_cnorm(da, db, kind), float) == rout:
+            if ti.cast(_cnorm_w(da, db, kind, n, h, wrap), float) == rout:
                 a = ti.abs(U[s, i, j])
                 if a >= 0:
                     w = ti.max(w, a)
@@ -761,7 +969,7 @@ def orbit_residual(x, kind, fold=6):
                 else sym_rot_residual(m, U, fold))
     OUT = _out_buf()
     mode = {'sym8': 0, 'mirror': 2 if x.tri else 1, 'rot': 3}[kind]
-    k_orbit(m.U, _cur(m), mode, (6 // fold) if kind == 'rot' else 1, fold, OUT)
+    k_orbit(m.U, _cur(m), mode, (6 // fold) if kind == 'rot' else 1, fold, OUT, 1 if x.tri_torus else 0)
     o = OUT.to_numpy()[:RSLOT].astype(np.float64)
     if kind == 'rot' and o[:, 2].max() > 0:
         return None
@@ -803,7 +1011,8 @@ def circle_clip_area(R, h):
 def shape_area(ctx, R):
     m, p = ctx.m, ctx.p
     if m.sq_full():
-        return m.N * m.N
+        Ld = ctx.frame_Ld()                    # 10/10/2026: an absorbing frame: the open domain is (N - 2 Ld)^2
+        return (m.N - 2 * Ld) ** 2
     P = m.shape_poly()
     if ctx.fits():
         if p.shape == 'circle':
@@ -836,11 +1045,16 @@ def _row_cfl(x):
     L = x.co_limit()
     Lname = '√(2/3)' if x.tri else ('√3/2' if p.stencil == 9 else '1/√2')
     Lwho = 'triangular, 6-neighbour' if x.tri else f'{p.stencil}-point'
+    fixes = ()
+    if p.damp > 0 and x.fix('cfl-damped'):
+        Ld = x.m.co_limit()
+        fixes = ('cfl-damped',)                 # the limit (and the row's text) changes
+        L, Lname = Ld, f'{Lname}·√(1−d/2)'
+        Lwho += f', damping d = {fmt(p.damp, 4)}'
     over = p.Co > L
     diverged = not math.isfinite(x.amax) or x.amax > 1e6
-    fixes = ()
     if over and not diverged and x.fix('cfl-nan') and x.E_last is not None and not math.isfinite(x.E_last):
-        diverged, fixes = True, ('cfl-nan',)
+        diverged, fixes = True, fixes + ('cfl-nan',)
     if x.step < 40:
         badge, detail, val = 'n/a', 'run a few dozen steps first', ''
     elif not over:
@@ -859,22 +1073,30 @@ def _row_cfl(x):
 def _row_sym8(x):
     m, p, n = x.m, x.p, x.n
     nn = int(p.shape[1:]) if (p.shape[:1] == 'n' and p.shape[1:].isdigit()) else 0
-    sym8 = not x.tri and (p.shape in ('circle', 'square') or
+    sym8 = not x.tri and (p.shape in ('circle', 'square', 'array') or
                           (nn % 4 == 0 and nn > 0 and abs(p.rot / (PI / nn) - jround(p.rot / (PI / nn))) < 1e-9))
     on_axis = x.src_centred()
+    # 10/10/2026: the port's absorbing boundaries are symmetric BCs too (Mur 2nd order's ring rule and the
+    # frames are 8-fold symmetric; the layer's damping map is checked cell by cell below)
     centred = (p.src in ('pulse', 'impulse') and p.medium == 'uniform' and sym8 and on_axis
-               and p.bc in ('dirichlet', 'neumann', 'periodic'))
+               and (p.bc in ('dirichlet', 'neumann', 'periodic') or x.port_abs))
     port = ''
     sol_ok = True
-    if centred and x.solids:
+    if centred and x.port_abs and not x.layer_sym('sym8'):
+        sol_ok = False
+        port = (f'{x.abs_text()}: its damping map (the distance ramp, quantised per cell) is not 8-fold symmetric '
+                '(checked cell by cell), so this orbit does not apply')
+    elif centred and x.port_abs:
+        port = f'{x.abs_text()}: an 8-fold symmetric boundary (its damping map checked cell by cell)'
+    if centred and x.solids and sol_ok:
         c = x.c
-        mask_ok = x.G.get_or('mask8', lambda: _mask_sym8(m.mask_np))
+        mask_ok = x.G.get_or('mask8', lambda: _mask_sym8(m.mask_np) and (_type_in(m) is None or _mask_sym8(_type_in(m))))
         at_c = (int(m.src[0]), int(m.src[1])) == (c, c)
         sol_ok = mask_ok and at_c
         port = (('solids: the free-cell mask is 8-fold symmetric (checked cell by cell) and the source '
                  'is on the centre cell, so the orbit still applies') if sol_ok else
-                (f'{_SOL}: the free-cell mask is not 8-fold symmetric (checked cell by cell), so this '
-                 'orbit does not apply') if not mask_ok else
+                (f'{_SOL}: the free-cell mask (or the pinned / rigid types) is not 8-fold symmetric (checked cell '
+                 'by cell), so this orbit does not apply') if not mask_ok else
                 (f'{_SOL}: the source snapped out of a solid to cell ({int(m.src[0])}, {int(m.src[1])}), '
                  'off the centre, so the field is correctly not 8-fold symmetric'))
     good = centred and sol_ok
@@ -901,20 +1123,31 @@ def _row_sym8(x):
 def _row_sym6(x):
     m, p = x.m, x.p
     fold = 6 if p.shape in ('circle', 'n6', 'n12') else 3 if p.shape == 'n3' else 0
+    if x.arr:
+        fold = 6 if x.tri_torus else 0        # the rhombic torus' period lattice is 6-fold; the array is 2-fold
     whole = x.fits()
     good = (bool(fold) and whole and x.src_centred() and p.medium == 'uniform' and not x.drops
             and p.src in ('pulse', 'impulse') and x.live)
     port = ''
     sol_ok = True
-    if good and x.solids:
+    if good and x.port_abs:
+        # 10/10/2026: the absorbing layer's damping map must be invariant under the orbit too (cell by cell)
+        if x.layer_sym('rot', fold):
+            port = f'{x.abs_text()}: a {fold}-fold symmetric boundary (its damping map checked cell by cell)'
+        else:
+            sol_ok = False
+            port = (f'{x.abs_text()}: its damping map (the distance ramp, quantised per cell) is not {fold}-fold '
+                    'symmetric (checked cell by cell), so this orbit does not apply')
+    if good and x.solids and sol_ok:
         c = x.c
-        mask_ok = x.G.get_or(f'maskrot{fold}', lambda: _mask_rot(m, m.mask_np, 6 // fold))
+        mask_ok = x.G.get_or(f'maskrot{fold}', lambda: _mask_rot(m, m.mask_np, 6 // fold) and
+                             (_type_in(m) is None or _mask_rot(m, _type_in(m), 6 // fold)))
         at_c = (int(m.src[0]), int(m.src[1])) == (c, c)
         sol_ok = mask_ok and at_c
         port = ((f'solids: the free-cell mask is {fold}-fold symmetric (checked cell by cell) and the source '
                  'is on the centre cell, so the orbit still applies') if sol_ok else
-                (f'{_SOL}: the free-cell mask is not {fold}-fold symmetric (checked cell by cell), so this '
-                 'orbit does not apply') if not mask_ok else
+                (f'{_SOL}: the free-cell mask (or the pinned / rigid types) is not {fold}-fold symmetric (checked '
+                 'cell by cell), so this orbit does not apply') if not mask_ok else
                 (f'{_SOL}: the source snapped out of a solid to cell ({int(m.src[0])}, {int(m.src[1])}), '
                  'off the centre'))
     good = good and sol_ok
@@ -927,7 +1160,9 @@ def _row_sym6(x):
                   'neighbours in one cycle')
     else:
         badge = 'n/a'
-        detail = ((f'the {p.shape} domain is 4- or 2-fold, and neither is a rotation of the triangular lattice '
+        detail = (('the rhombic array is only 2-fold (point-) symmetric — 3- and 6-fold orbits need the hexagon, '
+                   'the triangle, the circle or the rhombic torus (bc periodic)') if (x.arr and not fold)
+                  else (f'the {p.shape} domain is 4- or 2-fold, and neither is a rotation of the triangular lattice '
                    '— only 3- and 6-fold orbits exist here') if not fold
                   else ('the shape overflows the rhombic array, and the clip is not rotationally symmetric — '
                         'lower the radius until it fits') if not whole
@@ -935,6 +1170,9 @@ def _row_sym6(x):
                   if not x.src_centred()
                   else port if not sol_ok
                   else 'needs a centred pulse or impulse in a uniform medium')
+    if x.tri_torus and good:
+        port = (port + ' · ' if port else '') + ('the rhombic torus: its period lattice is 6-fold too, so the orbit '
+                                                 'is taken mod N and holds after the wave wraps')
     if not x.fp64 and good:
         port = (port + ' · ' if port else '') + f'f32 build: tolerance {fe(tol)} (the web app\'s 1e-12 is f64)'
     return _row('sym6', f'triangular lattice: centred source keeps {fold or 6}-fold symmetry (exact)', badge, detail,
@@ -961,6 +1199,14 @@ def _row_conform(x):
         L = jround(R * math.sqrt(3))
         if at30 and L % 3 == 0:
             exactN, form = (L + 1) * (L + 2) // 2, f'(L+1)(L+2)/2, L = {L}'
+    elif x.arr:
+        # the whole rhombic array (port only): every lattice point but the ring, or all N^2 on the torus;
+        # 10/10/2026: with an absorbing frame the OPEN domain, the array less the frame's Ld rows per side
+        Ld = x.frame_Ld()
+        exactN, form = ((m.N * m.N, f'N², the rhombic torus, N = {m.N}') if x.tri_torus
+                        else ((m.N - 2 * Ld) ** 2, f'(N−2·{Ld})², the rhombic array less its {Ld}-row absorbing frame, '
+                              f'N = {m.N}') if Ld
+                        else ((m.N - 2) ** 2, f'(N−2)², the rhombic array less its ring, N = {m.N}'))
     if exactN is not None:
         badge = 'PASS' if cells == exactN else 'FAIL'
         detail = (f'{cells} cells vs the exact lattice-point count {exactN} ({form}) — zero staircase, the '
@@ -980,8 +1226,10 @@ def _row_conform(x):
     if x.unl:
         port = ('the Unlicensed plate is a rounded rectangle: its corner arcs are not lattice lines, so it '
                 'never conforms')
+    if x.arr and exactN is not None:
+        port = 'the "array" shape (port only): the domain is the triangular lattice\'s own rhombic array'
     if x.solids and exactN is not None:
-        port = 'counts the DOMAIN mask (solids excluded: they do not change how the shape is rasterised)'
+        port = (port + ' · ' if port else '') + 'counts the DOMAIN mask (solids excluded: they do not change how the shape is rasterised)'
     return _row('conform', ('conforming tiler: the mask IS the shape’s lattice points' if exactN is not None
                             else 'conformance: this pair is not lattice-conforming'), badge, detail, 'tier C',
                 f'{cells} / {exactN}' if exactN is not None else '', cells if exactN is not None else None,
@@ -990,6 +1238,8 @@ def _row_conform(x):
 
 def _mirror_symmetric_js(x):
     m, p = x.m, x.p
+    if x.arr:                                  # port only: the square / the rhombic torus are, the rhombus is not
+        return x.tri_torus or not x.tri
     if x.tri and not x.fits():
         return False
     if p.shape in ('square', 'circle'):
@@ -1006,11 +1256,16 @@ def _row_mirror(x):
     port = ''
     maskgeo = x.solids or x.unl                  # the premise is checked on the mask itself
     if maskgeo:
-        mask_ok = x.G.get_or('maskmirror', lambda: _mask_mirror(m, m.mask_np))
-        geo_shape = mask_ok and not (x.tri and not x.fits())
+        mask_ok = x.G.get_or('maskmirror', lambda: _mask_mirror(m, m.mask_np) and
+                             (_type_in(m) is None or _mask_mirror(m, _type_in(m))))
+        geo_shape = mask_ok and not (x.tri and not x.fits()) and (_mirror_symmetric_js(x) if x.arr else True)
     else:
         geo_shape = _mirror_symmetric_js(x)
-    geo = geo_shape and p.medium == 'uniform' and p.bc != 'mur'
+    # 10/10/2026: an absorbing layer's damping map must be mirror-symmetric too (cell by cell); the port's
+    # absorbing boundaries are otherwise mirror-symmetric (a masked shape with bc 'mur' and an open edge never
+    # reaches the Mur ring)
+    layer_ok = (not x.port_abs) or x.layer_sym('mirror')
+    geo = geo_shape and p.medium == 'uniform' and (p.bc != 'mur' or x.absorbing == 'open') and layer_ok
     cell_ok = True
     if maskgeo and src_ok:
         c = x.c
@@ -1032,15 +1287,21 @@ def _row_mirror(x):
         if not geo:
             if p.medium != 'uniform':
                 detail = 'the slab and lens are not mirror-symmetric about x'
+            elif x.arr and x.tri and not x.tri_torus:
+                detail = ('the triangular array is a 60° rhombus — point-symmetric but not mirror-symmetric about x '
+                          '(the rhombic torus is: bc periodic)')
             elif x.tri and not x.fits():
                 detail = ('the triangular ARRAY is a rhombus — point-symmetric but not mirror-symmetric — so a '
                           'shape it clips loses the mirror. Reduce the radius until the shape fits inside the array.')
-            elif p.bc == 'mur':
+            elif geo_shape and not layer_ok:
+                detail = (f'{x.abs_text()}: its damping map (the distance ramp, quantised per cell) is not '
+                          'mirror-symmetric about x (checked cell by cell)')
+            elif p.bc == 'mur' and x.absorbing != 'open':
                 detail = 'first-order Mur is not exactly mirror-symmetric off-axis'
             elif maskgeo:
                 detail = ((f'{_SOL}: ' if x.solids else '') + 'the free-cell mask is not mirror-symmetric about x '
                           '(checked cell by cell' + (': the plate’s lettering, or its rotation' if x.unl else '')
-                          + ')')
+                          + (', the pinned / rigid types included' if x.rigid_solids else '') + ')')
             else:
                 detail = (f'rot = {fmt(p.rot * 180 / PI, 1)}° is not a multiple of 180°/n, so the domain itself is '
                           'not mirror-symmetric about x')
@@ -1068,7 +1329,13 @@ def _row_mirror(x):
                 detail, fixes = fx, ('mirror-live',)
     if maskgeo and badge != 'n/a':
         port = ('the mirror premise was checked on the free-cell mask (cell by cell)'
-                + ('; solids included' if x.solids else ''))
+                + ('; solids included' if x.solids else '') + ('; their pinned / rigid types too' if x.rigid_solids else ''))
+    if x.tri_torus and badge != 'n/a':
+        port = (port + ' · ' if port else '') + 'the rhombic torus: the mirror is taken mod N'
+    if x.port_abs and badge != 'n/a':
+        port = (port + ' · ' if port else '') + (f'{x.abs_text()}: a mirror-symmetric boundary'
+                                                 + (' (its damping map checked cell by cell)' if x.abs_np is not None
+                                                    else ''))
     if not x.fp64 and good:
         port = (port + ' · ' if port else '') + f'f32 build: tolerance {fe(tol)} (the web app\'s 1e-12 is f64)'
     return _row('mirror', 'source on the x-axis keeps MIRROR symmetry (exact — works for odd n)', badge, detail,
@@ -1077,22 +1344,112 @@ def _row_mirror(x):
 
 def _row_energy(x):
     m, p = x.m, x.p
-    es = energy_stats(x.hist.get('E') or [])
+    E_web, E_tri = x.hist.get('E') or [], x.hist.get('Etri') or []
+    # FIX tri-energy (05/10/2026): on the triangular lattice grade the triangular operator's own
+    # energy (the third link direction recorded too); the web app's series is the square functional
+    use_tri = x.tri and x.fix('tri-energy') and len(E_tri) == len(E_web)
+    es_web = energy_stats(E_web)
+    es = energy_stats(E_tri) if use_tri else es_web
     fixes = ()
-    if x.fix('edge-kind'):
+    if x.port_abs:
+        # 10/10/2026: a port-only absorbing boundary (both modes: the web app has no case for it) removes the
+        # energy by design; the 'eopen' row grades instead that the open domain's energy does not grow
+        undamped = False
+    elif x.fix('edge-kind'):
         e = x.edge()
         undamped = p.damp < 1e-9 and e not in ('mur', 'mixed-mur')      # no Mur part: a closed edge
         if (undamped != (p.damp < 1e-9 and p.bc in ('dirichlet', 'periodic', 'neumann'))
                 and p.medium == 'uniform' and not x.drops
-                and p.src not in ('cont', 'slit') and not (p.src == 'vtx' and p.vtx_drive)):
+                and p.src not in ('cont', 'slit', 'beam') and not (p.src == 'vtx' and p.vtx_drive)):
             fixes = ('edge-kind',)
     else:
         undamped = p.damp < 1e-9 and p.bc in ('dirichlet', 'periodic', 'neumann')
     uniform = p.medium == 'uniform'
-    closed = p.src not in ('cont', 'slit') and not (p.src == 'vtx' and p.vtx_drive) and not x.drops
-    ok = es is not None and undamped and uniform and closed and x.live
-    badge = st(es['drift'], 0.02) if ok else 'n/a'
-    if not uniform:
+    closed = p.src not in ('cont', 'slit', 'beam') and not (p.src == 'vtx' and p.vtx_drive) and not x.drops
+    # 01/10/2026 (beam phase): the recorder's energy is the SQUARE lattice's (forward differences
+    # along the index axes). On the triangular lattice it is not the conserved quantity, and for a
+    # DIRECTED packet it changes whenever the packet turns (a wall): 5.4% drift at 1200 steps on n6
+    # while the solver is exact (a pulse, being isotropic, stays at 0.7%). Not graded there.
+    def render(es, tri_packet):
+        ok = es is not None and undamped and uniform and closed and x.live and not tri_packet
+        badge = st(es['drift'], 0.02) if ok else 'n/a'
+        detail = _energy_detail(x, es, tri_packet, uniform, closed, undamped)
+        return ok, badge, detail
+    ok, badge, detail = render(es, x.tri and p.src == 'packet' and not use_tri)
+    if use_tri and render(es_web, p.src == 'packet') != (ok, badge, detail):
+        fixes = fixes + ('tri-energy',)
+    port = ''
+    if x.solids and ok and not x.rigid_solids:
+        port = 'solids are pinned (u = 0) walls: the same conserved energy as a Dirichlet domain'
+    wp = x.wall_port() if ok else ''
+    if wp:
+        port = (port + ' · ' if port else '') + wp
+    if x.tri and x.arr and x.bc_fallback and ok:
+        port = (port + ' · ' if port else '') + (x.bc_reason or mc.TRI_MUR_REASON)
+    if x.port_abs:
+        port = (port + ' · ' if port else '') + (f'{x.abs_text()} absorbs: the energy leaves by design (the recorder sums '
+                                                 'the open domain only); see "energy inside the open domain does not '
+                                                 'grow"')
+    if use_tri and ok:
+        port = (port + ' · ' if port else '') + ("graded on the triangular operator's own energy: the third link "
+                                                 "direction is recorded too (FIX tri-energy)")
+    return _row('energy', 'energy bounded, no secular drift (leapfrog conserves a MODIFIED energy)', badge, detail,
+                'scheme', f'drift {fe(es["drift"])}' if es else '', es['drift'] if es else None, port=port,
+                fixes=fixes)
+
+
+EOPEN_TOL = 1.05          # no growth: the later half's max may exceed the earlier half's by the functional's wobble
+EOPEN_EMPTY = 1e-8        # below this share of the run's peak the open domain is empty (rounding, a static mode)
+
+
+def _row_eopen(x):
+    """Port-only (10/10/2026), for the port's absorbing boundaries only: with no drive the energy inside the OPEN
+    domain (the recorder sums it only) does not grow -- the layer removes energy and returns at most its small
+    reflection. Graded on the recorded history window (the newest HIST_CAP['E'] steps): the maximum over its
+    later half <= EOPEN_TOL x the maximum over its earlier half, or the earlier half already holds under
+    EOPEN_EMPTY of the run's peak (Membrane.hist_emax). Not "never above the start": the recorded functional
+    kin/(2 Co^2) + pot/2 lags the conserved leapfrog energy by O(dt) -- released from rest it reads half the
+    potential and rises 10-23% within ~10 steps (sigma 3, Co 0.5-0.8) also in a closed drum, where the halves stay
+    within 0.96-1.03 (ScratchCLAUDE/Round5CLAUDE/AbsorbCLAUDE/probe_eopen_MIRROR.log). n/a for a driven source,
+    dropped pulses or a non-uniform medium (the functional assumes uniform c)."""
+    p = x.p
+    E = x.hist.get('E') or []
+    name = 'energy inside the open domain does not grow (absorbing boundary, no drive)'
+    driven = p.src in ('cont', 'slit', 'beam') or (p.src == 'vtx' and p.vtx_drive)
+    why = ('a driven source injects energy every step' if driven
+           else f'{x.drops} manual pulse(s) dropped — each one adds energy; reset' if x.drops
+           else 'variable medium: the recorded functional assumes uniform c' if p.medium != 'uniform'
+           else 'run a few dozen steps first' if len(E) < 40
+           else '')
+    port = f'{x.abs_text()}; the recorder sums the open domain only (the layer is excluded)'
+    if why:
+        return _row('eopen', name, 'n/a', why, 'port', port=port)
+    Ea = np.asarray(E, dtype=np.float64)
+    h = len(Ea) // 2
+    e1, e2 = float(np.max(Ea[:h])), float(np.max(Ea[h:]))
+    peak = getattr(x.m, 'hist_emax', None)
+    peak = float(np.max(Ea)) if peak is None else float(peak)
+    s0 = x.step - len(Ea) + 1                    # the window's first step
+    fin = math.isfinite(e1) and math.isfinite(e2) and math.isfinite(peak) and peak > 0
+    empty = fin and e1 <= EOPEN_EMPTY * peak
+    r = e2 / e1 if (fin and e1 > 0) else math.nan
+    badge = 'PASS' if (fin and (empty or r <= EOPEN_TOL)) else 'FAIL'
+    detail = ((f'max E over steps {s0 + h}–{x.step} / max over {s0}–{s0 + h - 1} = {fe(r)} (≤ {fmt(EOPEN_TOL, 2)}: '
+               'the recorded functional wobbles by a few % as kinetic and potential energy trade)'
+               + (f' · the open domain is empty (≤ {fe(EOPEN_EMPTY)} of its peak)' if empty else '')
+               + f' · now {fe(Ea[-1] / peak)} of the peak: the rest left through {x.abs_text()}') if fin
+              else 'the recorded energy is not finite: the run diverged')
+    return _row('eopen', name, badge, detail, 'port', f'late/early {fe(r)}' if math.isfinite(r) else '',
+                r if math.isfinite(r) else None, port=port)
+
+
+def _energy_detail(x, es, tri_packet, uniform, closed, undamped):
+    p = x.p
+    if tri_packet:
+        detail = ('directed packet on the triangular lattice: the recorded energy uses the square lattice’s '
+                  'differences, which is not conserved for a directional wave there (it changes when the '
+                  'packet turns at a wall) -- not graded; use a pulse for this row')
+    elif not uniform:
         detail = ('variable medium: this functional assumes uniform c, so it is not the conserved quantity '
                   'here (the correct one is c-weighted)')
     elif x.drops:
@@ -1103,18 +1460,15 @@ def _row_energy(x):
     elif not undamped:
         detail = ('damping is on, so energy SHOULD decay' if p.damp >= 1e-9 else
                   'absorbing edge removes energy by design')
+        if x.port_abs and p.damp < 1e-9:
+            detail = f'absorbing edge removes energy by design ({x.abs_text()})'
     elif es is not None:
         detail = (f'drift {fe(es["drift"])} of the mean over the window · oscillation ±{fmt(100 * es["spread"] / 2, 2)}% '
                   'is EXPECTED (O(Δt²)), not an error')
     else:
         detail = ('run to ~1200 steps: the window must span many oscillation periods before a slope fit can '
                   'tell drift from the standing-wave beat')
-    port = ''
-    if x.solids and ok:
-        port = 'solids are pinned (u = 0) walls: the same conserved energy as a Dirichlet domain'
-    return _row('energy', 'energy bounded, no secular drift (leapfrog conserves a MODIFIED energy)', badge, detail,
-                'scheme', f'drift {fe(es["drift"])}' if es else '', es['drift'] if es else None, port=port,
-                fixes=fixes)
+    return detail
 
 
 def _row_recip(x):
@@ -1141,6 +1495,21 @@ def _row_bc(x):
             late = _jmax(late, abs(P[i]))
         ratio = late / early if early > 1e-12 else math.nan
         absorbing = p.bc == 'mur'
+        if x.port_abs:
+            # 10/10/2026: the port's absorbing boundaries (both modes: the web app has no case for them)
+            name = 'absorbing edge: little comes back'
+            if p.src == 'impulse':
+                # the impulse's grid-scale part travels at ~zero group velocity and reaches the probe late whatever the
+                # edge does (the web app's Mur1 reads FAIL here for that reason: late/early 0.28 with Mur2 at N 161)
+                return _row('bc', name, 'n/a', 'needs a pulse: an impulse\'s grid-scale tail reaches the probe late '
+                            'whatever the edge does (its group velocity is ~0)', 'BC',
+                            port='a port-only absorbing boundary (NotesCLAUDE/absorbing_MIRROR.md)')
+            if math.isfinite(ratio):
+                return _row('bc', name, st(ratio, 0.15),
+                            f'late/early amplitude at the probe = {fe(ratio)} · {x.abs_text()}', 'BC',
+                            f'late/early {fe(ratio)}', ratio,
+                            port='a port-only absorbing boundary (NotesCLAUDE/absorbing_MIRROR.md)')
+            return _row('bc', name, 'n/a', 'run longer', 'BC')
         if x.fix('edge-kind'):
             e = x.edge()
             if absorbing and e != 'mur':
@@ -1150,9 +1519,13 @@ def _row_bc(x):
                                 'the boundary is part Mur ring, part clamped flavor wall: neither "little comes '
                                 'back" nor a pure drum applies', 'BC', fixes=fixes)
                 absorbing = False
-                port = ('Mur is selected, but it acts on the array ring only: this domain\'s wall is the clamped '
-                        + ('triangular ring' if x.tri else 'mask edge'))
+                port = x.mur_port('Mur is selected, but it acts on the array ring only: this domain\'s wall is the clamped '
+                                  + ('triangular ring' if x.tri else 'mask edge'))
         name = 'absorbing edge: little comes back' if absorbing else 'fixed edge: the wave DOES come back'
+        if not absorbing and (x.rigid_ring or x.edge_rigid or x.tri_torus) and not x.compat:
+            extra = ('the rhombic torus: the wave comes back by wrapping around the seam, not by reflection'
+                     if x.tri_torus else 'the edge is RIGID: the echo comes back upright (R = +1), not inverted')
+            port = (port + ' · ' if port else '') + extra
         if math.isfinite(ratio):
             badge = st(ratio, 0.15) if absorbing else ('PASS' if ratio > 0.05 else 'FAIL')
             detail = (f'late/early amplitude at the probe = {fe(ratio)} '
@@ -1237,7 +1610,9 @@ def _row_wake(x):
     mur = p.bc == 'mur'
     fixes = ()
     rest = p.src in ('pulse', 'impulse') and p.medium == 'uniform' and not x.drops
-    if x.fix('edge-kind') and mur and x.edge() != 'mur':
+    if x.port_abs:
+        mur = True                              # 10/10/2026: any port absorbing boundary is "the ABSORBING boundary"
+    elif x.fix('edge-kind') and mur and x.edge() != 'mur':
         mur = False
         fixes = ('edge-kind',) if rest else ()
     ok_src = rest and mur
@@ -1264,13 +1639,14 @@ def _row_wake(x):
                     (f'tail/peak = {fe(rel)} in steps {w0}–{w1} (just after the front at ~{jround(t_front)}) · the '
                      'wake decays as a power law ~t⁻², so it is largest here · stated: an identical 3D run gives '
                      '3e-5, 11369× smaller') if fin else '', 'Hadamard',
-                    f'tail/peak {fe(rel)}' if fin else '', rel if fin else None, dsg=True)
+                    f'tail/peak {fe(rel)}' if fin else '', rel if fin else None, dsg=True,
+                    port=f'the absorbing boundary is {x.abs_text()}' if x.port_abs else '')
     detail = ('needs a centred pulse with the ABSORBING boundary (else reflections mask it)' if not ok_src
               else f'run to at least step {w1} (the window opens just after the front)')
     port = ''
     if fixes and p.src in ('pulse', 'impulse'):
-        port = ('Mur is selected, but it acts on the array ring only; this domain\'s wall is clamped '
-                '(FIX edge-kind)')
+        port = x.mur_port('Mur is selected, but it acts on the array ring only; this domain\'s wall is clamped '
+                          '(FIX edge-kind)')
     return _row('wake', '2D leaves a WAKE (it cannot be sharp)', 'n/a', detail, 'Hadamard', dsg=True, port=port,
                 fixes=fixes)
 
@@ -1280,12 +1656,12 @@ def _row_stair(x):
     R = m.dom_R()
     cells = x.cells_domain()
     covered = cells * (S3H if x.tri else 1)
-    exact = shape_area(x, R)
+    exact = covered if (x.arr and x.tri) else shape_area(x, R)
     rel = abs(covered - exact) / exact
-    sq = p.shape == 'square' and not x.tri
-    quantised = m.sq_full() or abs(2 * R - (2 * math.floor(R) + 1)) < 1e-9
+    sq = (p.shape in ('square', 'array') and not x.tri) or (x.arr and x.tri)
+    quantised = x.full or abs(2 * R - (2 * math.floor(R) + 1)) < 1e-9
     aligned = sq and quantised
-    ideal = ideal_area(x)
+    ideal = exact if (x.arr and x.tri) else ideal_area(x)
     lost = 1 - exact / ideal if ideal > 0 else 0
     clipped = lost > 1e-9
     fixes = ()
@@ -1304,7 +1680,17 @@ def _row_stair(x):
                    'square — the boundary is part flavor wall, part grid edge. The comparison above is against the '
                    'CLIPPED shape, so this is still staircase error and not the missing corners.')
     elif aligned:
-        if m.sq_full() and x.fix('sqfull-side'):
+        if x.frame_Ld():
+            # 10/10/2026: an absorbing frame (both lattices): the open domain is the array less the frame
+            Ld = x.frame_Ld()
+            detail += (f' · the open domain is the whole array less its {Ld}-row absorbing frame '
+                       f'({m.N - 2 * Ld} × {m.N - 2 * Ld} lattice points): its edges are lattice rows, so there is no '
+                       'staircase and no quantisation')
+        elif x.arr and x.tri:
+            detail += (f' · the domain is the whole rhombic array ({m.N} × {m.N} lattice points'
+                       + (', the torus' if x.tri_torus else ' less its ring') + '): its walls are the array\'s '
+                       'lattice rows, so there is no staircase and no quantisation')
+        elif m.sq_full() and x.fix('sqfull-side'):
             detail += (f' · the domain is the whole {m.N} × {m.N} array: its walls are the array edge, so there '
                        'is no staircase and no quantisation')
             fixes = ('sqfull-side',)
@@ -1325,6 +1711,12 @@ def _row_stair(x):
         port = 'counts the DOMAIN mask (solids excluded: they are objects inside it, not its staircase)'
     if x.unl:
         port = (port + ' · ' if port else '') + 'the plate\'s exact area is W·H − (4 − π)r² (closed form)'
+    if x.arr and x.tri:
+        port = (port + ' · ' if port else '') + ('the "array" shape (port only): the mask is the lattice itself, so the '
+                                                 'exact area is the cell count × √3/2')
+    if x.layer is not None:
+        port = (port + ' · ' if port else '') + (f'counts the OPEN domain ({x.abs_text()} excluded: its cells are not '
+                                                 'part of the drawn shape)')
     return _row('stair', name, badge, detail, 'tier A', f'rel err {fe(rel)}', rel,
                 dsg=(clipped or not (aligned or sq)), port=port, fixes=fixes)
 
@@ -1345,7 +1737,7 @@ def cone_measure(x):
     m, p = x.m, x.p
     OUT = _out_buf()
     kind = 2 if x.tri else (1 if p.stencil == 9 else 0)
-    wrap = 1 if (not x.tri and p.bc == 'periodic' and m.sq_full()) else 0
+    wrap = 1 if _wrap_cone(m) else 0
     k_cone(m.U, _cur(m), int(m.src[0]), int(m.src[1]), x.step, kind, wrap, 1 if x.tri else 0,
            p.Co * x.step + 1.5, OUT)
     o = OUT.to_numpy().astype(np.float64)
@@ -1363,9 +1755,16 @@ def cone_measure_np(x):
     m, p, n = x.m, x.p, x.n
     si, sj = int(m.src[0]), int(m.src[1])
     mstep = x.step
-    wrap = not x.tri and p.bc == 'periodic' and m.sq_full()
+    wrap = _wrap_cone(m)
     h = n // 2
     mi = (lambda d: ((d % n) + n + h) % n - h) if wrap else (lambda d: d)   # d in (-n, n): JS % == numpy %
+
+    def cone_norm_w(da, db):
+        r = cone_norm(m, da, db)
+        if wrap and x.tri:                   # the rhombic torus: the hexagonal norm's nearest image
+            for sa, sb in ((-n, 0), (n, 0), (0, -n), (0, n), (-n, n), (n, -n)):
+                r = np.minimum(r, cone_norm(m, da + sa, db + sb))
+        return r
     U = x.U()
     sx, sy = m.cell_xy(si, sj)
     r_disk = p.Co * mstep + 1.5
@@ -1377,7 +1776,7 @@ def cone_measure_np(x):
             continue
         I = I + a0
         V = U[I, J].astype(np.float64)
-        r = cone_norm(m, mi(I - si), mi(J - sj))
+        r = cone_norm_w(mi(I - si), mi(J - sj))
         r_out = max(r_out, int(r.max()))
         outside += int(np.count_nonzero(r > mstep))
         e = V * V
@@ -1395,7 +1794,7 @@ def cone_measure_np(x):
     for a0 in range(i0, i1, CH):
         a1 = min(i1, a0 + CH)
         Ib = np.arange(a0, a1)
-        ring = cone_norm(m, mi(Ib[:, None] - si), mi(Jb[None, :] - sj)) == r_out
+        ring = cone_norm_w(mi(Ib[:, None] - si), mi(Jb[None, :] - sj)) == r_out
         ring_max = _jmax(ring_max, _jsmax(np.abs(U[a0:a1, j0:j1][ring]).astype(np.float64)))
     return {'m': mstep, 'rOut': r_out, 'outside': outside, 'frac': e_in / e_all if e_all > 0 else math.nan,
             'ringMax': ring_max}
@@ -1437,6 +1836,11 @@ def _row_cone(x):
 
 def _row_spectra(x):
     p = x.p
+    if x.port_abs:
+        # 10/10/2026: an absorbing boundary opens the domain: no standing modes, no drum spectrum
+        return _row('spectra', 'stated — the drum spectrum', 'n/a',
+                    f'an absorbing boundary ({x.abs_text()}): the domain is an open window with no standing modes, '
+                    'so it has no drum spectrum', 'spectra', dsg=True)
     if x.solids:
         return _row('spectra', 'stated — the drum spectrum', 'n/a',
                     f'{_SOL}: the closed-form spectra are for the EMPTY domain; with objects inside it the spectrum '
@@ -1445,7 +1849,7 @@ def _row_spectra(x):
         return _row('spectra', 'stated — circular drum overtones are IRRATIONAL (not harmonic)', 'stated',
                     'j₀₁ = 2.404826 · ratios 1.593341, 2.135549, 2.295417, 2.917295 — why a drum reads as unpitched '
                     'next to a string', 'Bessel', dsg=True)
-    if p.shape in ('square', 'n4'):
+    if p.shape in ('square', 'n4') or (x.arr and not x.tri):
         return _row('spectra', 'stated — square drum modes: f ∝ √(m²+n²)', 'stated',
                     'f₁₂/f₁₁ = √(5/2) = 1.581139 · f₂₂/f₁₁ = 2 exactly', 'Dirichlet', dsg=True)
     if p.shape == 'n3':
@@ -1478,7 +1882,12 @@ def mode_sums(x, mm, mn, z, L):
 def _rows_mode(x):
     m, p, n = x.m, x.p, x.n
     out = []
-    sq_dir = (not x.tri and p.shape == 'square' and (p.bc == 'dirichlet' if m.sq_full() else True))
+    sq_dir = (not x.tri and p.shape in ('square', 'array') and (p.bc == 'dirichlet' if m.sq_full() else not x.edge_rigid))
+    # 10/10/2026: an absorbing boundary has no standing modes (the seeded sin.sin leaves through the open edge)
+    ab_txt = (f'an absorbing boundary ({x.abs_text()}): the domain has no standing modes, so sin·sin is not an '
+              'eigenmode here (it leaves through the open edge)') if x.port_abs else ''
+    if x.port_abs:
+        sq_dir = False
     mm, mn = m.mode_mn()
     mtag = f'({mm},{mn})'
     z, L = m.mode_box()
@@ -1496,8 +1905,11 @@ def _rows_mode(x):
         detail = ('sin·sin is the eigenmode of a square on a SQUARE lattice; the triangular Laplacian has different '
                   'eigenfunctions, so this is not a test here' if x.tri
                   else 'the sin·sin mode is the SQUARE’s eigenmode — it is not one for this domain, so seeding it '
-                       'here is not a test of anything' if p.shape != 'square'
+                       'here is not a test of anything' if p.shape not in ('square', 'array')
+                  else ('the masked square has a RIGID edge: its eigenmodes are cos·cos, not sin·sin, so seeding sin·sin '
+                        'is not a test here') if (x.edge_rigid and not m.sq_full())
                   else f'{_SOL}: sin·sin is not an eigenmode of a domain with objects inside it' if sol
+                  else ab_txt if ab_txt
                   else 'select the "drum mode (m,n)" source on a square with a fixed edge')
         out.append(_row('mode', f'the {mtag} eigenmode keeps its shape', 'n/a', detail, 'Dirichlet'))
 
@@ -1537,6 +1949,7 @@ def _rows_mode(x):
         detail = ('select the drum mode (m,n) source: an exact eigenmode lets the field’s own history measure ω with '
                   'no fitting — raise m,n to lower the points per wavelength' if p.src != 'mode'
                   else ('sin·sin is not an eigenmode of the triangular Laplacian' if x.tri
+                        else ab_txt if ab_txt
                         else 'needs the square domain with a fixed edge') if not sq_dir
                   else f'{_SOL}: sin·sin is not an eigenmode of a domain with objects inside it' if sol
                   else 'damping changes the recurrence — set damping to 0' if p.damp >= 1e-12
@@ -1548,7 +1961,7 @@ def _rows_mode(x):
 
 def _row_linear(x):
     m, p = x.m, x.p
-    driven = p.src in ('cont', 'slit') or (p.src == 'vtx' and p.vtx_drive)
+    driven = p.src in ('cont', 'slit', 'beam') or (p.src == 'vtx' and p.vtx_drive)
     K = m.k_max()
     harm = list(m.harm)
     in_band = {int(h[0]) for h in harm}
@@ -1557,7 +1970,9 @@ def _row_linear(x):
     P = x.hist.get('pA') or []
     fixes = ()
     can_settle = p.bc == 'mur' or p.damp > 1e-6
-    if x.fix('edge-kind'):
+    if x.port_abs:
+        can_settle = True                       # 10/10/2026: the port's absorbing boundaries let a drive settle
+    elif x.fix('edge-kind'):
         e = x.edge()
         cs = e == 'mur' or e == 'mixed-mur' or p.damp > 1e-6
         if cs != can_settle and driven:
@@ -1609,7 +2024,7 @@ def _row_linear(x):
                   else f'run to ~{want} steps so the lock-in spans several drive periods')
     port = ''
     if fixes and not can_settle:
-        port = 'Mur is selected, but it acts on the array ring only; this domain\'s wall is clamped (FIX edge-kind)'
+        port = x.mur_port('Mur is selected, but it acts on the array ring only; this domain\'s wall is clamped (FIX edge-kind)')
     return _row('linear', 'a LINEAR scheme cannot create a harmonic that was not injected', badge, detail, 'linearity',
                 f'out/in {fe(res["rel"])}' if (res and math.isfinite(res['rel'])) else '',
                 res['rel'] if (res and math.isfinite(res['rel'])) else None, port=port, fixes=fixes)
@@ -1644,7 +2059,10 @@ def build_ledger(m, compat=False, profile=None):
     steps = [_row_cfl, _row_sym8]
     if x.tri:
         steps += [_row_sym6, _row_conform]
-    steps += [_row_mirror, _row_energy, _row_recip, _row_bc, _row_aniso, _row_wake, _row_stair, _rows_align,
+    steps += [_row_mirror, _row_energy]
+    if x.port_abs:
+        steps += [_row_eopen]                   # 10/10/2026: the port's absorbing boundaries only
+    steps += [_row_recip, _row_bc, _row_aniso, _row_wake, _row_stair, _rows_align,
               _row_cone, _row_spectra, _rows_mode, _row_linear, _row_refraction]
     for f in steps:
         t0 = time.perf_counter()
@@ -1658,7 +2076,7 @@ def build_ledger(m, compat=False, profile=None):
 
 
 # The rows graded on the recorder's per-step history (m.hist): which series each reads.
-HIST_ROWS = {'energy': 'E', 'bc': 'pA', 'wake': 'pA', 'disp': 'mode', 'linear': 'pA'}
+HIST_ROWS = {'energy': 'E', 'bc': 'pA', 'wake': 'pA', 'disp': 'mode', 'linear': 'pA', 'eopen': 'E'}
 _GAP = ('the recorder was off (m.record = False) for some steps of this run, so the per-step history has a gap '
         'and this row is not graded -- reset (or reseed) with the recorder on')
 

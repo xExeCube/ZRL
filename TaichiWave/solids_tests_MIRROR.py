@@ -130,9 +130,9 @@ def main():
            f'N={m.N}, {int(inside.sum())} interior cells, 2000 steps: max|u| inside = {worst:.1e} (3 levels); '
            f'outside, next to the wall: {outside:.2e}')
 
-    # 3. A ONE-CELL DIAGONAL WALL (cells i = j) leaks through the sq9 diagonal links and the
-    #    triangular (1,-1) links, not through sq5; the same line painted with the minimum brush
-    #    seals all three.
+    # 3. A ONE-CELL DIAGONAL WALL (cells i = j) leaked through the sq9 diagonal links and the
+    #    triangular (1,-1) links until 04/10/2026; the core's CORNER BLOCKING (walls round 4,
+    #    NotesCLAUDE/walls_MIRROR.md) now seals it on every lattice, like the minimum brush.
     for lat, st in lattices:
         prm = dict(N=257, lattice=lat, stencil=st, src='cont', freq=0.05, sx=0.45, sy=-0.45, Co=0.5)
         if lat == 'tri':
@@ -156,10 +156,9 @@ def main():
                 m.step(100)
                 peak_far = max(peak_far, float(np.abs(m.field()[far]).max()))
             res.append((peak_far, src_far, int(m.solid_cells())))
-        leak_expected = st == 9 or lat == 'tri'
         (p1, f1, n1), (p2, f2, n2) = res
-        cond = (not f1 and not f2 and p2 == 0.0 and ((p1 > 1e-3) if leak_expected else (p1 == 0.0)))
-        ok(f'one-cell diagonal wall {"LEAKS" if leak_expected else "seals"}, minimum brush seals: {lname(lat, st)}', cond,
+        cond = not f1 and not f2 and p2 == 0.0 and p1 == 0.0
+        ok(f'one-cell diagonal wall seals (corner blocking), minimum brush seals: {lname(lat, st)}', cond,
            f'N={N}, driven cell (amplitude 1), 1500 steps: peak |u| beyond the wall {p1:.2e} (one-cell, {n1} cells), '
            f'{p2:.1e} (brush, {n2} cells)')
 

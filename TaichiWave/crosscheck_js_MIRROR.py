@@ -11,9 +11,14 @@ For each configuration the web app's module script is run headlessly under Node
   histories     record()'s per-step ENERGY (relative), PROBE / PROBE_B / MODEP (like fields),
                 their lengths (the web app's caps: 4000 / 600) and S.amax
 
-The web app runs WITH the documented port deviations (PATCHES in ToolsCLAUDE/js_harness_MIRROR.mjs,
-e.g. the Neumann corner fix of 29/09/2026). ZRL_JS_NOPATCH=1 compares against the unpatched web
-app instead, to show what each patch changes.
+The web app runs WITH the documented port deviations (PATCHES in ToolsCLAUDE/js_harness_MIRROR.mjs:
+the Neumann corner fix of 29/09/2026, driven vertices starting from rest of 05/10/2026, the sq9 Neumann
+clipped-shape fix of 09/10/2026). ZRL_JS_NOPATCH=1 compares against the unpatched web app instead, to show
+what each patch changes. Every Params key is sent (the port's defaults included), so a config that relies on
+a web-app default the port changed (vtx_inset 'radial', vtx_drive_bump True) sets it explicitly. Two port
+defaults changed on 09/10/2026 are set for EVERY config in the base (the configs are those of v1.0): the
+drive frequency (the web app's 0.12, mc.WEBAPP_FREQ; the port's default is 0.03125) and hard driven vertices
+(vtx_soft=False; the port's default is soft, which the web app does not have).
 
     python crosscheck_js_MIRROR.py [--arch cuda|vulkan|cpu] [--f32] [--steps K]
 """
@@ -48,6 +53,7 @@ def configs(K):
     add('sq5_n5_vtxwall', N=161, shape='n5', rot=17.3 * D, rad=1.2, src='vtx', vtx_inset='wall')
     add('sq5_n6_slab_cont', N=161, shape='n6', medium='slab', src='cont', freq=0.08, sx=-0.2)
     add('sq5_n4_slit_square', N=161, shape='n4', rot=45 * D, src='slit', wave='square', freq=0.05)
+    # driven vertices with the port's default start from rest (PATCH vtx-drive-rest, 05/10/2026)
     add('sq5_n8_vtxdrive_saw', N=161, shape='n8', rot=22.5 * D, rad=1.4, src='vtx', vtx_drive=True,
         vtx_inset='wall', wave='saw', freq=0.03, damp=0.002)
     add('sq5_rhomb_neu', N=161, shape='rhomb', rtheta=40 * D, rot=17 * D, bc='neumann', sy=0.4)
@@ -55,26 +61,31 @@ def configs(K):
     add('sq5_sqr05_neu_pulse', N=161, shape='square', rad=0.5, bc='neumann', sx=0.6, sy=0.6)
     # triangular lattice (always masked, clamped ring)
     add('tri_n6_conf_pulse', N=161, lattice='tri', shape='n6', rot=30 * D, Co=0.8)
+    # the web app's own vertex defaults, set explicitly since the port's differ (05/10/2026): the radial
+    # inset and the seeded bump under each driven vertex (the original seed line, the patch idle)
     add('tri_n3_conf_vtxdrive', N=161, lattice='tri', shape='n3', rot=30 * D, src='vtx',
-        vtx_drive=True, wave='tri', freq=0.05)
+        vtx_drive=True, wave='tri', freq=0.05, vtx_inset='radial', vtx_drive_bump=True)
     add('tri_rhomb60_imp', N=161, lattice='tri', shape='rhomb', rot=30 * D, rad=1.5, src='impulse')
     add('tri_circle_lens_off', N=161, lattice='tri', shape='circle', rad=1.3, medium='lens', sx=0.5)
     add('tri_n12_cont_saw', N=161, lattice='tri', shape='n12', src='cont', wave='saw', freq=0.05)
     add('tri_n5_slit', N=161, lattice='tri', shape='n5', rot=12 * D, src='slit', freq=0.06)
     add('tri_square_slab_vtx', N=161, lattice='tri', shape='square', rad=0.9, medium='slab',
-        src='vtx', sigma=1.5)
+        src='vtx', sigma=1.5, vtx_inset='radial')
     # another size, and a statically unstable Co (the growth must match too, for a while)
     add('sq5_n6_N257', N=257, shape='n6', rot=10 * D, src='pulse', sigma=4)
     add('sq5_unstable_Co075', steps=60, N=161, src='pulse', Co=0.75)
     # the history caps (added 30/09/2026): ENERGY / PROBE / PROBE_B keep the newest 4000 entries,
     # MODEP 600 (its step-0 seed value long gone); a small grid keeps the web app's run short
     add('sq5_mode_caps', steps=4100, N=49, src='mode', mm=2, mn=3, Co=0.6)
+    # the sq9 Neumann ring with a shape clipped by the array (09/10/2026, PATCH neumann-clip): the pulse
+    # reaches the ring where the circle leaves it (the web app's asymmetric diagonals) within the run
+    add('sq9_circle13_neu_clip', N=161, shape='circle', rad=1.3, bc='neumann', stencil=9, sx=0.8, sy=0.5)
     return C
 
 
 def js_keys(p):
     """Params field names -> the web app's S keys."""
-    ren = {'vtx_drive': 'vtxDrive', 'vtx_inset': 'vtxInset'}
+    ren = {'vtx_drive': 'vtxDrive', 'vtx_inset': 'vtxInset', 'vtx_drive_bump': 'vtxDriveBump'}
     return {ren.get(k, k): v for k, v in p.items()}
 
 
@@ -90,7 +101,8 @@ def main():
     out = tempfile.mkdtemp(prefix='zrl_xcheck_')
     # the web app's S needs EVERY key reset per config, or one config's setting leaks
     # into the next: start each from the defaults
-    base = mc.Params()
+    # the web app's own values of the port defaults changed on 09/10/2026 (see the module docstring)
+    base = mc.Params(freq=mc.WEBAPP_FREQ, vtx_soft=False)
     jc = []
     for c in C:
         p = {**{k: v for k, v in base.__dict__.items()}, **c['p']}

@@ -1,5 +1,5 @@
 """ZRL 2D wave membrane -- Taichi port, VIEWER (GGUI). The PRIMARY app since 29/09/2026 (the web app
-is frozen).
+is frozen). Version: membrane_core_MIRROR.VERSION (v1.0, 05/10/2026; CHANGELOG_MIRROR.md).
 
 The solver is membrane_core_MIRROR.py (cross-checked against the web app); solids/walls are
 solids_MIRROR.py. This file is the window: a 3D heightfield or a 2D top view of the running field,
@@ -16,10 +16,19 @@ Keys: SPACE play/pause  N one step  R reset  P pulse  V 3D/2D  X wireframe  H hi
       C reset view  F freelook  Z zoom in (SHIFT+Z out)  arrows orbit (3D) / pan (2D)  Y background
       T draw walls  U undo stroke  I walls/objects panel  J alignment panel  K ledger panel
       Return: type the selected text object (Return applies, Escape cancels)
+Typed values: "type a value" at the top of a panel, then click a slider: an entry opens under it
+      (digits . - e, BackSpace, Return applies, Escape cancels; clamped to the slider's range; no
+      hotkey fires while it is open). A main-panel checkbox adds a button under every slider instead.
 Mouse (3D, orbit): RMB drag orbit, MMB drag or CTRL+RMB drag zoom, LMB drag orbit (draw mode off)
       (2D): RMB/LMB drag pan, MMB drag or CTRL+RMB drag zoom about the cursor
       draw mode: LMB paints walls, SHIFT+LMB erases
 Freelook (F): GGUI's own camera keys W/A/S/D/Q/E + RMB look; no app hotkey uses those letters.
+Round 4 (05/10/2026, NotesCLAUDE/walls_MIRROR.md section 11, vertex_choppiness_MIRROR.md section 7.4):
+      B cycles only the boundaries that act here (bc_info(): the triangular 'array' has dirichlet /
+      neumann = rigid ring / periodic = rhombic torus; Mur is not on the triangular lattice yet; a
+      triangular web-app shape keeps its clamped ring), the domain edge (pinned / rigid) for masked
+      shapes, wall types per object / brush / plate lettering, the source note, the drive-wavelength
+      warning and the phase-lag readout. --version prints the version.
 """
 import argparse
 import math
@@ -59,7 +68,11 @@ MESH_MAX = 513           # the displayed 3D mesh is at most this many vertices a
                          # vertex buffer (its copy_all_to_vbo kernel ~15 ms, the C++ upload ~20 ms at 1025).
                          # The 2D view always shows every cell.
 WIN = (1600, 1000)       # window size; the 2D view's image has the same aspect ratio
-TITLE = 'ZRL membrane - Taichi'
+VERSION = mc.VERSION     # one version constant, in the core (05/10/2026)
+TITLE = f'{mc.APP_NAME} v{VERSION}'
+# the user's palette / transparency settings, kept across sessions (01/10/2026). Live runs load and
+# auto-save it; --shot runs ignore it unless --settings names a file
+SETTINGS_FILE = os.path.join(HERE, 'look_settingsMIRROR.json')
 # nominal panel rectangles (x, y, w, h) as window fractions, y from the TOP (ImGui's frame). GGUI
 # places a sub-window once per session; clicks inside a VISIBLE panel's rectangle never paint,
 # orbit or pan (if a panel is dragged elsewhere, its old rectangle is what counts).
@@ -73,9 +86,34 @@ KEY_ORBIT = 5.0          # degrees per arrow key
 KEY_ZOOM = 1.25
 AUTO_WINDOW = 64         # steps: the auto colour gain's peak window
 AUTO_REL_FLOOR = 1e-3    # the auto gain never exceeds (colour gain) / (1e-3 x the run's largest |u|) (01/10/2026)
+# scale mode (02/10/2026, NotesCLAUDE/scale_MIRROR.md): in 'domain' mode the playback speed is in crossings
+# (r_in / c) per second at a NOMINAL frame rate (vsync); steps per frame follow N and Co so the apparent
+# speed stays the same. A measured frame rate would feed back (more steps -> slower frames -> more steps).
+FPS_NOMINAL = 60.0
+SPF_MAX = 1024           # steps / frame cap in domain mode
+AMBER = (0.95, 0.75, 0.3)
+DIM = (0.55, 0.55, 0.60)
+HEAD = (0.72, 0.62, 1.0)
+# the core's readout levels (source_note(), phase_lag()) -> text colours (None = the normal text colour)
+LEVEL_COL = {'warn': AMBER, 'dim': DIM, 'ok': None, 'info': None}
+EDIT_SETTLE = 0.3        # s: readouts that cost a whole-grid pass (walls counts, the source note's clearance)
+                         # wait while painting or during an object drag (two solid edits less than this
+                         # apart), until the edits have rested this long; a single click edit updates them
+                         # at once (05/10/2026)
+# the boundary control's notes, short (the core's reasons are full sentences; the task's wording)
+TRI_MUR_SHORT = 'mur: not on tri yet (absorbing-boundary round)'
+TRI_MASKED_SHORT = ('the bc does not apply to this shape on the triangular lattice (its ring stays clamped): '
+                    'use the edge control; the "array" shape (G) has dirichlet / neumann / periodic')
+VTX_INSET_LABEL = {'wall': 'vertex inset: wall (3 sigma from both walls)',
+                   'radial': "vertex inset: radial (the web app's)"}
+SCALE_RANGES = {'sigma': (0.002, 0.3), 'freq': (0.005, 1.0), 'beam_width': (0.005, 1.0),
+                'pk_len': (0.005, 1.0), 'pk_lambda': (0.005, 1.0)}   # domain-mode slider ranges (x r_in)
+SCALE_LABELS = {'sigma': 'sigma / r_in', 'freq': 'lambda / r_in', 'beam_width': 'beam w / r_in',
+                'pk_len': 'packet L / r_in', 'pk_lambda': 'packet lambda / r_in'}   # short: the panel cuts labels
 N_SETTLE = 0.35         # s: the N slider applies once its value has rested this long (01/10/2026)
 RESIZE_SETTLE = 0.3      # s: a new window size must hold this long before the 2D image buffer follows (01/10/2026)
-TEXT_WRAP = 54           # characters per panel line (ImGui's 7 px font in a 400 px panel)
+TEXT_WRAP = 52           # characters per panel line (ImGui's 7 px font in a 400 px panel; 52 leaves room for the
+                         # scrollbar a long panel shows -- 54 lost its last 2 characters there, 05/10/2026)
 UNL_TRI_RAD = 0.89       # the plate fits the triangular array at radius <= 0.89 (core, 30/09)
 
 
@@ -97,6 +135,9 @@ class Viewer:
         self.show = {'main': True, 'solids': False, 'align': False, 'ledger': False}
         self.hs, self.cg = 1.0, 1.0
         self.auto_gain = True                   # colour gain / peak |u| (display only)
+        self.auto_height = False                # 3D height scale / peak |u| (display only; 02/10/2026)
+        self.cps = None                         # domain mode: crossings per second (None: from steps / frame)
+        self._step_acc = 0.0                    # domain mode: the fractional steps carried to the next frame
         self.peak = 1.0                         # the auto gain's peak hold
         self.gain_ref = (0.0, 0)                # (largest |u| of this run, step it was updated at)
         self.gain_capped = False
@@ -104,6 +145,7 @@ class Viewer:
         self.sub = 4
         self.mesh_max = MESH_MAX
         self.cont_time = False                  # Co changes as a new time step (no time reflection)
+        self.show_emitter = True                # the beam / packet emitter overlay (01/10/2026)
         self.ms_step = 0.0
         self.ms_frame = 0.0
         self.look = ar.Look()
@@ -121,8 +163,57 @@ class Viewer:
         self._dom_key = None
         self._cells = (0.0, 0, 0)
         self.align_panel = None                 # alignment_MIRROR.gui_section keeps its state here
+        self.ne = ain.NumEntry()                # typed slider values (01/10/2026)
+        self.type_buttons = False               # a "^ type a value" button under every slider (else pick mode)
+        self._src_note = (None, None)           # (key, note) cache of src_moved_note()
         self._edge_cache = (None, [])
+        # round 4 (05/10/2026): the edge-type overlay, and readouts that are cached or wait for edits to rest
+        self.show_edge = True                   # draw the rigid edge / ring line and the torus seam
+        self._bnd_cache = (None, [])
+        self._walls_cache = None                # (key, walls_info dict)
+        self._note_last = None                  # the source note last shown
+        self._note_cfg = None                   # ... and the settings it was computed for
+        self._wrap_cache = {}
+        self._fit_zoom = None                   # the 2D zoom fit_2d() set (the triangular array)
+        self._fit_dist = None                   # the orbit distance fit_3d() set (the triangular array, 06/10/2026)
+        # palette editor and settings file (01/10/2026)
+        self.pal_edit = False
+        self.settings_path = getattr(a, 'settings', None)
+        self.settings_msg = None
+        self._saved = None                      # (json text, time first seen) of the settings on disk / pending
+        if self.settings_path:
+            self.settings_msg = ar.load_settings(self.look, self.settings_path)
+            self._saved = (self._settings_text(), 0.0)
         self.sync_domain()
+
+    # ---- settings file --------------------------------------------------------------------------
+    def _settings_text(self):
+        import json
+        return json.dumps(ar.look_settings(self.look), sort_keys=True)
+
+    def autosave(self, now=None, delay=0.5):
+        """Write the settings file once the palette settings have rested `delay` s after a change
+        (a colour picker drag changes them every frame). Returns True when it wrote."""
+        if not self.settings_path:
+            return False
+        now = time.perf_counter() if now is None else now
+        txt = self._settings_text()
+        if self._saved is not None and txt == self._saved[0] and self._saved[1] == 0.0:
+            return False
+        if self._saved is None or txt != self._saved[0]:
+            self._saved = (txt, now)            # changed: wait for it to rest
+            return False
+        if now - self._saved[1] < delay:
+            return False
+        try:
+            ar.save_settings(self.look, self.settings_path)
+            self._saved = (txt, 0.0)
+            self.settings_msg = None
+            return True
+        except OSError as ex:
+            self.settings_msg = f'settings not saved ({ex})'
+            self._saved = (txt, 0.0)
+            return False
 
     # ---- messages -----------------------------------------------------------------------------
     def flash(self, msg):
@@ -169,6 +260,69 @@ class Viewer:
                 msgs.append(f'radius {UNL_TRI_RAD} (the plate fits the triangular array)')
         if msgs:
             self.flash('Unlicensed: ' + '; '.join(msgs))
+        if p.shape == 'array' and p.lattice == 'tri' and (before[0] != 'array' or before[1] != 'tri'):
+            self.fit_2d()
+            self.fit_3d()                       # 06/10/2026: the 3D view too
+        elif before == ('array', 'tri'):
+            # leaving the triangular array: back to 2D zoom 1 and the default orbit distance, each only
+            # if the user has not zoomed since
+            if self._fit_zoom is not None and self.v2.zoom == self._fit_zoom:
+                self.v2.reset()
+            if self._fit_dist is not None and self.orbit.dist == self._fit_dist:
+                self.orbit.dist = acam.OrbitCam.DEFAULT['dist']
+            self._fit_zoom = self._fit_dist = None
+
+    def fit_3d(self):
+        """The 3D orbit distance for the triangular 'array' (06/10/2026). The default camera frames the
+        square array, [-1, 1]^2 in world units; the 60-degree rhombus is 3 wide, so at the default distance
+        its near corners fell off the window and under the main panel (r4shot_layout_max_3d, 05/10). Moves
+        the camera back along its current azimuth / elevation until no rhombus corner lies further from the
+        window centre (in x or in y) than the square's corners do at the default distance: the rhombus
+        then fills the window as the square does. No change for any other shape."""
+        m, o = self.m, self.orbit
+        if not (m.tri() and m.p.shape == 'array'):
+            return
+        asp = self.aspect()
+
+        def reach(d, pts):
+            o.dist = d
+            pose = o.pose()
+            rx = ry = 0.0
+            for X, Z in pts:
+                s = pose.world_to_screen((X, 0.0, Z), asp)
+                if s is None:
+                    return math.inf, math.inf
+                rx, ry = max(rx, abs(2 * s[0] - 1)), max(ry, abs(2 * s[1] - 1))
+            return rx, ry
+
+        d0 = acam.OrbitCam.DEFAULT['dist']
+        sx, sy = reach(d0, [(-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0)])
+        pts = [acam.phys_to_world(m, x, y) for x, y in m.shape_poly()]
+        d = d0
+        while d < acam.DIST_MAX:
+            rx, ry = reach(d, pts)
+            if rx <= sx + 1e-9 and ry <= sy + 1e-9:
+                break
+            d *= 1.01
+        o.dist = d
+        o.clamp()
+        self._fit_dist = o.dist
+
+    def fit_2d(self):
+        """The 2D view's zoom for the triangular 'array' (05/10/2026). Zoom 1 fits the array's height,
+        but the whole 60-degree rhombus is 3c wide: 1.47 window heights, wider than the strip the side
+        panels leave (1200 px of a 1600 x 1000 window), so its corners went under the main panel and
+        off the window. Zooms out (centred) until it fits that strip; no change for any other shape."""
+        m, v2 = self.m, self.v2
+        if not (m.tri() and m.p.shape == 'array'):
+            return
+        W, H = self.win
+        left = PANELS['main'][2] if (self.panel and self.show['main']) else 0.0
+        right = PANELS['solids'][2] if (self.panel and (self.show['solids'] or self.show['align'])) else 0.0
+        need = 3.0 * m.c() / (2 * m.c() * acam.HALF_FILL / H)       # its width in pixels at zoom 1
+        v2.zoom = max(acam.ZOOM2D_MIN, min(1.0, 0.98 * W * (1.0 - left - right) / need))
+        v2.cx = v2.cy = 0.0
+        self._fit_zoom = v2.zoom
 
     def cycle(self, attr, options):
         p = self.m.p
@@ -184,6 +338,168 @@ class Viewer:
         p.shape = shape
         self._fixups(before)
         self.reset()
+
+    # ---- boundary, edge (round 4, 05/10/2026; NotesCLAUDE/walls_MIRROR.md section 11) ------------------
+    def next_bc(self, bi=None):
+        """The boundary B moves to: the next of mc.BCS (in order) that ACTS here (bc_info()['options']).
+        None on a triangular web-app shape, where the bc does not apply (its ring stays clamped)."""
+        m, p = self.m, self.m.p
+        if m.tri() and p.shape != 'array':
+            return None
+        opts = (bi or m.bc_info())['options']
+        i = mc.BCS.index(p.bc) if p.bc in mc.BCS else -1
+        for k in range(1, len(mc.BCS) + 1):
+            b = mc.BCS[(i + k) % len(mc.BCS)]
+            if b in opts:
+                return b
+        return None
+
+    def cycle_bc(self):
+        """Key B / the boundary button: the next boundary that acts here, then a reset (as before)."""
+        nb = self.next_bc()
+        if nb is None:
+            self.flash(TRI_MASKED_SHORT)
+            return
+        if nb != self.m.p.bc:
+            self.m.p.bc = nb
+            self.reset()
+
+    def set_edge(self, edge):
+        """The domain mask's edge, pinned / rigid: the core rebuilds the link words and KEEPS the field."""
+        if not self.m.bc_info()['edge_applies']:
+            self.flash('edge: n/a here - the boundary (B) rules the ring')
+            return
+        self.m.set_edge(edge)
+        self.flash(f'edge: {edge} (the field is kept)')
+
+    def wrapped(self, text, indent='   ', width=TEXT_WRAP):
+        """textwrap of a readout line (cached: the panel asks every frame), Latin-1 only (ImGui's font)."""
+        key = (text, indent, width)
+        hit = self._wrap_cache.get(key)
+        if hit is None:
+            safe = ''.join(ch if ord(ch) < 256 else ('-' if ch in '\u2013\u2014\u2212' else '?') for ch in text)
+            hit = textwrap.wrap(safe, width, initial_indent=indent, subsequent_indent=indent) or [indent]
+            if len(self._wrap_cache) > 512:
+                self._wrap_cache.clear()
+            self._wrap_cache[key] = hit
+        return hit
+
+    def lines(self, w, lines):
+        """[(text, level)] from the core (source_note, phase_lag), wrapped and coloured by level."""
+        for text, level in lines:
+            col = LEVEL_COL.get(level)
+            for piece in self.wrapped(text):
+                if col is None:
+                    w.text(piece)
+                else:
+                    w.text(piece, color=col)
+
+    def _edit_resting(self, now=None):
+        """False while painting, or while solid edits come in a burst (an object slider drag: two edits
+        less than EDIT_SETTLE s apart, the second one less than EDIT_SETTLE s ago). A single click edit
+        (a wall type, an added object) counts as resting, so its readouts update at once."""
+        now = time.perf_counter() if now is None else now
+        return not self.sol.painting and now - getattr(self.sol, 'edit_prev', -1e9) >= EDIT_SETTLE
+
+    def walls_counts(self, now=None):
+        """m.walls_info() for the walls panel (pinned / rigid cells, the walls kernel). Two whole-grid
+        counts (~0.1 s at N = 8193): recomputed only when the masks, the scene, the edge or the bc
+        changed, and only once painting / an object drag has rested EDIT_SETTLE s (no per-frame cost
+        that scales with N)."""
+        m, p = self.m, self.m.p
+        sc = m.scene
+        key = (m.N, getattr(m, '_mask_ver', 0), id(m.mask_np), id(m.domain_mask_np), m.n_solid, p.edge, p.bc,
+               p.lattice, p.shape, p.stencil, sc.version if sc is not None else None)
+        c = self._walls_cache
+        # a new N / edge / bc / lattice / shape / stencil updates at once; a mask edit waits while it is a drag
+        if c is not None and (c[0] == key or (c[0][5:10] == key[5:10] and c[0][0] == key[0]
+                                              and not self._edit_resting(now))):
+            return c[1]
+        info = m.walls_info()
+        self._walls_cache = (key, info)
+        return info
+
+    def source_note(self, now=None):
+        """m.source_note() (the web app's srcNote: clearance, clip fraction, capped corners). The core
+        caches it per reseed / mask change; its clearance search is O(clearance^2) (68 ms for a centred
+        source at N = 4097), so while painting or right after an object edit the last note is shown."""
+        m, p = self.m, self.m.p
+        try:
+            fresh = m._src_note[0] == m._src_note_key()
+        except Exception:
+            fresh = False
+        # only a MASK change (painting, an object drag) may show the last note for a moment; any other
+        # change (source, sigma, inset, shape, N, ...) recomputes at once
+        cfg = (p.src, p.sigma, p.vtx_inset, p.vtx_drive, p.vtx_drive_bump, p.shape, p.lattice, m.N, p.rad, p.rot,
+               p.rtheta, p.sx, p.sy, p.edge, p.bc)
+        if (not fresh and self._note_last is not None and self._note_cfg == cfg
+                and not self._edit_resting(now)):
+            return self._note_last
+        self._note_cfg = cfg
+        try:
+            self._note_last = m.source_note()
+        except Exception as ex:                 # a readout must never break the panel
+            self._note_last = {'lines': [(f'source note failed: {type(ex).__name__}: {ex}', 'warn')],
+                               'driven_rest': False}
+        return self._note_last
+
+    def note_lines(self):
+        """The source note's lines for the panel. A clip line that is not a warning loses its long
+        parenthesis (and reads 'nothing' at exactly 0); the amber one keeps the core's full text."""
+        note = self.source_note()
+        out = []
+        for t, lv in note.get('lines', []):
+            if t.startswith('pulse cut off at t = 0') and lv != 'warn':
+                t = 'pulse cut off at t = 0: nothing' if note.get('clip') == 0 else t.split(' (sum u^2')[0]
+            out.append((t, lv))
+        return out
+
+    def gaussian_seeded(self):
+        """A gaussian pulse is in the seed: src 'pulse', or vertex sources with their bumps."""
+        p = self.m.p
+        return p.src == 'pulse' or (p.src == 'vtx' and self.m.vtx_bumps())
+
+    def boundary_segments(self):
+        """The edge-type overlay (physical points): a RIGID mask edge (edge = 'rigid' on a masked
+        shape) or a rigid ring (the triangular 'array' with neumann; the full square's Neumann ring,
+        its mirror image, is drawn the same way) as a line in the rigid colour along the shape; a TORUS
+        seam as a dashed violet line along the array edge. [] when hidden or for a pinned / clamped /
+        Mur boundary."""
+        if not self.show_edge:
+            return []
+        m, p = self.m, self.m.p
+        key = (p.shape, p.rot, p.rad, p.rtheta, m.N, p.lattice, p.edge, p.bc, tuple(self.look.rigid))
+        if self._bnd_cache[0] == key:
+            return self._bnd_cache[1]
+        segs = []
+        try:
+            bi = m.bc_info()
+            kind = None
+            if bi['edge_applies']:
+                kind = 'rigid' if p.edge == 'rigid' else None
+            elif bi['torus']:
+                kind = 'torus'
+            elif bi['effective'] == 'neumann':
+                kind = 'rigid'
+            if kind:
+                P = m.shape_poly()
+                col = tuple(self.look.rigid) if kind == 'rigid' else ar.TORUS_COL
+                n = len(P)
+                for k in range(n):
+                    a, b = P[k], P[(k + 1) % n]
+                    if kind == 'rigid':
+                        segs.append((a, b, col))
+                        continue
+                    L = math.hypot(b[0] - a[0], b[1] - a[1])
+                    nd = max(1, int(L / (m.c() / 24.0)))        # dashes of ~1/48 of the array width
+                    for q in range(0, nd, 2):
+                        t0, t1 = q / nd, min(1.0, (q + 1) / nd)
+                        segs.append(((a[0] + (b[0] - a[0]) * t0, a[1] + (b[1] - a[1]) * t0),
+                                     (a[0] + (b[0] - a[0]) * t1, a[1] + (b[1] - a[1]) * t1), col))
+        except Exception as ex:                 # an overlay must never end the app
+            self.flash(f'edge overlay failed: {type(ex).__name__}: {ex}')
+        self._bnd_cache = (key, segs)
+        return segs
 
     def set_draw(self, on):
         self.sol.draw = bool(on)
@@ -207,6 +523,63 @@ class Viewer:
         ti.sync()
         dt = (time.perf_counter() - t0) / n
         self.ms_step = dt * 1e3 if self.ms_step == 0 else 0.9 * self.ms_step + 0.1 * dt * 1e3
+
+    # ---- scale mode (02/10/2026, NotesCLAUDE/scale_MIRROR.md) -------------------------------------
+    def set_scale(self, mode):
+        """Switch 'cells' / 'domain' without a jump: the core converts the sizes (no reseed); the playback
+        speed converts too (steps / frame <-> crossings / s at FPS_NOMINAL)."""
+        m = self.m
+        if mode == m.p.scale:
+            return
+        r, co = m.inner_R(), max(m.p.Co, 1e-9)
+        if mode == 'domain':
+            self.cps = self.sub * co * FPS_NOMINAL / r
+            self._step_acc = 0.0
+        else:
+            self.sub = max(1, min(256, round(self.steps_per_frame())))
+        m.set_scale(mode)
+
+    def steps_per_frame(self):
+        """Steps per frame (a float in domain mode: crossings / s x r_in / (Co x FPS_NOMINAL))."""
+        m = self.m
+        if m.p.scale != 'domain':
+            return float(self.sub)
+        if self.cps is None:
+            self.cps = self.sub * max(m.p.Co, 1e-9) * FPS_NOMINAL / m.inner_R()
+        return min(SPF_MAX, self.cps * m.inner_R() / (max(m.p.Co, 1e-9) * FPS_NOMINAL))
+
+    def frame_steps(self):
+        """The steps to run this frame: steps / frame in cells mode; in domain mode the fractional
+        rate, with the remainder carried, so the average is exact even under 1 step / frame."""
+        if self.m.p.scale != 'domain':
+            return self.sub
+        self._step_acc += self.steps_per_frame()
+        n = int(self._step_acc)
+        self._step_acc -= n
+        return n
+
+    def scale_size_slider(self, w, attr, label, lo, hi, live=True):
+        """A size slider: in cells mode on the cell value, in domain mode on its fraction of r_in (the
+        core derives the cells). Returns True when it moved. live=False: the caller resets."""
+        m, p = self.m, self.m.p
+        if p.scale != 'domain':
+            v = w.slider_float(label, getattr(p, attr), lo, hi)
+            if self.moved(v, getattr(p, attr)):
+                setattr(p, attr, v)
+                return True
+            return False
+        fa = next(f for a, f, _ in mc.SCALE_SIZES if a == attr)
+        if getattr(p, fa) is None:
+            m.fracs_from_cells(only_missing=True)
+        flo, fhi = SCALE_RANGES[attr]
+        v = w.slider_float(SCALE_LABELS[attr], getattr(p, fa), flo, fhi)
+        if self.moved(v, getattr(p, fa)):
+            setattr(p, fa, v)
+            m.apply_scale()
+            if attr == 'freq':
+                m.harm = m.harmonics()
+            return True
+        return False
 
     @staticmethod
     def moved(new, old):
@@ -297,10 +670,27 @@ class Viewer:
         self.cursor = fr.cursor
         self.shift = fr.held('Shift')
         self.v2.ox = self.free_centre()
+        self.ne.tick()
+        if self.ne.open:
+            # typed slider value (01/10/2026): every key goes to the entry, no hotkey fires
+            self.ne.chars(fr.chars)
+            for k in fr.presses:
+                if k in ain.BUTTONS:
+                    continue
+                if self.ne.open:
+                    _, msg = self.ne.key(k)
+                    if msg:
+                        self.flash(msg)
+                # a key after Return / Escape in the same frame is dropped, not a hotkey
+            self.mouse(fr)
+            return
         if self.sol.text is not None:
             self.sol.chars(fr.chars)
         for k in fr.presses:
             if k in ain.BUTTONS:
+                continue
+            if self.ne.armed and k == 'Escape':             # pick mode off (typed slider values)
+                self.flash(self.ne.key(k)[1])
                 continue
             if self.sol.text is not None and self.sol.key(self.m, k):
                 continue
@@ -329,7 +719,7 @@ class Viewer:
         elif k == 'l':
             self.cycle('lattice', ['sq', 'tri'])
         elif k == 'b':
-            self.cycle('bc', mc.BCS)
+            self.cycle_bc()
         elif k == 'g':
             self.cycle('shape', mc.SHAPES)
         elif k == 'm':
@@ -339,6 +729,8 @@ class Viewer:
         elif k == 'c':
             self.orbit.reset()
             self.v2.reset()
+            self.fit_2d()                       # the triangular array: fit its width (05/10/2026)
+            self.fit_3d()                       # ... and in 3D (06/10/2026)
             if self.freelook:
                 self.set_freelook(False)
                 self.set_freelook(True)
@@ -454,6 +846,16 @@ class Viewer:
     def colour_gain(self):
         if not self.auto_gain:
             return self.cg
+        return self.cg / self.auto_peak()
+
+    def height_scale(self):
+        """The 3D height scale: the slider's value, or (auto height, 02/10/2026) divided by the same
+        recent peak |u| as the auto colour gain, so the crest stays at the height of a unit pulse
+        whatever N and the travelled distance (both scale modes)."""
+        return self.hs / self.auto_peak() if self.auto_height else self.hs
+
+    def auto_peak(self):
+        """The peak |u| the auto gain and the auto height divide by (sets self.peak, self.gain_capped)."""
         m = self.m
         # the peak over the last AUTO_WINDOW recorded steps: steady colours (no step-to-step
         # flicker), and a decaying pulse stays visible (measured 30/09: a centred pulse at N = 513
@@ -475,7 +877,7 @@ class Viewer:
         floor = max(AUTO_REL_FLOOR * ref, 1e-12)
         self.gain_capped = a < floor
         self.peak = max(a, floor)
-        return self.cg / self.peak
+        return self.peak
 
     def edge_segments(self):
         """The alignment panel's 'colour the domain edges' overlay: [(a, b, rgb)] physical."""
@@ -508,20 +910,27 @@ class Viewer:
         self.sync_domain()
         pxs = self.v2.px_size(m, self.win[1])
         self.v2.ox = self.free_centre()
-        self.R.set_params(self.look, self.colour_gain(), self.hs, self.v2.kernel_cx(m, *self.win), self.v2.cy, pxs)
+        self.R.set_params(self.look, self.colour_gain(), self.height_scale(), self.v2.kernel_cx(m, *self.win), self.v2.cy, pxs)
         canvas.set_background_color(ar.SEG['bg'] if self.look.segment else self.look.bg_col())
         ring = self.brush_ring()
-        edges = self.edge_segments()
+        edges = self.boundary_segments() + self.edge_segments()
+        beam = self.beam_segments()
         if self.view3d:
             if not self.freelook:
                 self.orbit.pose().apply(camera)
             scene.set_camera(camera)
             eye = self.pose().eye
-            self.R.draw3d(m, self.look, scene, eye, self.wire)
             segs = []
             w = lambda p, h=0.004: (p[0] / m.c(), h, -p[1] / m.c())
             for a, b, c in edges:
                 segs.append((w(a), w(b), c))
+            if beam:
+                # the emitter: drawn above the surface like the brush ring (each point slid along its
+                # view ray, so it covers the pixels of its rest-plane position)
+                hb = math.copysign(self.look.solid_h + 0.012, eye[1]) if abs(eye[1]) > 1e-6 else 0.0
+                tb = hb / eye[1] if abs(eye[1]) > 1e-6 else 0.0
+                lb = lambda P: (P[0] + (eye[0] - P[0]) * tb, hb, P[2] + (eye[2] - P[2]) * tb)
+                segs += [(lb(w(a, 0.0)), lb(w(b, 0.0)), c) for a, b, c in beam]
             if ring:
                 # painting happens on the REST plane Y = 0 (where the cursor ray meets it). The ring
                 # is drawn above the surface (so solids and crests do not hide it) but each point is
@@ -531,7 +940,14 @@ class Viewer:
                 t = hr / eye[1] if abs(eye[1]) > 1e-6 else 0.0
                 lift = lambda P: (P[0] + (eye[0] - P[0]) * t, hr, P[2] + (eye[2] - P[2]) * t)
                 segs += [(lift(w(ring[k], 0.0)), lift(w(ring[k + 1], 0.0)), col) for k in range(len(ring) - 1)]
-            self.R.lines3d(scene, segs)
+            # GGUI draws in call order and its lines ignore alpha (measured 01/10/2026): with a
+            # translucent surface the overlay goes FIRST so it shows through the surface
+            early = self.look.opacity < 1.0
+            if early:
+                self.R.lines3d(scene, segs)
+            self.R.draw3d(m, self.look, scene, eye, self.wire)
+            if not early:
+                self.R.lines3d(scene, segs)
             if markers:
                 self.R.markers3d(scene, list(markers))
             canvas.scene(scene)
@@ -539,11 +955,73 @@ class Viewer:
             self.R.draw2d(m, canvas)
             W, H = self.win
             s = lambda p: self.v2.phys_to_screen(m, p[0], p[1], W, H)
-            segs = [(s(a), s(b), c) for a, b, c in edges]
+            segs = [(s(a), s(b), c) for a, b, c in edges + beam]
             if ring:
                 col = (1.0, 0.35, 0.3) if (self.sol.erase or self.drag_erase()) else (0.95, 0.95, 0.35)
                 segs += [(s(ring[k]), s(ring[k + 1]), col) for k in range(len(ring) - 1)]
             self.R.lines2d(canvas, segs)
+
+    def beam_controls(self, w, moved):
+        """The directional sources' controls (01/10/2026): angle, width, one-sided / aim (beam),
+        length and wavelength (packet), and a readout of what the lattice makes of them. The beam's
+        parameters apply LIVE (the core rebuilds its tables on the next step); the packet's
+        relaunch it (a reset)."""
+        m, p = self.m, self.m.p
+        live = p.src == 'beam'
+        a = w.slider_float('beam angle (deg)', p.beam_angle, -180.0, 180.0)
+        if moved(a, p.beam_angle):
+            p.beam_angle = a
+            if not live:
+                self.reset()
+        if self.scale_size_slider(w, 'beam_width', 'beam width w (cells)', 1.0, 128.0) and not live:
+            self.reset()
+        g = w.checkbox('aim the energy (group velocity)', p.beam_group)
+        if g != p.beam_group:
+            p.beam_group = g
+            if not live:
+                self.reset()
+        if live:
+            o = w.checkbox('one-sided (cancel the backward lobe)', p.beam_onesided)
+            if o != p.beam_onesided:
+                p.beam_onesided = o
+            b = m.beam or {}
+            inf = b.get('info') or {}
+            lam = inf.get('lam')
+            if lam:
+                w.text(f'   lambda {lam:.1f} cells, {len(b.get("cells", ()))} cells driven'
+                       + (f', {inf.get("n_clipped")} clipped' if inf.get('n_clipped') else ''))
+                w.text(f'   phase fronts at {inf.get("theta_k", p.beam_angle):.2f} deg', color=(0.55, 0.55, 0.60))
+                if lam < mc.PPW_MIN:
+                    w.text(f'   under {mc.PPW_MIN} cells per wavelength: strong dispersion', color=(0.95, 0.75, 0.3))
+            elif inf.get('warn'):
+                w.text('   ' + inf['warn'], color=(0.95, 0.75, 0.3))
+        else:
+            if self.scale_size_slider(w, 'pk_len', 'packet length L (cells)', 1.0, 128.0):
+                self.reset()
+            if self.scale_size_slider(w, 'pk_lambda', 'packet wavelength (cells)', 3.0, 128.0):
+                self.reset()
+            inf = m.packet_info or {}
+            if inf:
+                w.text(f'   group speed {math.hypot(*inf.get("vg_mean", (0, 0))):.4f} cells/step', color=(0.55, 0.55, 0.60))
+        self.show_emitter = w.checkbox('draw the emitter', self.show_emitter)
+
+    def beam_segments(self):
+        """The emitter overlay: the aperture (cyan) and an arrow along the requested direction
+        (orange), physical coordinates; [] when hidden or for point sources."""
+        if not self.show_emitter:
+            return []
+        g = self.m.beam_geometry()
+        if g is None:
+            return []
+        (x0, y0), a, b, (xe, ye) = g
+        ca, cr = (0.3, 0.95, 1.0), (1.0, 0.6, 0.15)
+        dx, dy = xe - x0, ye - y0
+        L = math.hypot(dx, dy) or 1.0
+        ux, uy = dx / L, dy / L
+        hl = 0.18 * L
+        h1 = (xe - hl * (ux * 0.866 - uy * 0.5), ye - hl * (uy * 0.866 + ux * 0.5))
+        h2 = (xe - hl * (ux * 0.866 + uy * 0.5), ye - hl * (uy * 0.866 - ux * 0.5))
+        return [(a, b, ca), ((x0, y0), (xe, ye), cr), ((xe, ye), h1, cr), ((xe, ye), h2, cr)]
 
     def drag_erase(self):
         """The brush ring turns red when the next (or current) stroke erases."""
@@ -556,30 +1034,36 @@ class Viewer:
     def cells(self):
         """(free, solid) cell counts, recounted at most twice a second (a full-grid sum at N = 8193
         is ~15 ms, too much for every frame)."""
-        t, free, solid = self._cells
+        # review v3 01/10/2026: the timed recount alone cost 36 ms at N = 8193 every 0.5 s (a visible
+        # stutter, measured AppCLAUDE/probe_spike_v3_MIRROR.py); it now runs only when the masks or
+        # the solid count changed (still at most twice a second while painting)
+        m = self.m
+        t, free, solid = self._cells[:3]
+        key = (m.N, id(m.domain_mask_np), id(m.mask_np), m.n_solid)
         now = time.perf_counter()
-        if now - t > 0.5:
-            free, solid = self.m.domain_cells(), self.m.solid_cells()
-            self._cells = (now, free, solid)
+        if (len(self._cells) < 4 or self._cells[3] != key) and now - t > 0.5:
+            free, solid = m.domain_cells(), m.solid_cells()
+            self._cells = (now, free, solid, key)
         return free, solid
 
     def gui(self, g):
         if self.show['main']:
             x, y, w_, h_ = PANELS['main']
             with g.sub_window(PANEL_TITLES['main'], x, y, w_, h_) as w:
-                self.gui_main(w)
+                self.gui_main(self.typed(w, 'main', head=f'{mc.APP_NAME} v{VERSION}  ({mc.VERSION_DATE})'))
         if self.show['solids']:
             x, y, w_, h_ = PANELS['solids']
             with g.sub_window(PANEL_TITLES['solids'], x, y, w_, h_) as w:
-                self.sol.gui(w, self)
+                self.sol.gui(self.typed(w, 'solids'), self)
         if self.show['align']:
             x, y, w_, h_ = PANELS['align']
             with g.sub_window(PANEL_TITLES['align'], x, y, w_, h_) as w:
+                w = self.typed(w, 'align')
                 if alignment is not None and hasattr(alignment, 'gui_section'):
                     try:
                         if self.align_panel is None and hasattr(alignment, 'AlignPanel'):
                             self.align_panel = alignment.AlignPanel()
-                            self.align_panel.wrap = TEXT_WRAP - 2     # its default 64 overflows the panel
+                            self.align_panel.wrap = 52     # its default 64 overflows the panel (52 since 01/10/2026)
                         alignment.gui_section(w, self)
                     except Exception as ex:
                         w.text(f'alignment panel error: {type(ex).__name__}: {ex}', color=(0.95, 0.4, 0.4))
@@ -588,6 +1072,7 @@ class Viewer:
         if self.show['ledger']:
             x, y, w_, h_ = PANELS['ledger']
             with g.sub_window(PANEL_TITLES['ledger'], x, y, w_, h_) as w:
+                w = self.typed(w, 'ledger')
                 if ledger is not None and hasattr(ledger, 'gui_section'):
                     try:
                         ledger.gui_section(w, self)
@@ -597,13 +1082,173 @@ class Viewer:
                     w.text('ledger: not available yet (ledger_MIRROR.py ' +
                            (f'import failed: {LEDGER_ERR})' if LEDGER_ERR else 'has no gui_section)'))
 
+    def typed(self, w, panel, head=None):
+        """The panel with typed-value entries for its sliders (app_input_MIRROR.TypedGui). head: a
+        first line above the pick-mode button (the main panel's version line, 05/10/2026)."""
+        def start():
+            self.sol.text = None                # one entry at a time
+        if head:
+            w.text(head, color=HEAD)
+        tg = ain.TypedGui(w, self.ne, panel, self.type_buttons, self.flash, start)
+        tg.header()                             # pick mode: one row per panel (01/10/2026)
+        return tg
+
+    def src_moved_note(self):
+        """'source moved out of a solid to (x, y)' when the requested source point (source x/y)
+        lies in a solid (or 'into the domain' when it lies outside it), else None. Prefers the core's own flag (m.src_moved) when it has one;
+        otherwise the requested point's cell is looked up in solid_np. Cached per state."""
+        m, p = self.m, self.m.p
+        src = getattr(m, 'src', None)
+        key = (p.sx, p.sy, m.N, p.lattice, p.shape, p.rad, p.rot, id(m.solid_np), m.n_solid,
+               None if src is None else tuple(src[:2]))
+        if self._src_note[0] == key:
+            return self._src_note[1]
+        note = None
+        try:
+            ir = m.inner_R()
+            i0, j0 = m.round_cell(*m.xy_to_cell(p.sx * ir, p.sy * ir))
+            in_solid = m.solid_np is not None and bool(m.solid_np[i0, j0])
+            flag = getattr(m, 'src_moved', None)
+            if flag is None:                # no core flag: the requested cell vs the cell used
+                flag = src is not None and (int(src[0]), int(src[1])) != (i0, j0)
+            if flag and src is not None and ir > 0:
+                x, y = m.cell_xy(src[0], src[1])
+                why = 'out of a solid' if in_solid else 'into the domain'
+                note = f'   source moved {why} to ({x / ir:.3f}, {y / ir:.3f})'
+        except Exception as ex:             # a readout must never break the panel
+            note = f'   source check failed: {type(ex).__name__}'
+        self._src_note = (key, note)
+        return note
+
+    # ---- palette editor and transparency (01/10/2026, Claude Opus 5.5) --------------------------
+    def gui_palette(self, w, L):
+        moved = self.moved
+        if w.button(f'palette: {L.palette}  (click: next)'):
+            L.cycle_palette()
+        self.pal_edit = w.checkbox('edit the custom palette', self.pal_edit)
+        if self.pal_edit:
+            self.gui_custom(w, L)
+        # transparency: real alpha in 3D (GGUI 1.7.4 blends RGBA vertex colours)
+        lab = 'surface opacity' if self.view3d else 'field opacity (over the page)'
+        v = w.slider_float(lab, L.opacity, 0.0, 1.0)
+        if moved(v, L.opacity):
+            L.opacity = v
+        if self.view3d:
+            v = w.slider_float('grid lines (opacity, 0 = off)', L.grid, 0.0, 1.0)
+            if moved(v, L.grid):
+                L.grid = v
+            if L.grid > 0:
+                L.grid_every = w.slider_int('grid every (mesh vertices)', L.grid_every, 1, 64)
+                w.text(f'   = a line every {L.grid_every * self.R.k} cells', color=(0.7, 0.7, 0.75))
+                L.grid_field = w.checkbox('grid in the field colours', L.grid_field)
+                if not L.grid_field:
+                    gc = w.color_edit_3('grid colour', L.grid_col)
+                    L.grid_col = tuple(float(c) for c in gc)
+            if L.opacity < 1 or L.grid > 0:
+                w.text('   real alpha blending; grid lines behind a crest stay hidden', color=(0.7, 0.7, 0.75))
+        elif L.grid > 0:
+            w.text('   grid lines: 3D view only', color=(0.7, 0.7, 0.75))
+        if self.settings_path:
+            w.text(f'   palette saved to {os.path.basename(self.settings_path)}' if not self.settings_msg
+                   else f'   {self.settings_msg}', color=(0.7, 0.7, 0.75))
+
+    def gui_custom(self, w, L):
+        """Edit the custom palette's stops: colour of each, position of the interior ones (not the
+        ends and not zero), add / remove, copy the current palette in, reset. Any edit shows the
+        custom palette; the zero stop's brightness is the zero level."""
+        moved = self.moved
+        st = L.stops() if L.palette == 'custom' else ar.clean_stops(L.custom)
+        w.text('   t = -1 negative end, 0 zero, +1 positive end', color=(0.7, 0.7, 0.75))
+        new, changed, remove = [], False, None
+        for k, (t, c) in enumerate(st):
+            lab = {-1.0: 'negative end', 0.0: 'zero', 1.0: 'positive end'}.get(t, f'stop {k}')
+            cc = tuple(float(x) for x in w.color_edit_3(f'{lab} (t {t:+.2f})##pal{k}', c))
+            if any(moved(a, b) for a, b in zip(cc, c)):
+                c, changed = cc, True
+            if t not in (-1.0, 0.0, 1.0):
+                lo = st[k - 1][0] + 0.01
+                hi = st[k + 1][0] - 0.01
+                if hi > lo:
+                    tt = w.slider_float(f'stop {k} position', t, lo, hi)
+                    if moved(tt, t):
+                        t, changed = float(tt), True
+                if w.button(f'remove stop {k}##palrm{k}'):
+                    remove = k
+            new.append((t, c))
+        if remove is not None:
+            del new[remove]
+            changed = True
+        if len(new) < ar.KMAX:
+            for side, lab in ((-1, 'add a stop (negative side)'), (1, 'add a stop (positive side)')):
+                if w.button(lab):
+                    ts = [t for t, _ in new if (t <= 0 if side < 0 else t >= 0)]
+                    gaps = [(ts[i + 1] - ts[i], i) for i in range(len(ts) - 1)]
+                    g, i = max(gaps)
+                    tn = round((ts[i] + ts[i + 1]) / 2, 4)
+                    arr = np.array([q[1] for q in new])
+                    cn = tuple(float(np.interp(tn, [q[0] for q in new], arr[:, ch])) for ch in range(3))
+                    new.append((tn, cn))
+                    changed = True
+        if w.button('copy the current palette into custom'):
+            new, changed = list(L.stops()), True
+        if w.button('reset the custom palette'):
+            new, changed = list(ar.DEFAULT_CUSTOM), True
+        if changed:
+            L.custom = ar.clean_stops(new)
+            L.palette = 'custom'
+            L.zero = ar.zero_of(L.custom)
+
+    def gui_boundary(self, w):
+        """The boundary control (05/10/2026): the EFFECTIVE bc (bc_info()), B cycles only the bcs that act
+        here, the ring in words, the unavailable ones with their reason; then the domain edge."""
+        m, p = self.m, self.m.p
+        bi = m.bc_info()
+        w.text(f'boundary: {bi["effective"]}' + (f'   ({p.bc} n/a here)' if bi['fallback'] else ''))
+        nb = self.next_bc(bi)
+        if nb is None:
+            if w.button('boundary  [B]: does not apply to this shape##bc'):
+                self.cycle_bc()
+        elif w.button(f'boundary  [B]: {p.bc}  (click: {nb})##bc'):
+            self.cycle_bc()
+        for piece in self.wrapped(bi['ring']):
+            w.text(piece, color=DIM)
+        if m.tri() and p.shape != 'array':
+            for piece in self.wrapped(TRI_MASKED_SHORT):
+                w.text(piece, color=DIM)
+        elif 'mur' in bi['unavailable']:
+            txt = TRI_MUR_SHORT + (' - falls back to the clamped ring' if p.bc == 'mur' else '')
+            for piece in self.wrapped(txt):
+                w.text(piece, color=AMBER if p.bc == 'mur' else DIM)
+        self.gui_edge(w, bi)
+
+    def gui_edge(self, w, bi=None):
+        """The domain edge (Params.edge) for masked shapes; greyed text where the bc rules instead."""
+        m, p = self.m, self.m.p
+        bi = bi or m.bc_info()
+        if bi['edge_applies']:
+            other = 'rigid' if p.edge == 'pinned' else 'pinned'
+            if w.button(f'edge: {p.edge}  (click: {other})##edge'):
+                self.set_edge(other)
+            w.text('   ' + ('rigid: zero slope, echo upright' if p.edge == 'rigid'
+                            else 'pinned: u = 0, echo inverted') + ' (field kept)', color=DIM)
+        else:
+            who = 'the array' if p.shape == 'array' else 'the full square'
+            for piece in self.wrapped(f'edge: n/a - {who} has no mask edge: the boundary (B) rules', indent=''):
+                w.text(piece, color=DIM)
+
     def gui_main(self, w):
         m, p = self.m, self.m.p
         moved = self.moved
-        w.text(f'{"playing" if self.playing else "paused"}   step {m.step_n}   t = {m.t:.1f}')
+        w.text(f'{"playing" if self.playing else "paused"}   step {m.step_n}   t = {m.t:.1f}'
+               + (f'   = {m.crossings():.3f} r_in/c' if p.scale == 'domain' else ''))
         if self.flash_msg and time.perf_counter() - self.flash_t < 8.0:
             for piece in textwrap.wrap(self.flash_msg, TEXT_WRAP)[:4]:
                 w.text(piece, color=(0.95, 0.8, 0.35))
+        tb = w.checkbox('a "type" button under every slider', self.type_buttons)
+        if tb != self.type_buttons:
+            self.type_buttons = tb
+            if not tb:
+                self.ne.cancel()
         if w.button('play / pause  [space]'):
             self.playing = not self.playing
         if w.button('reset  [R]'):
@@ -617,12 +1262,14 @@ class Viewer:
         if p.lattice == 'sq' and w.button('stencil 5 / 9'):
             p.stencil = 9 if p.stencil == 5 else 5
             self.reset()
-        w.text(f'domain: {p.shape}   radius {p.rad:.2f}   R = {m.dom_R():.2f}')
+        if p.shape in mc.FIXED_SHAPES:
+            w.text(f'domain: {p.shape} (the whole lattice array)   R = {m.dom_R():.2f}')
+        else:
+            w.text(f'domain: {p.shape}   radius {p.rad:.2f}   R = {m.dom_R():.2f}')
         if w.button('shape  [G]'):
             self.cycle('shape', mc.SHAPES)
-        w.text(f'boundary: {p.bc if p.lattice == "sq" else "clamped (tri)"}   medium: {p.medium}')
-        if w.button('boundary  [B]'):
-            self.cycle('bc', mc.BCS)
+        self.gui_boundary(w)
+        w.text(f'medium: {p.medium}')
         if w.button('medium  [M]'):
             self.cycle('medium', mc.MEDIA)
         w.text(f'source: {p.src}' + (f' ({len(m.vtx)})' if p.src == 'vtx' else '') + f'   wave: {p.wave}')
@@ -636,8 +1283,20 @@ class Viewer:
             if vd != p.vtx_drive:
                 p.vtx_drive = vd
                 m.recache_source()
-            if w.button(f'vertex inset: {p.vtx_inset}'):
-                self.cycle('vtx_inset', ['radial', 'wall'])
+            if p.vtx_drive:
+                # 05/10/2026: driven vertices start from rest (the port); on = the web app's seeded bumps
+                vb = w.checkbox('seed pulses under the driven vertices (the web app)', bool(p.vtx_drive_bump))
+                if vb != bool(p.vtx_drive_bump):
+                    p.vtx_drive_bump = vb
+                    self.reset()
+            if w.button(VTX_INSET_LABEL.get(p.vtx_inset, f'vertex inset: {p.vtx_inset}')):   # click: the other
+                self.cycle('vtx_inset', mc.VTX_INSETS)
+            self.lines(w, self.note_lines())               # the source note, under the inset button
+        mn = m.mode_note() if p.src == 'mode' else None
+        if mn:
+            self.lines(w, [('not an exact eigenmode here: ' + mn, 'warn')])
+        if p.src in mc.BEAM_SOURCES:
+            self.beam_controls(w, moved)
         w.text('')
         # sliders: apply only on change
         # review v3 01/10/2026: every N change rebuilds the run (measured 0.9-1.0 s per change in 3D,
@@ -653,34 +1312,68 @@ class Viewer:
             m.set_co(co, rescale=self.cont_time)
         self.cont_time = w.checkbox('Co change = new time step', self.cont_time)
         w.text('   (off: a Co change reflects waves in time)', color=(0.55, 0.55, 0.60))
-        w.text(f'   C_max = {m.co_limit():.4f}' + ('   UNSTABLE' if p.Co > m.co_limit() + 1e-12 else ''))
+        # damping lowers the real limit: C_max(d) = C_max(0) sqrt(1 - d/2) (core co_limit, 01/10/2026)
+        w.text(f'   C_max = {m.co_limit():.4f}' + (' (damped)' if p.damp > 0 else '')
+               + ('   UNSTABLE' if p.Co > m.co_limit() + 1e-12 else ''))
         dmp = w.slider_float('damping', p.damp, 0.0, 0.02)
         if moved(dmp, p.damp):
             p.damp = dmp
-        self.sub = w.slider_int('steps / frame', self.sub, 1, 256)
+        if w.button(f'scale: {p.scale} (sizes in ' + ('cells' if p.scale == 'cells' else 'fractions of r_in')
+                    + ')  -> ' + ('domain' if p.scale == 'cells' else 'cells')):
+            self.set_scale('domain' if p.scale == 'cells' else 'cells')
+        if p.scale == 'domain':
+            self.steps_per_frame()                     # sets cps on first use
+            c = w.slider_float('crossings / s', self.cps, 0.01, 2.0)
+            if moved(c, self.cps):
+                self.cps = c
+            w.text(f'   r_in = {m.inner_R():.1f} cells   {self.steps_per_frame():.2f} steps / frame at {FPS_NOMINAL:g} fps',
+                   color=(0.55, 0.55, 0.60))
+        else:
+            self.sub = w.slider_int('steps / frame', self.sub, 1, 256)
         for attr, lab, lo, hi in (('rad', 'radius', 0.1, 1.5), ('sigma', 'pulse sigma', 0.8, 12.0),
                                   ('sx', 'source x', -1.0, 1.0), ('sy', 'source y', -1.0, 1.0)):
+            if attr == 'sigma':                        # cells, or x r_in in domain mode (02/10/2026)
+                if self.scale_size_slider(w, 'sigma', lab, lo, hi):
+                    self.reset()
+                continue
+            if attr == 'rad' and p.shape in mc.FIXED_SHAPES:
+                w.text('radius: fixed (the whole array)', color=DIM)
+                continue
             v = w.slider_float(lab, getattr(p, attr), lo, hi)
             if moved(v, getattr(p, attr)):
                 setattr(p, attr, v)
                 self.reset()
-        rot = w.slider_float('rotation (deg)', p.rot / D, 0.0, 90.0)
-        if moved(rot, p.rot / D):
-            p.rot = rot * D
-            self.reset()
-        if w.button('rotation 30 deg (conforming on tri)'):
-            p.rot = 30 * D
-            self.reset()
+        note = self.src_moved_note()
+        if note:
+            w.text(note, color=(0.95, 0.75, 0.3))      # amber: GGUI cannot recolour a slider
+        if p.src != 'vtx':
+            self.lines(w, self.note_lines())            # point sources: the note under source x / y
+        if p.shape in mc.FIXED_SHAPES:
+            w.text('rotation: fixed (the lattice array)', color=DIM)
+        else:
+            rot = w.slider_float('rotation (deg)', p.rot / D, 0.0, 90.0)
+            if moved(rot, p.rot / D):
+                p.rot = rot * D
+                self.reset()
+            if w.button('rotation 30 deg (conforming on tri)'):
+                p.rot = 30 * D
+                self.reset()
         if p.shape == 'rhomb':
             th = w.slider_float('rhombus (deg)', p.rtheta / D, 20.0, 90.0)
             if moved(th, p.rtheta / D):
                 p.rtheta = th * D
                 self.reset()
-        if p.src in ('cont', 'slit') or (p.src == 'vtx' and p.vtx_drive):
-            f = w.slider_float('freq (cyc/step)', p.freq, 0.005, 0.25)
-            if moved(f, p.freq):
-                p.freq = f
+        if p.src in ('cont', 'slit', 'beam') or (p.src == 'vtx' and p.vtx_drive):
+            if self.scale_size_slider(w, 'freq', 'freq (cyc/step)', 0.005, 0.25):
                 m.harm = m.harmonics()
+            if p.scale == 'domain':
+                w.text(f'   lambda {p.Co / max(p.freq, 1e-12):.1f} cells   freq {p.freq:.4f} cyc/step',
+                       color=(0.55, 0.55, 0.60))
+        # domain mode: under-resolved sizes; cells mode (05/10/2026): a hard drive under 8 cells per
+        # wavelength (the two never both show: drive_warnings() is [] in domain mode)
+        for wn in m.scale_warnings() + m.drive_warnings():
+            for piece in self.wrapped(wn, indent='')[:3]:
+                w.text(piece, color=AMBER)
         if p.src == 'mode':
             mm = w.slider_int('mode m', p.mm, 1, 64)
             mn = w.slider_int('mode n', p.mn, 1, 64)
@@ -727,6 +1420,7 @@ class Viewer:
         L = self.look
         if w.button(f'background: {L.bg}  [Y]'):
             L.cycle_bg()
+        self.gui_palette(w, L)
         for attr, lab, lo, hi in (('exposure', 'exposure', 0.3, 3.0), ('zero', 'zero level', 0.0, 0.5),
                                   ('contrast', 'contrast', 0.3, 4.0)):
             v = w.slider_float(lab, getattr(L, attr), lo, hi)
@@ -737,6 +1431,7 @@ class Viewer:
             w.text('  capped at 1000x: |u| < 1e-3 of the run peak', color=(0.95, 0.75, 0.4))
         self.cg = w.slider_float('colour gain', self.cg, 0.1, 50.0)
         self.hs = w.slider_float('height scale', self.hs, 0.0, 10.0)
+        self.auto_height = w.checkbox('auto height (height scale / peak |u|)', self.auto_height)
         if self.view3d:
             v = w.slider_float('shading (0=unlit)', L.shading, 0.0, 1.0)
             if moved(v, L.shading):
@@ -747,6 +1442,9 @@ class Viewer:
                 L.solid_h = v
         else:
             L.hatch = w.checkbox('hatch outside the domain', L.hatch)
+        bc = w.color_edit_3('page colour (outside the array)', L.bg_col())
+        if any(moved(float(a), float(b)) for a, b in zip(bc, L.bg_col())):
+            L.bg_rgb = tuple(float(c) for c in bc)
         sc = w.color_edit_3('solid colour', L.solid)
         L.solid = tuple(float(c) for c in sc)
         oc = w.color_edit_3('outside colour', L.outside_col())
@@ -775,8 +1473,12 @@ class Viewer:
         w.text(f'E = {E:.5g}   max|u| = {amax:.4g}')
         w.text(f'{self.ms_step:.3f} ms/step ({self.ms_step * 1e6 / (m.N * m.N):.3f} ns/cell)')
         w.text(f'frame {self.ms_frame:.1f} ms   3D mesh {self.R.nd} (stride {self.R.k})')
-        if m.clip_frac is not None and m.clip_frac > 1e-3:
-            w.text(f'pulse clipped at t = 0: {100 * m.clip_frac:.1f}%')
+        if self.gaussian_seeded():
+            # 05/10/2026: how far the grid's fronts trail the exact ones (discrete dispersion, cached)
+            try:
+                self.lines(w, m.phase_lag()['lines'])
+            except Exception as ex:
+                w.text(f'phase lag failed: {type(ex).__name__}', color=AMBER)
 
 
 # ---- programmatic strokes (--walls-test, tests) ------------------------------------------------
@@ -813,6 +1515,12 @@ def programmatic_stroke(v, pts_grid, erase=False, per_seg=12):
     v.set_draw(True)
     v.panel = False                     # a scripted stroke may start where a panel would be
     g, scr = path_screen_points(v, pts_grid, per_seg)
+    if any(q is None for q in scr):
+        # review v3 01/10/2026: a camera that has part of the path behind the eye (e.g. --walls-test
+        # with a low, close --camera) crashed with "NoneType is not subscriptable" in Frame()
+        v.set_draw(was)
+        v.panel = panel
+        raise ValueError('programmatic stroke: part of the path is behind the camera in this view')
     mods = {'Shift'} if erase else set()
     v.handle(ain.Frame(scr[0], {'LMB'} | mods, ['LMB']))
     for s in scr[1:]:
@@ -839,16 +1547,23 @@ def parse_triple(s, n=3):
 
 
 def main():
-    ap = argparse.ArgumentParser()
+    ap = argparse.ArgumentParser(description=f'{TITLE} ({mc.VERSION_DATE})')
+    ap.add_argument('--version', action='version', version=f'{TITLE} ({mc.VERSION_DATE})')
     ap.add_argument('--arch', default='cuda')
     ap.add_argument('--f32', action='store_true')
     ap.add_argument('--N', type=int, default=513)
     ap.add_argument('--shot', default=None, help='render to this PNG without a window, then exit')
+    ap.add_argument('--win', default=None, help='window size W,H (e.g. 2560,1377: a maximised window)')
     ap.add_argument('--steps', type=int, default=300)
     ap.add_argument('--view', default='3d', choices=['3d', '2d'])
     ap.add_argument('--hs', type=float, default=1.0, help='height scale')
     ap.add_argument('--cg', type=float, default=1.0, help='colour gain')
     ap.add_argument('--no-auto-gain', action='store_true', help='colour gain as given (not / peak |u|)')
+    ap.add_argument('--auto-height', action='store_true', help='3D height scale / recent peak |u|')
+    ap.add_argument('--scale', default=None, choices=mc.SCALES,
+                    help="sizes in cells (default) or as fractions of r_in ('domain'; set fractions with "
+                         "--set sigma_f=0.05 lam_f=0.1 ...)")
+    ap.add_argument('--cps', type=float, default=None, help='domain mode: playback speed in crossings / s')
     ap.add_argument('--wire', action='store_true')
     ap.add_argument('--set', nargs='*', default=[], help='Params overrides, e.g. shape=n6 rot_deg=30')
     # view and look
@@ -866,27 +1581,49 @@ def main():
     ap.add_argument('--solid-h', type=float, default=None, help='3D: height of solid cells')
     ap.add_argument('--solid-col', default=None, help='r,g,b of solid cells')
     ap.add_argument('--segment', action='store_true', help='key colours per cell class (contrast tests)')
+    # palette and transparency (01/10/2026)
+    ap.add_argument('--palette', default=None, choices=ar.PALETTE_ORDER, help='palette preset (or custom)')
+    ap.add_argument('--stops', default=None, help="custom palette stops 't:r,g,b;t:r,g,b;...' (sets --palette custom)")
+    ap.add_argument('--opacity', type=float, default=None, help='3D surface opacity (2D: field over the page)')
+    ap.add_argument('--grid', type=float, default=None, help='3D grid-line opacity (0 = off)')
+    ap.add_argument('--grid-every', type=int, default=None, help='3D: a grid line every k mesh vertices')
+    ap.add_argument('--grid-col', default=None, help='3D grid colour r,g,b')
+    ap.add_argument('--grid-field', action='store_true', help='3D grid lines in the field colours')
+    ap.add_argument('--bg-col', default=None, help='custom page colour r,g,b')
+    ap.add_argument('--settings', default=None,
+                    help='palette settings JSON (live runs default to look_settingsMIRROR.json; shots use none)')
+    ap.add_argument('--no-settings', action='store_true', help='live run without loading / saving the settings file')
     # solids
     ap.add_argument('--scene', default=None, help='load a solids scene (JSON; a bare name looks in ScenesCLAUDE)')
     ap.add_argument('--plate-text', type=int, default=None, choices=[0, 1])
     ap.add_argument('--plate-screws', type=int, default=None, choices=[0, 1])
+    ap.add_argument('--plate-wall', default=None, choices=list(so.WALL_TYPES),
+                    help='the Unlicensed lettering and screws: pinned (default) or rigid')
+    ap.add_argument('--brush-wall', default=None, choices=list(so.WALL_TYPES),
+                    help='the wall type of painted strokes (--walls-test)')
     ap.add_argument('--walls-test', action='store_true',
                     help='paint a wall with a programmatic mouse stroke (in the chosen view) before stepping')
     ap.add_argument('--brush', type=float, default=None, help='brush radius in cells')
     ap.add_argument('--marker', default=None, help='3D: draw a marker particle at world x,y,z')
     ap.add_argument('--panels', default=None, help="show panels in the shot: 'main' or e.g. main,solids,align,ledger")
     # '--camera -135,60,2' would read '-135,60,2' as an option: glue such values to their flag
-    argv, VALS = list(sys.argv[1:]), ('--camera', '--pan', '--marker', '--solid-col')
+    argv, VALS = list(sys.argv[1:]), ('--camera', '--pan', '--marker', '--solid-col', '--stops')
     for k in range(len(argv) - 2, -1, -1):
         if argv[k] in VALS and argv[k + 1][:1] == '-' and argv[k + 1][1:2].isdigit():
             argv[k:k + 2] = [argv[k] + '=' + argv[k + 1]]
     a = ap.parse_args(argv)
-    a.win = WIN
+    a.win = tuple(int(q) for q in parse_triple(a.win, 2)) if a.win else WIN
+    if a.settings is None and not a.shot and not a.no_settings:
+        a.settings = SETTINGS_FILE
     mc.init_taichi(a.arch, fp64=not a.f32, quiet=True)
     v = Viewer(a)
     p = v.m.p
     before = (p.shape, p.lattice)
     keys = set()
+    if a.scale == 'domain' and a.set:
+        # fractions given with --set win; the missing ones come from the cell sizes at the FINAL N
+        # (the reseed below), so '--scale domain --set N=2049' keeps the default picture of N = 2049
+        p.scale = 'domain'
     for kv in a.set:
         k, val = kv.split('=')
         keys.add(k[:-4] if k.endswith('_deg') else k)
@@ -894,15 +1631,39 @@ def main():
             setattr(p, k[:-4], float(val) * D)
         else:
             cur = getattr(p, k)
-            setattr(p, k, type(cur)(val) if not isinstance(cur, bool) else val == '1')
+            typ = float if cur is None else type(cur)   # the scale fractions start as None (02/10/2026)
+            setattr(p, k, typ(val) if not isinstance(cur, bool) else val == '1')
     if a.set:
         v._fixups(before, keep=keys)                    # explicit sx/sy/rad win over the defaults
         v.reset()
     v.hs, v.cg, v.wire = a.hs, a.cg, a.wire
     v.auto_gain = not a.no_auto_gain
+    v.auto_height = a.auto_height
+    if a.scale:
+        v.set_scale(a.scale)                    # converts the sizes at the current N (no jump)
+    if a.cps is not None:
+        v.set_scale('domain')
+        v.cps = a.cps
     L = v.look
     if a.bg:
         L.bg = a.bg
+    if a.stops:
+        L.custom = ar.clean_stops([(float(t), tuple(parse_triple(c))) for t, c in
+                                   (q.split(':') for q in a.stops.split(';') if q.strip())])
+        L.set_palette('custom')
+    elif a.palette:
+        L.set_palette(a.palette)
+    for attr in ('opacity', 'grid'):
+        if getattr(a, attr) is not None:
+            setattr(L, attr, getattr(a, attr))
+    if a.grid_every:
+        L.grid_every = a.grid_every
+    if a.grid_col:
+        L.grid_col = tuple(parse_triple(a.grid_col))
+    if a.grid_field:
+        L.grid_field = True
+    if a.bg_col:
+        L.bg_rgb = tuple(parse_triple(a.bg_col))
     for attr in ('zero', 'exposure', 'contrast', 'shading'):
         if getattr(a, attr) is not None:
             setattr(L, attr, getattr(a, attr))
@@ -924,14 +1685,23 @@ def main():
         v.v2.cx, v.v2.cy = acam.grid_to_phys(v.m, gx, gy)
     if a.brush:
         v.sol.brush = a.brush
+    if a.brush_wall:
+        v.sol.brush_wall = a.brush_wall
     if a.scene:
         v.sol.load(v.m, a.scene)
-    if a.plate_text is not None or a.plate_screws is not None:
+    if a.plate_text is not None or a.plate_screws is not None or a.plate_wall:
         v.sol.set_preset(v.m, plate_text=None if a.plate_text is None else bool(a.plate_text),
-                         plate_screws=None if a.plate_screws is None else bool(a.plate_screws))
+                         plate_screws=None if a.plate_screws is None else bool(a.plate_screws),
+                         plate_wall=a.plate_wall)
     if a.panels:
         for k in v.show:
             v.show[k] = k in [q.strip() for q in a.panels.split(',')]
+    # a run that starts on the triangular 'array' (--set lattice=tri shape=array) fits it at once, as G / L
+    # do (06/10/2026); a --shot refits the 2D view once its panels are laid out
+    if not a.camera:
+        v.fit_3d()
+    if a.zoom is None and a.pan is None:
+        v.fit_2d()
     window = ti.ui.Window(TITLE, v.win, vsync=True, show_window=not a.shot)
     canvas, scene, gui = window.get_canvas(), window.get_scene(), window.get_gui()
     camera = ti.ui.Camera()
@@ -943,7 +1713,12 @@ def main():
         v.set_freelook(True)
     if a.shot:
         if a.walls_test:
-            g, scr = programmatic_stroke(v, WALLS_TEST_PATH)
+            try:
+                g, scr = programmatic_stroke(v, WALLS_TEST_PATH)
+            except ValueError as ex:
+                g = None
+                print(f'walls-test skipped: {ex}')
+        if a.walls_test and g is not None:
             back = [v.cursor_grid(*s) for s in scr]
             err = max(math.hypot(b[0] - q[0], b[1] - q[1]) for b, q in zip(back, g)) * v.m.base_half()
             print(f'walls-test ({"3D" if v.view3d else "2D"}): {len(v.m.scene.strokes[-1].points)} stroke points '
@@ -961,23 +1736,27 @@ def main():
             window.get_image_buffer_as_numpy()
         else:
             v.panel = False                 # a plain shot shows the field only
+        if a.zoom is None and a.pan is None:
+            v.fit_2d()                      # the triangular array fits the strip the panels leave
         v.draw(window, canvas, scene, camera, markers=mk)
         v.gui(gui)
         window.save_image(a.shot)
         cnt = v.R.n_idx if v.look.floor else v.R.n_dom
-        print(f'wrote {a.shot}: N={v.m.N} {p.lattice} {p.shape} step {v.m.step_n}, '
-              f'{v.ms_step:.3f} ms/step, {cnt // 3:,} triangles, solid cells {v.m.n_solid:,}')
+        print(f'wrote {a.shot}: {TITLE}, N={v.m.N} {p.lattice} {p.shape} bc {v.m.bc_effective()} edge {p.edge} '
+              f'step {v.m.step_n}, {v.ms_step:.3f} ms/step, {cnt // 3:,} triangles, solid cells {v.m.n_solid:,}')
         return
     digits = ain.DigitPoller(TITLE)
     while window.running:
         t0 = time.perf_counter()
         v.set_window_shape(window.get_window_shape(), t0)
-        digits.active = v.sol.text is not None
+        digits.active = v.sol.text is not None or v.ne.open
         v.handle(ain.poll_window(window, ti.ui, digits))
-        if v.view3d and v.freelook and v.sol.text is None:
+        if v.view3d and v.freelook and v.sol.text is None and not v.ne.open:
             camera.track_user_inputs(window, movement_speed=0.02, hold_key=ti.ui.RMB)
         if v.playing:
-            v.step(v.sub)
+            n = v.frame_steps()                     # steps / frame, or the domain mode's speed (02/10/2026)
+            if n:
+                v.step(n)
         v.draw(window, canvas, scene, camera)
         if v.panel:
             v.gui(gui)
@@ -985,8 +1764,11 @@ def main():
             window.show()
         except RuntimeError as ex:                       # a key GGUI cannot name (see app_input)
             ain._warn_once(str(ex))
+        v.autosave()
         dt = (time.perf_counter() - t0) * 1e3
         v.ms_frame = dt if v.ms_frame == 0 else 0.9 * v.ms_frame + 0.1 * dt
+    v.autosave(delay=0.0)                       # a change still resting when the window closed
+    v.autosave(delay=0.0)
 
 
 if __name__ == '__main__':
