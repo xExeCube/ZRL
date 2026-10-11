@@ -1,0 +1,251 @@
+[Taichi] version 1.7.4, llvm 15.0.1, commit b4b956fd, win, python 3.12.2
+web app (Node) ran 50 configs in 145.0 s  (C:\Users\xexec\AppData\Local\Temp\zrl_ledger_2aat6egh\ledger_js.jsonl)
+patches applied to the web app: neumann-corner
+[Taichi] Starting on arch=x64
+sq5_full_dir_pulse: checkpoints 0,50,300,1200 done
+sq5_full_dir_impulse: checkpoints 0,50,300,1200 done
+sq5_full_neu_impulse: checkpoints 0,50,300,1200 done
+sq5_full_mur_pulse: checkpoints 0,50,300,1200 done
+sq5_full_mur_impulse_off: checkpoints 0,50,300,1200 done
+sq5_full_per_pulse: checkpoints 0,50,300,1200 done
+sq5_full_per_impulse: checkpoints 0,50,300,1200 done
+sq9_full_dir_impulse: checkpoints 0,50,300,1200 done
+sq9_full_neu_pulse_corner: checkpoints 0,50,300,1200 done
+sq9_full_mur_pulse: checkpoints 0,50,300,1200 done
+sq5_full_mur_pulse_s2_off: checkpoints 0,50,300,1200 done
+sq5_full_dir_drops: checkpoints 0,50,300,1200 done
+sq5_full_mur_cont: checkpoints 0,50,300,1200 done
+sq5_full_mode11: checkpoints 0,50,300,1200 done
+sq9_full_mode32: checkpoints 0,50,300,1200 done
+sq5_sqr07_mode25: checkpoints 0,50,300,1200 done
+sq5_full_mode73_damp: checkpoints 0,50,300,1200 done
+sq5_full_mode_slab: checkpoints 0,50,300,1200 done
+sq5_full_mode_neu: checkpoints 0,50,300,1200 done
+sq5_circle_lens: checkpoints 0,50,300,1200 done
+sq5_circle_impulse: checkpoints 0,50,300,1200 done
+sq5_n8_pulse: checkpoints 0,50,300,1200 done
+sq9_n4_pulse: checkpoints 0,50,300,1200 done
+sq5_n12_mur_cont_tri: checkpoints 0,50,300,1200 done
+sq5_n6_slab_cont: checkpoints 0,50,300,1200 done
+sq5_n6_mur_pulse: checkpoints 0,50,300,1200 done
+sq5_n6_vtx_rot0: checkpoints 0,50,300,1200 done
+sq5_n5_vtxwall_clip: checkpoints 0,50,300,1200 done
+sq5_n5_vtx_rot0: checkpoints 0,50,300,1200 done
+sq5_n3_pulse_x: checkpoints 0,50,300,1200 done
+sq5_n4_slit_square_damp: checkpoints 0,50,300,1200 done
+sq5_n8_vtxdrive_saw: checkpoints 0,50,300,1200 done
+sq5_rhomb_neu: checkpoints 0,50,300,1200 done
+sq5_rhomb_rot0_impulse: checkpoints 0,50,300,1200 done
+sq5_sqr05_neu_pulse: checkpoints 0,50,300,1200 done
+  DIFF sq5_unstable_Co075 @ 50 [sym8]: detail number: 1.17e-3 vs 1.00e-3
+      web app: FAIL | centred source keeps 8-fold symmetry (exact, machine precision) | max asymmetry 1.17e-3 over the octant orbit · any solver bug breaks this first
+      port:    FAIL | centred source keeps 8-fold symmetry (exact, machine precision) | max asymmetry 1.00e-3 over the octant orbit · any solver bug breaks this first
+  DIFF sq5_unstable_Co075 @ 50 [mirror]: detail number: 1.18e-3 vs 9.97e-4
+      web app: FAIL | source on the x-axis keeps MIRROR symmetry (exact — works for odd n) | max |u(x, +y) − u(x, −y)| = 1.18e-3 · a row swap, so it is exact on the grid · the triangle and pentagon have NO 8-fold orbit, so this is their only exact solver test
+      port:    FAIL | source on the x-axis keeps MIRROR symmetry (exact — works for odd n) | max |u(x, +y) − u(x, −y)| = 9.97e-4 · a row swap, so it is exact on the grid · the triangle and pentagon have NO 8-fold orbit, so this is their only exact solver test
+  state sq5_unstable_Co075 @ 300: amax 2.5061046299859795e+72 vs 2.5841702083404634e+72
+  DIFF sq5_unstable_Co075 @ 300 [cfl]: detail number: 2.51e+72 vs 2.58e+72
+      web app: RED OK | CFL: above 1/√2 it MUST blow up (it cannot be stable) | Co = 0.7500 > 1/√2 — must diverge; max|u| = 2.51e+72 after 300 steps
+      port:    RED OK | CFL: above 1/√2 it MUST blow up (it cannot be stable) | Co = 0.7500 > 1/√2 — must diverge; max|u| = 2.58e+72 after 300 steps
+  DIFF sq5_unstable_Co075 @ 300 [sym8]: detail number: 1.67e+71 vs 1.39e+71
+      web app: FAIL | centred source keeps 8-fold symmetry (exact, machine precision) | max asymmetry 1.67e+71 over the octant orbit · any solver bug breaks this first
+      port:    FAIL | centred source keeps 8-fold symmetry (exact, machine precision) | max asymmetry 1.39e+71 over the octant orbit · any solver bug breaks this first
+  DIFF sq5_unstable_Co075 @ 300 [mirror]: detail number: 1.67e+71 vs 1.39e+71
+      web app: FAIL | source on the x-axis keeps MIRROR symmetry (exact — works for odd n) | max |u(x, +y) − u(x, −y)| = 1.67e+71 · a row swap, so it is exact on the grid · the triangle and pentagon have NO 8-fold orbit, so this is their only exact solver test
+      port:    FAIL | source on the x-axis keeps MIRROR symmetry (exact — works for odd n) | max |u(x, +y) − u(x, −y)| = 1.39e+71 · a row swap, so it is exact on the grid · the triangle and pentagon have NO 8-fold orbit, so this is their only exact solver test
+sq5_unstable_Co075: checkpoints 0,50,300,1200 done
+sq5_unstable_Co075_js_seed: checkpoints 0,50,300,1200 done
+sq9_Co09_over: checkpoints 0,50,300 done
+tri_n6_conf_pulse: checkpoints 0,50,300,1200 done
+tri_n3_conf_impulse: checkpoints 0,50,300,1200 done
+tri_rhomb60_imp: checkpoints 0,50,300,1200 done
+tri_circle_pulse: checkpoints 0,50,300,1200 done
+tri_circle_lens_off: checkpoints 0,50,300,1200 done
+tri_n12_cont_saw: checkpoints 0,50,300,1200 done
+tri_n5_slit: checkpoints 0,50,300,1200 done
+tri_square_slab_vtx: checkpoints 0,50,300,1200 done
+tri_n6_vtxwall_conf: checkpoints 0,50,300,1200 done
+tri_n6_rot0_mur: checkpoints 0,50,300,1200 done
+tri_Co085_over: checkpoints 0,50,300 done
+sq5_n6_N257: checkpoints 0,50,300 done
+
+==== summary ====
+50 configurations, 197 ledgers, 3435 rows (compat=True, the web app's logic)
+status agreement: 3435/3435 (100.00%)
+full-row agreement (label, status, detail with numbers in tolerance, tier): 3430/3435 (99.85%)
+module state (step, S.amax, CLEAR, CONE_WALL, SRC, history lengths) differing: 1 ledgers
+with FIXES (compat=False): 160 rows changed by a fix (each names it in Row.fixes); 6 changed without naming a fix
+  fix mirror-live: 24 rows, e.g. sq5_full_dir_pulse@0[mirror]: detail text: 'needs a pulse, impulse or vertex source' vs 'not running yet'
+      sq5_full_dir_pulse@0[mirror]: detail text: 'needs a pulse, impulse or vertex source' vs 'not running yet'
+      sq5_full_dir_impulse@0[mirror]: detail text: 'needs a pulse, impulse or vertex source' vs 'not running yet'
+      sq5_full_neu_impulse@0[mirror]: detail text: 'needs a pulse, impulse or vertex source' vs 'not running yet'
+      sq5_full_per_pulse@0[mirror]: detail text: 'needs a pulse, impulse or vertex source' vs 'not running yet'
+      sq5_full_per_impulse@0[mirror]: detail text: 'needs a pulse, impulse or vertex source' vs 'not running yet'
+      sq9_full_dir_impulse@0[mirror]: detail text: 'needs a pulse, impulse or vertex source' vs 'not running yet'
+      sq5_full_dir_drops@0[mirror]: detail text: 'needs a pulse, impulse or vertex source' vs 'not running yet'
+      sq5_circle_impulse@0[mirror]: detail text: 'needs a pulse, impulse or vertex source' vs 'not running yet'
+      sq5_n8_pulse@0[mirror]: detail text: 'needs a pulse, impulse or vertex source' vs 'not running yet'
+      sq9_n4_pulse@0[mirror]: detail text: 'needs a pulse, impulse or vertex source' vs 'not running yet'
+      sq5_n6_vtx_rot0@0[mirror]: detail text: 'needs a pulse, impulse or vertex source' vs 'not running yet'
+      sq5_n5_vtx_rot0@0[mirror]: detail text: 'needs a pulse, impulse or vertex source' vs 'not running yet'
+      sq5_n3_pulse_x@0[mirror]: detail text: 'needs a pulse, impulse or vertex source' vs 'not running yet'
+      sq5_n8_vtxdrive_saw@0[mirror]: detail text: 'needs a pulse, impulse or vertex source' vs 'not running yet'
+      sq5_rhomb_rot0_impulse@0[mirror]: detail text: 'needs a pulse, impulse or vertex source' vs 'not running yet'
+      sq5_unstable_Co075@0[mirror]: detail text: 'needs a pulse, impulse or vertex source' vs 'not running yet'
+      sq5_unstable_Co075@1200[mirror]: detail text: 'needs a pulse, impulse or vertex source' vs 'not running yet'
+      sq5_unstable_Co075_js_seed@0[mirror]: detail text: 'needs a pulse, impulse or vertex source' vs 'not running yet'
+      sq5_unstable_Co075_js_seed@1200[mirror]: detail text: 'needs a pulse, impulse or vertex source' vs 'not running yet'
+      sq9_Co09_over@0[mirror]: detail text: 'needs a pulse, impulse or vertex source' vs 'not running yet'
+      tri_n6_conf_pulse@0[mirror]: detail text: 'needs a pulse, impulse or vertex source' vs 'not running yet'
+      tri_circle_pulse@0[mirror]: detail text: 'needs a pulse, impulse or vertex source' vs 'not running yet'
+      tri_n6_vtxwall_conf@0[mirror]: detail text: 'needs a pulse, impulse or vertex source' vs 'not running yet'
+      tri_Co085_over@0[mirror]: detail text: 'needs a pulse, impulse or vertex source' vs 'not running yet'
+  fix sqfull-side: 83 rows, e.g. sq5_full_dir_pulse@0[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_full_dir_pulse@0[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_full_dir_pulse@50[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_full_dir_pulse@300[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_full_dir_pulse@1200[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_full_dir_impulse@0[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_full_dir_impulse@50[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_full_dir_impulse@300[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_full_dir_impulse@1200[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_full_neu_impulse@0[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_full_neu_impulse@50[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_full_neu_impulse@300[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_full_neu_impulse@1200[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_full_mur_pulse@0[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_full_mur_pulse@50[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_full_mur_pulse@300[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_full_mur_pulse@1200[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_full_mur_impulse_off@0[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_full_mur_impulse_off@50[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_full_mur_impulse_off@300[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_full_mur_impulse_off@1200[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_full_per_pulse@0[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_full_per_pulse@50[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_full_per_pulse@300[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_full_per_pulse@1200[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_full_per_impulse@0[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_full_per_impulse@50[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_full_per_impulse@300[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_full_per_impulse@1200[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq9_full_dir_impulse@0[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq9_full_dir_impulse@50[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq9_full_dir_impulse@300[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq9_full_dir_impulse@1200[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq9_full_neu_pulse_corner@0[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq9_full_neu_pulse_corner@50[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq9_full_neu_pulse_corner@300[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq9_full_neu_pulse_corner@1200[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq9_full_mur_pulse@0[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq9_full_mur_pulse@50[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq9_full_mur_pulse@300[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq9_full_mur_pulse@1200[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_full_mur_pulse_s2_off@0[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_full_mur_pulse_s2_off@50[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_full_mur_pulse_s2_off@300[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_full_mur_pulse_s2_off@1200[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_full_dir_drops@0[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_full_dir_drops@50[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_full_dir_drops@300[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_full_dir_drops@1200[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_full_mur_cont@0[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_full_mur_cont@50[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_full_mur_cont@300[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_full_mur_cont@1200[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_full_mode11@0[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_full_mode11@50[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_full_mode11@300[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_full_mode11@1200[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq9_full_mode32@0[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq9_full_mode32@50[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq9_full_mode32@300[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq9_full_mode32@1200[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_full_mode73_damp@0[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_full_mode73_damp@50[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_full_mode73_damp@300[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_full_mode73_damp@1200[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_full_mode_slab@0[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_full_mode_slab@50[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_full_mode_slab@300[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_full_mode_slab@1200[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_full_mode_neu@0[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_full_mode_neu@50[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_full_mode_neu@300[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_full_mode_neu@1200[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_unstable_Co075@0[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_unstable_Co075@50[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_unstable_Co075@300[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_unstable_Co075@1200[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_unstable_Co075_js_seed@0[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_unstable_Co075_js_seed@50[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_unstable_Co075_js_seed@300[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq5_unstable_Co075_js_seed@1200[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq9_Co09_over@0[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq9_Co09_over@50[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+      sq9_Co09_over@300[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+  fix lens-text: 8 rows, e.g. sq5_circle_lens@0[refraction]: label text: 'refraction: the front slows in the slab (c/' vs 'refraction: the front slows in the lens ('; detail text: "per-cell Co is halved in the slow region — Berglund's two-Courant-num
+      sq5_circle_lens@0[refraction]: label text: 'refraction: the front slows in the slab (c/' vs 'refraction: the front slows in the lens ('; detail text: "per-cell Co is halved in the slow region — Berglund's two-Courant-number trick; a quantitative Snell check is not yet wired" vs 'per-cell Co is '
+      sq5_circle_lens@50[refraction]: label text: 'refraction: the front slows in the slab (c/' vs 'refraction: the front slows in the lens ('; detail text: "per-cell Co is halved in the slow region — Berglund's two-Courant-number trick; a quantitative Snell check is not yet wired" vs 'per-cell Co is '
+      sq5_circle_lens@300[refraction]: label text: 'refraction: the front slows in the slab (c/' vs 'refraction: the front slows in the lens ('; detail text: "per-cell Co is halved in the slow region — Berglund's two-Courant-number trick; a quantitative Snell check is not yet wired" vs 'per-cell Co is '
+      sq5_circle_lens@1200[refraction]: label text: 'refraction: the front slows in the slab (c/' vs 'refraction: the front slows in the lens ('; detail text: "per-cell Co is halved in the slow region — Berglund's two-Courant-number trick; a quantitative Snell check is not yet wired" vs 'per-cell Co is '
+      tri_circle_lens_off@0[refraction]: label text: 'refraction: the front slows in the slab (c/' vs 'refraction: the front slows in the lens ('; detail text: "per-cell Co is halved in the slow region — Berglund's two-Courant-number trick; a quantitative Snell check is not yet wired" vs 'per-cell Co is '
+      tri_circle_lens_off@50[refraction]: label text: 'refraction: the front slows in the slab (c/' vs 'refraction: the front slows in the lens ('; detail text: "per-cell Co is halved in the slow region — Berglund's two-Courant-number trick; a quantitative Snell check is not yet wired" vs 'per-cell Co is 
+      tri_circle_lens_off@300[refraction]: label text: 'refraction: the front slows in the slab (c/' vs 'refraction: the front slows in the lens ('; detail text: "per-cell Co is halved in the slow region — Berglund's two-Courant-number trick; a quantitative Snell check is not yet wired" vs 'per-cell Co is
+      tri_circle_lens_off@1200[refraction]: label text: 'refraction: the front slows in the slab (c/' vs 'refraction: the front slows in the lens ('; detail text: "per-cell Co is halved in the slow region — Berglund's two-Courant-number trick; a quantitative Snell check is not yet wired" vs 'per-cell Co i
+  fix edge-kind: 38 rows, e.g. sq5_n12_mur_cont_tri@0[energy]: 
+      sq5_n12_mur_cont_tri@0[energy]: 
+      sq5_n12_mur_cont_tri@0[wake]: 
+      sq5_n12_mur_cont_tri@0[linear]: detail text: 'waiting for the switch-on transient to leave (step ' vs 'an undamped closed cavity never settles — its own modes ring for ever at frequencies unrelated to the drive, which is real out-of-band content, not mixing. Use the absorbing edge or add damping.'
+      sq5_n12_mur_cont_tri@50[energy]: 
+      sq5_n12_mur_cont_tri@50[wake]: 
+      sq5_n12_mur_cont_tri@50[linear]: detail text: 'waiting for the switch-on transient to leave (step ' vs 'an undamped closed cavity never settles — its own modes ring for ever at frequencies unrelated to the drive, which is real out-of-band content, not mixing. Use the absorbing edge or add damping.'
+      sq5_n12_mur_cont_tri@300[energy]: 
+      sq5_n12_mur_cont_tri@300[wake]: 
+      sq5_n12_mur_cont_tri@300[linear]: detail text: 'waiting for the switch-on transient to leave (step ' vs 'an undamped closed cavity never settles — its own modes ring for ever at frequencies unrelated to the drive, which is real out-of-band content, not mixing. Use the absorbing edge or add damping.'
+      sq5_n12_mur_cont_tri@1200[energy]: 
+      sq5_n12_mur_cont_tri@1200[wake]: 
+      sq5_n12_mur_cont_tri@1200[linear]: status 'FAIL' vs 'n/a'; detail text: 'out-of-band / in-band at the probe = ' vs 'an undamped closed cavity never settles — its own modes ring for ever at frequencies unrelated to the drive, which is real out-of-band content, not mixing. Use the absorbing edge or ad
+      sq5_n6_mur_pulse@0[energy]: detail text: 'absorbing edge removes energy by design' vs 'run to ~'
+      sq5_n6_mur_pulse@0[wake]: detail text: 'run to at least step ' vs 'needs a centred pulse with the ABSORBING boundary (else reflections mask it)'
+      sq5_n6_mur_pulse@0[linear]: 
+      sq5_n6_mur_pulse@50[energy]: detail text: 'absorbing edge removes energy by design' vs 'run to ~'
+      sq5_n6_mur_pulse@50[wake]: detail text: 'run to at least step ' vs 'needs a centred pulse with the ABSORBING boundary (else reflections mask it)'
+      sq5_n6_mur_pulse@50[linear]: 
+      sq5_n6_mur_pulse@300[energy]: detail text: 'absorbing edge removes energy by design' vs 'run to ~'
+      sq5_n6_mur_pulse@300[wake]: status 'measured' vs 'n/a'; label text: 'D leaves a WAKE after the front (it cannot be sharp)' vs 'D leaves a WAKE (it cannot be sharp)'; detail text: 'tail/peak = ' vs 'needs a centred pulse with the ABSORBING boundary (else reflections mask it)'
+      sq5_n6_mur_pulse@300[linear]: 
+      sq5_n6_mur_pulse@1200[energy]: status 'n/a' vs 'PASS'; detail text: 'absorbing edge removes energy by design' vs 'drift '
+      sq5_n6_mur_pulse@1200[bc]: status 'FAIL' vs 'PASS'; label text: 'absorbing edge: little comes back' vs 'fixed edge: the wave DOES come back'; detail text: ' · Mur k = (Co−' vs ' · a drum is supposed to ring'
+      sq5_n6_mur_pulse@1200[wake]: status 'measured' vs 'n/a'; label text: 'D leaves a WAKE after the front (it cannot be sharp)' vs 'D leaves a WAKE (it cannot be sharp)'; detail text: 'tail/peak = ' vs 'needs a centred pulse with the ABSORBING boundary (else reflections mask it)'
+      sq5_n6_mur_pulse@1200[linear]: 
+      tri_n6_rot0_mur@0[energy]: detail text: 'absorbing edge removes energy by design' vs 'run to ~'
+      tri_n6_rot0_mur@0[wake]: detail text: 'run to at least step ' vs 'needs a centred pulse with the ABSORBING boundary (else reflections mask it)'
+      tri_n6_rot0_mur@0[linear]: 
+      tri_n6_rot0_mur@50[energy]: detail text: 'absorbing edge removes energy by design' vs 'run to ~'
+      tri_n6_rot0_mur@50[wake]: detail text: 'run to at least step ' vs 'needs a centred pulse with the ABSORBING boundary (else reflections mask it)'
+      tri_n6_rot0_mur@50[linear]: 
+      tri_n6_rot0_mur@300[energy]: detail text: 'absorbing edge removes energy by design' vs 'run to ~'
+      tri_n6_rot0_mur@300[wake]: status 'measured' vs 'n/a'; label text: 'D leaves a WAKE after the front (it cannot be sharp)' vs 'D leaves a WAKE (it cannot be sharp)'; detail text: 'tail/peak = ' vs 'needs a centred pulse with the ABSORBING boundary (else reflections mask it)'
+      tri_n6_rot0_mur@300[linear]: 
+      tri_n6_rot0_mur@1200[energy]: status 'n/a' vs 'PASS'; detail text: 'absorbing edge removes energy by design' vs 'drift '
+      tri_n6_rot0_mur@1200[bc]: status 'FAIL' vs 'PASS'; label text: 'absorbing edge: little comes back' vs 'fixed edge: the wave DOES come back'; detail text: ' · Mur k = (Co−' vs ' · a drum is supposed to ring'
+      tri_n6_rot0_mur@1200[wake]: status 'measured' vs 'n/a'; label text: 'D leaves a WAKE after the front (it cannot be sharp)' vs 'D leaves a WAKE (it cannot be sharp)'; detail text: 'tail/peak = ' vs 'needs a centred pulse with the ABSORBING boundary (else reflections mask it)'
+      tri_n6_rot0_mur@1200[linear]: 
+  fix cfl-nan: 2 rows, e.g. sq5_unstable_Co075@1200[cfl]: status 'not yet' vs 'RED OK'
+      sq5_unstable_Co075@1200[cfl]: status 'not yet' vs 'RED OK'
+      sq5_unstable_Co075_js_seed@1200[cfl]: status 'not yet' vs 'RED OK'
+  fix tri-diagonal: 5 rows, e.g. tri_n6_conf_pulse@50[aniso]: detail number: 0.8081 vs 0.9897
+      tri_n6_conf_pulse@50[aniso]: detail number: 0.8081 vs 0.9897
+      tri_n3_conf_impulse@50[aniso]: detail number: 1.4142 vs 1.7321
+      tri_circle_pulse@50[aniso]: detail number: 0.7857 vs 0.9623
+      tri_n6_rot0_mur@50[aniso]: detail number: 0.7857 vs 0.9623
+      tri_Co085_over@50[aniso]: detail number: 0.9428 vs 1.1547
+  UNEXPLAINED ('tri_n6_conf_pulse', 0, 'aniso', [])
+  UNEXPLAINED ('tri_circle_pulse', 0, 'aniso', [])
+  UNEXPLAINED ('tri_circle_lens_off', 0, 'aniso', [])
+  UNEXPLAINED ('tri_circle_lens_off', 50, 'aniso', [])
+  UNEXPLAINED ('tri_n12_cont_saw', 50, 'aniso', [])
+  UNEXPLAINED ('tri_n6_rot0_mur', 0, 'aniso', [])
+port ledger build (compat=True): median 0.9 ms, max 69.8 ms (N <= 257, arch cpu)
+RESULT: FAIL (0 status mismatches, 5 text mismatches)

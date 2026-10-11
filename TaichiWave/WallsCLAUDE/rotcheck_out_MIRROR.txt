@@ -1,0 +1,6 @@
+rot 30.0: P   sigma axis 30.045 (edge 2.2e-14) rotated 34.039 (edge 9.1e-14) ratio 1.1330  cells A 121 B 145
+rot 30.0: R0  sigma axis 21.736 (edge 2.3e-14) rotated 33.437 (edge 5.6e-14) ratio 1.5384  cells A 121 B 145
+rot 15.0: P   sigma axis 30.733 (edge 4.2e-14) rotated 34.437 (edge 9.1e-14) ratio 1.1205  cells A 121 B 145
+rot 15.0: R0  sigma axis 23.589 (edge 4.7e-14) rotated 28.611 (edge 7.9e-14) ratio 1.2129  cells A 121 B 145
+rot 45.0: P   sigma axis 29.719 (edge 1.7e-14) rotated 33.366 (edge 8.1e-14) ratio 1.1227  cells A 121 B 145
+rot 45.0: R0  sigma axis 21.130 (edge 1.7e-14) rotated 32.425 (edge 4.2e-14) ratio 1.5345  cells A 121 B 145

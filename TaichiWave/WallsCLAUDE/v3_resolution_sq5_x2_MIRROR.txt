@@ -1,0 +1,6 @@
+sq5 side 21 lam 15.272727272727273 rot 30 P  : sigma axis   56.021 rotated   57.210 ratio 1.0212 cells 441/441 edge 1e-13  [25 s]
+sq5 side 21 lam 15.272727272727273 rot 30 R0 : sigma axis   53.671 rotated   62.601 ratio 1.1664 cells 441/441 edge 7e-14  [36 s]
+   R0 DISC reference ratio 0.9876 (cells 437)
+sq5 side 21 lam 15.272727272727273 rot 45 P  : sigma axis   56.318 rotated   55.684 ratio 0.9887 cells 441/421 edge 9e-14  [66 s]
+sq5 side 21 lam 15.272727272727273 rot 45 R0 : sigma axis   60.336 rotated   71.178 ratio 1.1797 cells 441/421 edge 3e-14  [77 s]
+   R0 DISC reference ratio 1.0381 (cells 437)

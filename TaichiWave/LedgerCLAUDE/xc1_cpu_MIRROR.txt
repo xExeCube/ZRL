@@ -1,0 +1,79 @@
+[Taichi] version 1.7.4, llvm 15.0.1, commit b4b956fd, win, python 3.12.2
+web app (Node) ran 49 configs in 149.8 s  (C:\Users\xexec\AppData\Local\Temp\zrl_ledger_ni377rmp\ledger_js.jsonl)
+patches applied to the web app: neumann-corner
+[Taichi] Starting on arch=x64
+sq5_full_dir_pulse: checkpoints 0,50,300,1200 done
+sq5_full_dir_impulse: checkpoints 0,50,300,1200 done
+sq5_full_neu_impulse: checkpoints 0,50,300,1200 done
+sq5_full_mur_pulse: checkpoints 0,50,300,1200 done
+sq5_full_mur_impulse_off: checkpoints 0,50,300,1200 done
+sq5_full_per_pulse: checkpoints 0,50,300,1200 done
+sq5_full_per_impulse: checkpoints 0,50,300,1200 done
+sq9_full_dir_impulse: checkpoints 0,50,300,1200 done
+sq9_full_neu_pulse_corner: checkpoints 0,50,300,1200 done
+sq9_full_mur_pulse: checkpoints 0,50,300,1200 done
+sq5_full_mur_pulse_s2_off: checkpoints 0,50,300,1200 done
+sq5_full_dir_drops: checkpoints 0,50,300,1200 done
+sq5_full_mur_cont: checkpoints 0,50,300,1200 done
+sq5_full_mode11: checkpoints 0,50,300,1200 done
+sq9_full_mode32: checkpoints 0,50,300,1200 done
+sq5_sqr07_mode25: checkpoints 0,50,300,1200 done
+sq5_full_mode73_damp: checkpoints 0,50,300,1200 done
+sq5_full_mode_slab: checkpoints 0,50,300,1200 done
+sq5_full_mode_neu: checkpoints 0,50,300,1200 done
+sq5_circle_lens: checkpoints 0,50,300,1200 done
+sq5_circle_impulse: checkpoints 0,50,300,1200 done
+sq5_n8_pulse: checkpoints 0,50,300,1200 done
+sq9_n4_pulse: checkpoints 0,50,300,1200 done
+sq5_n12_mur_cont_tri: checkpoints 0,50,300,1200 done
+sq5_n6_slab_cont: checkpoints 0,50,300,1200 done
+sq5_n6_mur_pulse: checkpoints 0,50,300,1200 done
+sq5_n6_vtx_rot0: checkpoints 0,50,300,1200 done
+sq5_n5_vtxwall_clip: checkpoints 0,50,300,1200 done
+sq5_n5_vtx_rot0: checkpoints 0,50,300,1200 done
+sq5_n3_pulse_x: checkpoints 0,50,300,1200 done
+sq5_n4_slit_square_damp: checkpoints 0,50,300,1200 done
+sq5_n8_vtxdrive_saw: checkpoints 0,50,300,1200 done
+sq5_rhomb_neu: checkpoints 0,50,300,1200 done
+sq5_rhomb_rot0_impulse: checkpoints 0,50,300,1200 done
+sq5_sqr05_neu_pulse: checkpoints 0,50,300,1200 done
+  DIFF sq5_unstable_Co075 @ 50 [sym8]: detail number: 1.17e-3 vs 1.00e-3
+  DIFF sq5_unstable_Co075 @ 50 [mirror]: detail number: 1.18e-3 vs 9.97e-4
+  state sq5_unstable_Co075 @ 300: amax 2.5061046299859795e+72 vs 2.5841702083404634e+72
+  DIFF sq5_unstable_Co075 @ 300 [cfl]: detail number: 2.51e+72 vs 2.58e+72
+  DIFF sq5_unstable_Co075 @ 300 [sym8]: detail number: 1.67e+71 vs 1.39e+71
+  DIFF sq5_unstable_Co075 @ 300 [mirror]: detail number: 1.67e+71 vs 1.39e+71
+sq5_unstable_Co075: checkpoints 0,50,300,1200 done
+sq9_Co09_over: checkpoints 0,50,300 done
+tri_n6_conf_pulse: checkpoints 0,50,300,1200 done
+tri_n3_conf_impulse: checkpoints 0,50,300,1200 done
+tri_rhomb60_imp: checkpoints 0,50,300,1200 done
+tri_circle_pulse: checkpoints 0,50,300,1200 done
+tri_circle_lens_off: checkpoints 0,50,300,1200 done
+tri_n12_cont_saw: checkpoints 0,50,300,1200 done
+tri_n5_slit: checkpoints 0,50,300,1200 done
+tri_square_slab_vtx: checkpoints 0,50,300,1200 done
+tri_n6_vtxwall_conf: checkpoints 0,50,300,1200 done
+tri_n6_rot0_mur: checkpoints 0,50,300,1200 done
+tri_Co085_over: checkpoints 0,50,300 done
+sq5_n6_N257: checkpoints 0,50,300 done
+
+==== summary ====
+49 configurations, 193 ledgers, 3367 rows (compat=True, the web app's logic)
+status agreement: 3367/3367 (100.00%)
+full-row agreement (label, status, detail with numbers in tolerance, tier): 3362/3367 (99.85%)
+module state (step, S.amax, CLEAR, CONE_WALL, SRC, history lengths) differing: 1 ledgers
+with FIXES (compat=False): 141 rows differ from the web app, each explained by a fix; 5 unexplained
+  fix mirror-live: 22 rows, e.g. sq5_full_dir_pulse@0[mirror]: detail text: 'needs a pulse, impulse or vertex source' vs 'not running yet'
+  fix sqfull-side: 79 rows, e.g. sq5_full_dir_pulse@0[stair]: detail text: ' · R = ' vs ' · the domain is the whole '
+  fix lens-text: 8 rows, e.g. sq5_circle_lens@0[refraction]: label text: 'refraction: the front slows in the slab (c/' vs 'refraction: the front slows in the lens ('; detail text: "per-cell Co is halved in the slow region — Berglund's two-Courant-num
+  fix edge-kind: 26 rows, e.g. sq5_n12_mur_cont_tri@0[linear]: detail text: 'waiting for the switch-on transient to leave (step ' vs 'an undamped closed cavity never settles — its own modes ring for ever at frequencies unrelated to the drive, which is
+  fix cfl-nan: 1 rows, e.g. sq5_unstable_Co075@1200[cfl]: status 'not yet' vs 'RED OK'
+  fix tri-diagonal: 5 rows, e.g. tri_n6_conf_pulse@50[aniso]: detail number: 0.8081 vs 0.9897
+  UNEXPLAINED ('sq5_unstable_Co075', 50, 'sym8', ['detail number: 1.17e-3 vs 1.00e-3'])
+  UNEXPLAINED ('sq5_unstable_Co075', 50, 'mirror', ['detail number: 1.18e-3 vs 9.97e-4'])
+  UNEXPLAINED ('sq5_unstable_Co075', 300, 'cfl', ['detail number: 2.51e+72 vs 2.58e+72'])
+  UNEXPLAINED ('sq5_unstable_Co075', 300, 'sym8', ['detail number: 1.67e+71 vs 1.39e+71'])
+  UNEXPLAINED ('sq5_unstable_Co075', 300, 'mirror', ['detail number: 1.67e+71 vs 1.39e+71'])
+port ledger build (compat=True): median 1.1 ms, max 79.4 ms (N <= 257, arch cpu)
+RESULT: FAIL (0 status mismatches, 5 text mismatches)

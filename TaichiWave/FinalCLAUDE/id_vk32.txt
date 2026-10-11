@@ -1,0 +1,45 @@
+[Taichi] version 1.7.4, llvm 15.0.1, commit b4b956fd, win, python 3.12.2
+[Taichi] Starting on arch=vulkan
+PASS light cone sq5: diamond |a|+|b| <= m  | N=1025, m=20: max|u| outside = 0.0e+00 (exactly 0), on the rim = 1.68e-07
+PASS light cone sq9: square max(|a|,|b|) <= m  | N=1025, m=20: max|u| outside = 0.0e+00 (exactly 0), on the rim = 1.41e-13
+PASS light cone tri: hexagon max(|a|,|b|,|a+b|) <= m  | N=1025, m=20: max|u| outside = 0.0e+00 (exactly 0), on the rim = 5.05e-11
+PASS CFL flip sq5 at C_max = 0.7071  | max|u| after 3000 steps: 3.77e-02 at 0.995 C_max, inf at 1.01 C_max
+PASS CFL flip sq9 at C_max = 0.8660  | max|u| after 3000 steps: 3.79e-02 at 0.995 C_max, inf at 1.01 C_max
+PASS CFL flip tri at C_max = 0.8165  | max|u| after 3000 steps: 6.16e-02 at 0.995 C_max, inf at 1.01 C_max
+PASS damped CFL flip sq5 at d = 0.2: C_max(d) = 0.6708  | C_max(0) 0.7071 x sqrt(1 - d/2); max|u| after 3000 steps: 8.74e-07 at 0.995, inf at 1.01 C_max(d)
+PASS damped CFL flip sq9 at d = 0.2: C_max(d) = 0.8216  | C_max(0) 0.8660 x sqrt(1 - d/2); max|u| after 3000 steps: 6.34e-08 at 0.995, inf at 1.01 C_max(d)
+PASS damped CFL flip tri at d = 0.2: C_max(d) = 0.7746  | C_max(0) 0.8165 x sqrt(1 - d/2); max|u| after 3000 steps: 2.35e-10 at 0.995, inf at 1.01 C_max(d)
+PASS source snap: click on the D (left stroke, middle)  | requested (98,467) solid -> (83,467), 15 hops, main region; src_moved True; the web-app walk -> (115, 469) (its counter)
+PASS source snap: click on the D (left stroke, edge by the counter)  | requested (113,467) solid -> (83,467), 30 hops, main region; src_moved True; the web-app walk -> (129, 469) (its counter)
+PASS source snap: click on the A (left stroke, middle)  | requested (470,455) solid -> (455,455), 15 hops, main region; src_moved True; the web-app walk -> (490, 482) (its counter)
+PASS source snap: click on the A (left stroke, edge by the counter)  | requested (484,455) solid -> (455,455), 29 hops, main region; src_moved True; the web-app walk -> (485, 457) (its counter)
+PASS source snap: a free cell (inside the counter) is kept  | (499,455) -> (499, 455), src_moved False
+PASS source snap: stroke box elsewhere -> incremental main region, same source  | (455, 455, True) -> (455, 455, True) (approx True) -> exact (455, 455, True)
+PASS source snap: no solids -> the web-app walk, src_moved False  | (147,121) outside -> (144, 119), how walk
+PASS 8-fold symmetry, square lattice, full grid  | N=1025: residual 2.9e-06
+PASS 6-fold symmetry, triangular lattice, hexagon at 30 deg  | N=1025: residual 3.7e-06
+PASS energy conserved: uniform square, Dirichlet  | N=1025, 2000 steps: drift 2.8e-07
+PASS energy conserved: circle + lens (inhomogeneous)  | N=1025, 2000 steps: drift 3.9e-07
+PASS energy conserved: triangular hexagon  | N=1025, 2000 steps: drift 8.5e-06
+PASS drum dispersion sq5 mode (1,1)  | N=1025: 400 steps vs the closed form, worst 4.3e-05 (w = 0.002603 rad/step)
+PASS drum dispersion sq5 mode (7,3)  | N=1025: 400 steps vs the closed form, worst 1.6e-06 (w = 0.014019 rad/step)
+PASS drum dispersion sq5 mode (40,25)  | N=1025: 400 steps vs the closed form, worst 1.2e-06 (w = 0.086811 rad/step)
+PASS drum dispersion sq9 mode (1,1)  | N=1025: 400 steps vs the closed form, worst 7.2e-06 (w = 0.002603 rad/step)
+PASS drum dispersion sq9 mode (7,3)  | N=1025: 400 steps vs the closed form, worst 1.5e-06 (w = 0.014019 rad/step)
+PASS drum dispersion sq9 mode (40,25)  | N=1025: 400 steps vs the closed form, worst 1.1e-06 (w = 0.086781 rad/step)
+PASS conformance tri n6 radius 0.37  | N=1025, side 164: 81181 cells, closed form 81181
+PASS conformance tri n6 radius 0.91  | N=1025, side 402: 486019 cells, closed form 486019
+PASS conformance tri n3 radius 0.6  | N=1025, side 459: 106030 cells, closed form 106030
+PASS conformance tri n3 radius 1.0  | N=1025, side 765: 293761 cells, closed form 293761
+PASS conformance tri rhomb radius 0.55  | N=1025, side 280: 78961 cells, closed form 78961
+PASS conformance tri rhomb radius 0.97  | N=1025, side 494: 245025 cells, closed form 245025
+PASS time reflection: a backward ring appears when Co jumps 0.5 -> 0.7  | backward/forward = 0.248 (1D long-wave B/F = 0.167; x1.66 for the 2D ring spreading: converging vs diverging -> ~0.28)
+PASS time reflection: the 2nd-order rescale removes it  | backward with rescale = 1.8e-02 of without
+PASS Neumann corner: 8-fold symmetry sq5, centred pulse  | N=257, 900 steps: residual 4.2e-06 (old corner rule, numpy: 4.0e-03, 1 cells differ from the new rule); port vs numpy new rule 3.0e-06
+PASS Neumann corner: 8-fold symmetry sq9, centred pulse  | N=257, 900 steps: residual 4.5e-06 (old corner rule, numpy: 5.6e-02, 63673 cells differ from the new rule); port vs numpy new rule 2.0e-05
+PASS Neumann corner: ghost-cell energy conserved sq5  | N=513, pulse near the (0,0) corner, 2000 steps: drift 4.2e-08 (old corner rule, numpy: 0.0e+00)
+PASS Neumann corner: ghost-cell energy conserved sq9  | N=513, pulse near the (0,0) corner, 2000 steps: drift 5.2e-07 (old corner rule, numpy: 5.8e-03)
+PASS recorder never changes the field (sq9)  | 300 steps: fields bit-identical; history 300 vs 0 entries
+PASS recorder never changes the field (tri)  | 300 steps: fields bit-identical; history 300 vs 0 entries
+
+ALL PASS (vulkan f32, 58.2 s)

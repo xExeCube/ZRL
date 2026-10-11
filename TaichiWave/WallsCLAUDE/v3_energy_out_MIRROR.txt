@@ -1,0 +1,20 @@
+=== A. independent operator vs walls_lib (mixed scene, pinned + rigid) ===
+sq9 max|mine - walls_lib| = 2.220446049250313e-16  sym err = 0.0
+tri max|mine - walls_lib| = 0.0  sym err = 0.0
+
+=== B. energy identity (leapfrog, f64, 20000 steps) ===
+sq9 Co=0.8253 (0.95*CFL of this scene, lam=5.3002, lam/lam_open=0.9938): E0 link-form=4.815203e+03 matrix-form=4.815203e+03; max rel drift=2.2e-12; sum(u^2) ranges 1.282e+06..1.278e+08 (not conserved)
+sq9 Co=0.8679 (0.999*CFL of this scene, lam=5.3002, lam/lam_open=0.9938): E0 link-form=4.744858e+03 matrix-form=4.744858e+03; max rel drift=4.9e-13; sum(u^2) ranges 2.823e+05..2.758e+07 (not conserved)
+tri Co=0.7796 (0.95*CFL of this scene, lam=5.9402, lam/lam_open=0.9900): E0 link-form=5.729761e+03 matrix-form=5.729761e+03; max rel drift=1.3e-12; sum(u^2) ranges 1.653e+06..1.648e+08 (not conserved)
+tri Co=0.8198 (0.999*CFL of this scene, lam=5.9402, lam/lam_open=0.9900): E0 link-form=5.567704e+03 matrix-form=5.567704e+03; max rel drift=3.0e-13; sum(u^2) ranges 1.372e+06..1.368e+08 (not conserved)
+
+=== C. adversarial lambda_max / lambda_open search (Pcb, R1, also P/R0 as controls) ===
+sq9 P: max lam/lam_open found = 0.992444
+sq9 R0: max lam/lam_open found = 0.991533
+sq9 Pcb: max lam/lam_open found = 0.992443
+sq9 R1: max lam/lam_open found = 0.991543
+tri P: max lam/lam_open found = 0.990504
+tri R0: max lam/lam_open found = 0.986358
+tri Pcb: max lam/lam_open found = 0.990495
+tri R1: max lam/lam_open found = 0.981658
+(search time 45 s)

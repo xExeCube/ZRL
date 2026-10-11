@@ -1,0 +1,33 @@
+[Taichi] version 1.7.4, llvm 15.0.1, commit b4b956fd, win, python 3.12.2
+web app (Node) ran 27 configs in 24.8 s; patches applied: NONE (ZRL_JS_NOPATCH=1)
+[Taichi] Starting on arch=x64
+PASS sq5_full_dir_pulse  | N=161 mask = | dCo2 0.0e+00 | du(0) 1.4e-17 | du(300)/max 2.6e-15 (same seed 0.0e+00) | vtx = | clip = | max|u| 0.08851 | hist n=300/0 dE 1.1e-14 dprobe 2.4e-16 damax 0.0e+00
+FAIL sq5_full_neu_impulse  | N=161 mask = | dCo2 0.0e+00 | du(0) 0.0e+00 | du(300)/max 1.3e+00 (same seed 1.3e+00) | vtx = | clip = | max|u| 0.02284 | hist n=300/0 dE 1.2e-14 dprobe 0.0e+00 damax 0.0e+00
+PASS sq5_full_mur_pulse_off  | N=161 mask = | dCo2 0.0e+00 | du(0) 1.4e-17 | du(300)/max 2.2e-14 (same seed 0.0e+00) | vtx = | clip = | max|u| 0.005471 | hist n=300/0 dE 7.4e-15 dprobe 2.1e-16 damax 7.8e-18
+PASS sq5_full_per_pulse  | N=161 mask = | dCo2 0.0e+00 | du(0) 1.4e-17 | du(300)/max 3.4e-15 (same seed 0.0e+00) | vtx = | clip = | max|u| 0.09686 | hist n=300/0 dE 9.7e-15 dprobe 2.1e-16 damax 8.3e-17
+PASS sq9_full_per_pulse  | N=161 mask = | dCo2 0.0e+00 | du(0) 1.4e-17 | du(300)/max 7.1e-15 (same seed 0.0e+00) | vtx = | clip = | max|u| 0.08243 | hist n=300/0 dE 1.2e-14 dprobe 4.1e-16 damax 5.6e-17
+PASS sq9_full_mode32  | N=161 mask = | dCo2 0.0e+00 | du(0) 2.2e-16 | du(300)/max 1.4e-14 (same seed 0.0e+00) | vtx = | clip = | max|u| 0.3526 | hist n=300/301 dE 1.9e-14 dprobe 3.3e-15 damax 2.2e-15
+FAIL sq9_full_neu_corner  | N=161 mask = | dCo2 0.0e+00 | du(0) 1.1e-19 | du(300)/max 3.2e-02 (same seed 3.2e-02) | vtx = | clip = | max|u| 0.1196 | hist n=300/0 dE 1.7e-02 dprobe 1.4e-05 damax 2.0e-14
+PASS sq9_full_mur_corner  | N=161 mask = | dCo2 0.0e+00 | du(0) 1.1e-19 | du(300)/max 2.8e-15 (same seed 0.0e+00) | vtx = | clip = | max|u| 0.04682 | hist n=300/0 dE 2.9e-15 dprobe 9.7e-17 damax 6.9e-18
+PASS sq5_sqr07_mode  | N=161 mask = | dCo2 0.0e+00 | du(0) 2.2e-16 | du(300)/max 7.2e-15 (same seed 0.0e+00) | vtx = | clip = | max|u| 0.4487 | hist n=300/301 dE 2.4e-14 dprobe 2.3e-15 damax 1.4e-15
+PASS sq9_circle_lens  | N=161 mask = | dCo2 0.0e+00 | du(0) 6.9e-18 | du(300)/max 1.9e-15 (same seed 0.0e+00) | vtx = | clip = | max|u| 0.2576 | hist n=300/0 dE 7.2e-15 dprobe 4.0e-16 damax 2.2e-16
+PASS sq5_n5_vtxwall  | N=161 mask = | dCo2 0.0e+00 | du(0) 1.4e-17 | du(300)/max 2.2e-15 (same seed 0.0e+00) | vtx = | clip = | max|u| 0.381 | hist n=300/0 dE 1.3e-14 dprobe 5.8e-16 damax 5.6e-17
+PASS sq5_n6_slab_cont  | N=161 mask = | dCo2 0.0e+00 | du(0) 0.0e+00 | du(300)/max 1.2e-15 (same seed 1.2e-15) | vtx = | clip = | max|u| 0.671 | hist n=300/0 dE 9.2e-15 dprobe 5.4e-16 damax 3.3e-16
+PASS sq5_n4_slit_square  | N=161 mask = | dCo2 0.0e+00 | du(0) 0.0e+00 | du(300)/max 1.4e-15 (same seed 1.4e-15) | vtx = | clip = | max|u| 11.19 | hist n=300/0 dE 9.6e-15 dprobe 3.4e-16 damax 3.2e-16
+PASS sq5_n8_vtxdrive_saw  | N=161 mask = | dCo2 0.0e+00 | du(0) 1.1e-16 | du(300)/max 1.4e-15 (same seed 1.5e-15) | vtx = | clip = | max|u| 1.826 | hist n=300/0 dE 1.1e-14 dprobe 4.9e-16 damax 2.6e-16
+PASS sq5_rhomb_neu  | N=161 mask = | dCo2 0.0e+00 | du(0) 1.4e-17 | du(300)/max 2.8e-15 (same seed 0.0e+00) | vtx = | clip = | max|u| 0.1904 | hist n=300/0 dE 3.4e-15 dprobe 4.2e-16 damax 1.4e-16
+PASS sq5_n12_mur_cont_tri  | N=161 mask = | dCo2 0.0e+00 | du(0) 0.0e+00 | du(300)/max 1.3e-15 (same seed 1.3e-15) | vtx = | clip = | max|u| 0.3642 | hist n=300/0 dE 1.4e-14 dprobe 1.2e-15 damax 7.6e-16
+PASS sq5_sqr05_neu_pulse  | N=161 mask = | dCo2 0.0e+00 | du(0) 1.4e-17 | du(300)/max 2.9e-15 (same seed 0.0e+00) | vtx = | clip = | max|u| 0.1562 | hist n=300/0 dE 6.0e-15 dprobe 3.1e-16 damax 5.6e-17
+PASS tri_n6_conf_pulse  | N=161 mask = | dCo2 0.0e+00 | du(0) 1.1e-16 | du(300)/max 8.7e-15 (same seed 0.0e+00) | vtx = | clip = | max|u| 0.1277 | hist n=300/0 dE 1.1e-14 dprobe 6.6e-16 damax 1.7e-16
+PASS tri_n3_conf_vtxdrive  | N=161 mask = | dCo2 0.0e+00 | du(0) 1.1e-16 | du(300)/max 2.6e-15 (same seed 2.6e-15) | vtx = | clip = | max|u| 0.8239 | hist n=300/0 dE 5.1e-15 dprobe 1.2e-15 damax 6.7e-16
+PASS tri_rhomb60_imp  | N=161 mask = | dCo2 0.0e+00 | du(0) 0.0e+00 | du(300)/max 0.0e+00 (same seed 0.0e+00) | vtx = | clip = | max|u| 0.02941 | hist n=300/0 dE 6.6e-15 dprobe 0.0e+00 damax 0.0e+00
+PASS tri_circle_lens_off  | N=161 mask = | dCo2 0.0e+00 | du(0) 1.1e-16 | du(300)/max 2.7e-15 (same seed 0.0e+00) | vtx = | clip = | max|u| 0.1589 | hist n=300/0 dE 5.6e-15 dprobe 3.3e-16 damax 1.7e-16
+PASS tri_n12_cont_saw  | N=161 mask = | dCo2 0.0e+00 | du(0) 0.0e+00 | du(300)/max 3.2e-15 (same seed 3.2e-15) | vtx = | clip = | max|u| 0.1967 | hist n=300/0 dE 1.1e-14 dprobe 1.6e-15 damax 0.0e+00
+PASS tri_n5_slit  | N=161 mask = | dCo2 0.0e+00 | du(0) 0.0e+00 | du(300)/max 2.7e-15 (same seed 2.7e-15) | vtx = | clip = | max|u| 5.985 | hist n=300/0 dE 1.1e-14 dprobe 2.7e-16 damax 5.9e-16
+PASS tri_square_slab_vtx  | N=161 mask = | dCo2 0.0e+00 | du(0) 2.8e-17 | du(300)/max 2.6e-15 (same seed 0.0e+00) | vtx = | clip = | max|u| 0.3384 | hist n=300/0 dE 6.8e-15 dprobe 4.3e-16 damax 1.7e-16
+PASS sq5_n6_N257  | N=257 mask = | dCo2 0.0e+00 | du(0) 1.1e-16 | du(300)/max 2.9e-15 (same seed 0.0e+00) | vtx = | clip = | max|u| 0.1186 | hist n=300/0 dE 1.4e-14 dprobe 2.2e-16 damax 5.6e-17
+PASS sq5_unstable_Co075  | N=161 mask = | dCo2 0.0e+00 | du(0) 1.4e-17 | du(60)/max 0.0e+00 (same seed 0.0e+00) | vtx = | clip = | max|u| 6.349 | hist n=60/0 dE 5.1e-15 dprobe 0.0e+00 damax 0.0e+00
+PASS sq5_mode_caps  | N=49 mask = | dCo2 0.0e+00 | du(0) 2.2e-16 | du(4100)/max 1.9e-14 (same seed 0.0e+00) | vtx = | clip = | max|u| 0.6272 | hist n=4000/600 dE 6.4e-15 dprobe 1.5e-14 damax 1.4e-15
+
+25/27 configurations agree with the web app (UNPATCHED) (cpu f64, tolerance 1e-09 of max|u|, energy history 1e-10)
+differing: sq5_full_neu_impulse, sq9_full_neu_corner

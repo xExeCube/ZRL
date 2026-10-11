@@ -1,0 +1,1 @@
+[{"name":"t1","p":{"N":161,"Co":0.5,"damp":0,"shape":"square","bc":"dirichlet","medium":"uniform","src":"impulse","sigma":3,"freq":0.12,"stencil":5,"rtheta":1.0471975511965976,"rot":0,"rad":1,"sx":0,"sy":0,"vtxDrive":false,"lattice":"sq","wave":"sine","vtxInset":"radial","mm":1,"mn":1},"checkpoints":[0,300],"drops":[]}]

@@ -1,0 +1,12 @@
+xc_cpu 0
+xc_cuda 0
+xc_vk32 0
+xc_nopatch 1
+id_cuda 0
+id_vk32 0
+solids 0
+align 0
+ledger 0
+app_tests 0
+shots 0
+bench 0

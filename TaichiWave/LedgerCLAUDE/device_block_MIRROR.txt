@@ -1,0 +1,287 @@
+# ---- device reductions (the field never leaves the GPU) ------------------------------------------
+# Measured 30/09/2026 (CUDA f64, ScratchCLAUDE/LedgerCLAUDE/perf_MIRROR.py) with the numpy versions above:
+# copying the current level to the host alone cost 3.5 ms at N = 1025, 12 at 2049, 45 at 4097, 180-220 at
+# 8193; the octant orbit 530 ms and the triangular 6-fold orbit 3.8 s at N = 8193 (strided transposes /
+# gathers), the mode correlation 1.1 s. So every O(N^2) reduction runs here as a kernel -- max |a - b|
+# over an orbit, the cone's support, the mode correlation -- with the core's two-level pattern (a
+# thread walks a run of rows serially, then ONE atomic per thread into one of RSLOT slots; atomics of
+# millions of threads into one address are slow, 29/09), and only the RSLOT x 8 slot table comes back.
+# max |a - b| is exact in any order, so these agree BIT FOR BIT with the numpy references (checked by
+# crosscheck_ledger_MIRROR.py's port-only section); the sums (cone energy share, correlation) differ in
+# the last bits from the JS's sequential order, which the ledger prints to 2 and 9 decimals.
+# NaN: Math.max propagates NaN; atomic_max drops it, so a NaN is flagged in its own column.
+RSLOT = 64
+RTHREADS = 65536
+DEVICE = True                               # False: the numpy references on a host copy of the field
+_OUT = {}
+
+
+def _out_buf():
+    b = _OUT.get(mc.FP64)
+    if b is None:
+        b = ti.ndarray(dtype=float, shape=(RSLOT + 1, 8))
+        _OUT[mc.FP64] = b
+    return b
+
+
+@ti.func
+def _vhypot(x, y):
+    """V8's Math.hypot(x, y) (see alignment_MIRROR.js_hypot)."""
+    ax, ay = ti.abs(x), ti.abs(y)
+    mm = ti.max(ax, ay)
+    r = 0.0
+    if mm > 0:
+        a, b = ax / mm, ay / mm
+        r = ti.sqrt(a * a + b * b) * mm
+    return r
+
+
+@ti.func
+def _cnorm(da, db, kind):
+    r = 0
+    if kind == 2:
+        r = ti.max(ti.max(ti.abs(da), ti.abs(db)), ti.abs(da + db))
+    elif kind == 1:
+        r = ti.max(ti.abs(da), ti.abs(db))
+    else:
+        r = ti.abs(da) + ti.abs(db)
+    return r
+
+
+@ti.kernel
+def k_orbit(U: ti.types.ndarray(ndim=3), s: ti.i32, mode: ti.template(), per: ti.i32, fold: ti.i32,
+            OUT: ti.types.ndarray(ndim=2)):
+    """max |u(p) - u(g p)| over an orbit, sampled as the web app samples it. mode 0: the octant orbit
+    (symmetryResidual); 1: mirror, square lattice; 2: mirror, triangular lattice (a,b) -> (a+b, -b);
+    3: the triangular rotation (a,b) -> (-b, a+b) applied `per` times per hop, fold-1 hops
+    (symRotResidual; column 2 flags a partner off the array with |v| > 1e-12 -> null)."""
+    n = U.shape[1]
+    c = (n - 1) // 2
+    for k in range(RSLOT):
+        for q in ti.static(range(3)):
+            OUT[k, q] = 0.0
+    A = c + 1                                   # the serial coordinate
+    B = c + 1                                   # the parallel one
+    if ti.static(mode == 0):
+        A = c // 2 + 1
+        B = c // 2 + 1
+    elif ti.static(mode == 1 or mode == 2):
+        B = (c + 1) // 2
+    G = ti.max(1, ti.min(A, RTHREADS // ti.max(B, 1)))
+    gs = (A + G - 1) // G
+    for g, kb in ti.ndrange(G, B):
+        w = 0.0
+        nan = 0.0
+        nul = 0.0
+        for ka in range(g * gs, ti.min(A, (g + 1) * gs)):
+            if ti.static(mode == 0):
+                i = 2 * ka
+                j = 2 * kb
+                a = U[s, c + i, c + j]
+                for q in ti.static(range(7)):
+                    sa, sb, sw = ti.static([(-1, 1, 0), (1, -1, 0), (-1, -1, 0), (1, 1, 1), (-1, 1, 1),
+                                            (1, -1, 1), (-1, -1, 1)][q])
+                    b = 0.0
+                    if ti.static(sw):
+                        b = U[s, c + sa * j, c + sb * i]
+                    else:
+                        b = U[s, c + sa * i, c + sb * j]
+                    d = ti.abs(a - b)
+                    if d != d:
+                        nan = 1.0
+                    else:
+                        w = ti.max(w, d)
+            elif ti.static(mode == 1):
+                i = 2 * ka
+                dd = 2 * kb + 1
+                d = ti.abs(U[s, i, c + dd] - U[s, i, c - dd])
+                if d != d:
+                    nan = 1.0
+                else:
+                    w = ti.max(w, d)
+            elif ti.static(mode == 2):
+                a = -c + 2 * ka
+                b = 2 * kb + 1
+                i2 = c + a + b
+                if i2 >= 0 and i2 < n:
+                    d = ti.abs(U[s, c + a, c + b] - U[s, i2, c - b])
+                    if d != d:
+                        nan = 1.0
+                    else:
+                        w = ti.max(w, d)
+            else:
+                a = -c + 2 * ka
+                b = -c + 2 * kb
+                v = U[s, c + a, c + b]
+                p = a
+                q = b
+                for hop in range(1, fold):
+                    for t in range(per):
+                        np_ = -q
+                        q = p + q
+                        p = np_
+                    i2 = c + p
+                    j2 = c + q
+                    if i2 < 0 or i2 >= n or j2 < 0 or j2 >= n:
+                        if ti.abs(v) > 1e-12:
+                            nul = 1.0
+                    else:
+                        d = ti.abs(v - U[s, i2, j2])
+                        if d != d:
+                            nan = 1.0
+                        else:
+                            w = ti.max(w, d)
+        slot = (g * 7 + kb) % RSLOT
+        ti.atomic_max(OUT[slot, 0], w)
+        ti.atomic_max(OUT[slot, 1], nan)
+        ti.atomic_max(OUT[slot, 2], nul)
+
+
+@ti.kernel
+def k_cone(U: ti.types.ndarray(ndim=3), s: ti.i32, si: ti.i32, sj: ti.i32, mstep: ti.i32, kind: ti.i32,
+           wrap: ti.i32, tri: ti.i32, rdisk: float, OUT: ti.types.ndarray(ndim=2)):
+    """coneMeasure(): columns 0..3 = support radius, cells outside the cone, sum u^2, sum u^2 inside the
+    disk; OUT[RSLOT, 0] = the folded radius; columns 4, 5 = max |u| on that ring and its NaN flag."""
+    n = U.shape[1]
+    h = n // 2
+    cf = (n - 1) / 2
+    for k in range(RSLOT + 1):
+        for q in ti.static(range(8)):
+            OUT[k, q] = 0.0
+    G = ti.max(1, ti.min(n, RTHREADS // n))
+    gs = (n + G - 1) // G
+    # physical offsets computed exactly as the JS does: cellXY(i, j) - cellXY(si, sj)
+    ys = (sj - cf) * 1.0
+    xs = (si - cf) * 1.0
+    if tri:
+        ys = (sj - cf) * 0.8660254037844386
+        xs = (si - cf) + (sj - cf) * 0.5
+    for g, j in ti.ndrange(G, n):
+        rmax = 0.0
+        cnt = 0.0
+        ea = 0.0
+        ei = 0.0
+        for i in range(g * gs, ti.min(n, (g + 1) * gs)):
+            v = U[s, i, j]
+            if v != 0:
+                da = i - si
+                db = j - sj
+                if wrap:
+                    da = (da + n + h) % n - h
+                    db = (db + n + h) % n - h
+                r = ti.cast(_cnorm(da, db, kind), float)
+                rmax = ti.max(rmax, r)
+                if r > mstep:
+                    cnt += 1.0
+                e = v * v
+                ea += e
+                x = (i - cf) * 1.0
+                y = (j - cf) * 1.0
+                if tri:
+                    x = (i - cf) + (j - cf) * 0.5
+                    y = (j - cf) * 0.8660254037844386
+                if _vhypot(x - xs, y - ys) <= rdisk:
+                    ei += e
+        slot = (g * 7 + j) % RSLOT
+        ti.atomic_max(OUT[slot, 0], rmax)
+        ti.atomic_add(OUT[slot, 1], cnt)
+        ti.atomic_add(OUT[slot, 2], ea)
+        ti.atomic_add(OUT[slot, 3], ei)
+    for _ in range(1):
+        r = 0.0
+        for k in range(RSLOT):
+            r = ti.max(r, OUT[k, 0])
+        OUT[RSLOT, 0] = r
+    for g, j in ti.ndrange(G, n):
+        rout = OUT[RSLOT, 0]
+        w = 0.0
+        nan = 0.0
+        for i in range(g * gs, ti.min(n, (g + 1) * gs)):
+            da = i - si
+            db = j - sj
+            if wrap:
+                da = (da + n + h) % n - h
+                db = (db + n + h) % n - h
+            if ti.cast(_cnorm(da, db, kind), float) == rout:
+                a = ti.abs(U[s, i, j])
+                if a != a:
+                    nan = 1.0
+                else:
+                    w = ti.max(w, a)
+        slot = (g * 7 + j) % RSLOT
+        ti.atomic_max(OUT[slot, 4], w)
+        ti.atomic_max(OUT[slot, 5], nan)
+
+
+@ti.kernel
+def k_modecorr(U: ti.types.ndarray(ndim=3), s: ti.i32, M: ti.types.ndarray(ndim=2), Si: ti.types.ndarray(ndim=1),
+               Sj: ti.types.ndarray(ndim=1), OUT: ti.types.ndarray(ndim=2)):
+    """The eigenmode row's sums over the masked interior: num = sum a b, da = sum a^2, db = sum b^2,
+    a = Si[i] Sj[j] (host-computed sines), b = u."""
+    n = U.shape[1]
+    for k in range(RSLOT):
+        for q in ti.static(range(3)):
+            OUT[k, q] = 0.0
+    A = n - 2
+    G = ti.max(1, ti.min(A, RTHREADS // A))
+    gs = (A + G - 1) // G
+    for g, j in ti.ndrange(G, (1, n - 1)):
+        num = 0.0
+        da = 0.0
+        db = 0.0
+        for i in range(1 + g * gs, ti.min(n - 1, 1 + (g + 1) * gs)):
+            if M[i, j] != 0:
+                a = Si[i] * Sj[j]
+                b = U[s, i, j]
+                num += a * b
+                da += a * a
+                db += b * b
+        slot = (g * 7 + j) % RSLOT
+        ti.atomic_add(OUT[slot, 0], num)
+        ti.atomic_add(OUT[slot, 1], da)
+        ti.atomic_add(OUT[slot, 2], db)
+
+
+@ti.kernel
+def k_gather(U: ti.types.ndarray(ndim=3), s: ti.i32, I: ti.types.ndarray(ndim=1), J: ti.types.ndarray(ndim=1),
+             V: ti.types.ndarray(ndim=1)):
+    for k in range(I.shape[0]):
+        V[k] = U[s, I[k], J[k]]
+
+
+def _cur(m):
+    return (m.slot + 1) % 3
+
+
+def orbit_residual(x, kind, fold=6):
+    """symmetryResidual / mirrorResidual / symRotResidual on the device (numpy fallback: DEVICE False)."""
+    m = x.m
+    if not DEVICE:
+        U = x.U()
+        return (symmetry_residual(U) if kind == 'sym8' else mirror_residual(m, U) if kind == 'mirror'
+                else sym_rot_residual(m, U, fold))
+    OUT = _out_buf()
+    mode = {'sym8': 0, 'mirror': 2 if x.tri else 1, 'rot': 3}[kind]
+    k_orbit(m.U, _cur(m), mode, (6 // fold) if kind == 'rot' else 1, fold, OUT)
+    o = OUT.to_numpy()[:RSLOT].astype(np.float64)
+    if kind == 'rot' and o[:, 2].max() > 0:
+        return None
+    if o[:, 1].max() > 0:
+        return math.nan
+    return float(o[:, 0].max())
+
+
+def gather(x, I, J):
+    """Values of the current level at cells (I[k], J[k]) -- a few hundred cells, no whole-field copy."""
+    m = x.m
+    if not DEVICE:
+        U = x.U()
+        return U[np.asarray(I, dtype=np.int64), np.asarray(J, dtype=np.int64)].astype(np.float64)
+    I = np.ascontiguousarray(I, dtype=np.int32)
+    J = np.ascontiguousarray(J, dtype=np.int32)
+    V = np.zeros(max(1, I.size), dtype=m.fdt)
+    if I.size:
+        k_gather(m.U, _cur(m), I, J, V)
+    return V[:I.size].astype(np.float64)
+
+
