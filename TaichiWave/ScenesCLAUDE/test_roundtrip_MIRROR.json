@@ -1,8 +1,9 @@
 {
  "format": "zrl-membrane-solids",
- "version": 1,
+ "version": 2,
  "plate_text": true,
  "plate_screws": false,
+ "plate_wall": "pinned",
  "objects": [
   {
    "kind": "text",
@@ -22,7 +23,8 @@
    "enabled": true,
    "tracking": 0.0,
    "fit_w": 0.0,
-   "name": ""
+   "name": "",
+   "wall": "pinned"
   }
  ],
  "strokes": [
@@ -38,7 +40,8 @@
     ]
    ],
    "radius": 0.01171875,
-   "erase": false
+   "erase": false,
+   "wall": "pinned"
   }
  ]
 }

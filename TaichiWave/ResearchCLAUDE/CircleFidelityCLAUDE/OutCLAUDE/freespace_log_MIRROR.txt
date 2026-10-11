@@ -1,0 +1,14 @@
+[Taichi] version 1.7.4, llvm 15.0.1, commit b4b956fd, win, python 3.12.2
+[Taichi] Starting on arch=cuda
+sq5 Nsmall=513 sig=3.00 dist=440 R_big=497: eps_free=1.90e-01 E=1.5707
+sq9 Nsmall=513 sig=3.00 dist=440 R_big=497: eps_free=1.43e-04 E=1.5670
+tri Nsmall=513 sig=3.00 dist=440 R_big=497: eps_free=9.27e-06 E=1.5707
+sq5 Nsmall=513 sig=5.51 dist=440 R_big=497: eps_free=8.85e-03 E=1.5708
+sq9 Nsmall=513 sig=5.51 dist=440 R_big=497: eps_free=3.30e-07 E=1.5697
+tri Nsmall=513 sig=5.51 dist=440 R_big=497: eps_free=2.08e-08 E=1.5708
+sq5 Nsmall=1025 sig=3.00 dist=884 R_big=996: eps_free=3.82e-01 E=1.5707
+sq9 Nsmall=1025 sig=3.00 dist=884 R_big=996: eps_free=5.69e-04 E=1.5670
+tri Nsmall=1025 sig=3.00 dist=884 R_big=996: eps_free=3.73e-05 E=1.5707
+sq5 Nsmall=1025 sig=11.05 dist=884 R_big=996: eps_free=5.59e-04 E=1.5708
+sq9 Nsmall=1025 sig=11.05 dist=884 R_big=996: eps_free=1.25e-09 E=1.5705
+tri Nsmall=1025 sig=11.05 dist=884 R_big=996: eps_free=7.85e-11 E=1.5708
